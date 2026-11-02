@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "BridgeGo · 森林牌桌",
+  "short_name": "BridgeGo",
+  "lang": "zh-Hant",
+  "description": "和好友一起入座的四人橋牌遊戲；遊戲需要網路連線。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fff7e9",
+  "theme_color": "#fff7e9",
+  "icons": [
+    {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

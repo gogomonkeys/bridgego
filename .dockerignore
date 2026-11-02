@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/dist
+**/target
+**/*.log
+**/*.tsbuildinfo
+.env
+.env.*
+qa/artifacts

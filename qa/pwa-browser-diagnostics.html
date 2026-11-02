@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>LOCAL ONLY — BridgeGo PWA diagnostics</title>
+<h1>Local-only PWA inspection (not production UI)</h1>
+<p>Reads standard browser SW/cache APIs on this synthetic local test origin. No user accounts.</p>
+<button id="inspect">Inspect registrations and caches</button>
+<button id="private">Request uncached private API test</button>
+<button id="next">Serve test worker revision, then check update</button>
+<pre id="output">Click inspect</pre>
+<script>
+const out=document.querySelector('#output');
+async function inspect(){
+ const regs=(await navigator.serviceWorker.getRegistrations()).filter(r=>new URL(r.scope).origin===location.origin && r.active?.scriptURL===location.origin+"/sw.js");const keys=(await caches.keys()).filter(k=>k.startsWith("bridgego-static-"));const entries={};
+ for(const k of keys)entries[k]=(await(await caches.open(k)).keys()).map(r=>new URL(r.url).pathname);
+ out.textContent=JSON.stringify({secureContext:isSecureContext,online:navigator.onLine,controlled:!!navigator.serviceWorker.controller,registrations:regs.map(r=>({scope:r.scope,active:r.active?.state,waiting:r.waiting?.state,installing:r.installing?.state})),caches:entries},null,2);
+}
+document.querySelector('#inspect').onclick=inspect;
+document.querySelector('#private').onclick=async()=>{try {const r=await fetch('/api/qa-private-hand',{headers:{Authorization:'Bearer synthetic-qa-token'},cache:'no-store'});out.textContent='API test status '+r.status+' — '+await r.text();}catch(e){out.textContent='API rejected offline: '+e.message;}};
+document.querySelector('#next').onclick=async()=>{await fetch('/qa-next');for(const r of await navigator.serviceWorker.getRegistrations())await r.update();out.textContent='Test revision requested. Reinspect to see waiting; existing app must not reload.';};
+</script>

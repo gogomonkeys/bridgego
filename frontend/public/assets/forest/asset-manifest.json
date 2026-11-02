@@ -1,0 +1,66 @@
+{
+  "created": "2026-10-30",
+  "deliveryProcessing": "Resizing and WebP encoding only; no cropping, retouching, alpha removal, or content edits. Original PNGs retained outside delivery package.",
+  "assets": [
+    {
+      "file": "backdrop.webp",
+      "width": 1536,
+      "height": 1024,
+      "alpha": false,
+      "bytes": 161124,
+      "sha256": "c796bfcfc292f51fd8435dfa569f550496c5e9621264289a2aaf1d1d4fbb307a",
+      "source": {
+        "file": "exec-0993decd-6946-4b61-a199-b74ddf005e2e.png",
+        "sha256": "c7e1cddf396577c1f9215d73752c1efb3c54e97a519c7c88ea223aec0de830f8"
+      }
+    },
+    {
+      "file": "animal-rabbit.webp",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "bytes": 30712,
+      "sha256": "48fb44072a2c3001ca85ceae6f73de489bbc5db0637eb5c6379a00cb63aa3ce1",
+      "source": {
+        "file": "exec-10e9f7fc-364a-46e3-bc26-149df31fabb3.png",
+        "sha256": "fb1730d6a42ab380e0cd25272368f4b1684145c18807248509a7d97337389e0f"
+      }
+    },
+    {
+      "file": "animal-fox.webp",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "bytes": 44718,
+      "sha256": "eb4cfbc61fc3c36ead1671dee01cdf69b8d1cf934103a11fb5913345ad79227e",
+      "source": {
+        "file": "exec-55bfcba6-c6dd-46f5-9c18-978e71db30b4.png",
+        "sha256": "034091c3c5fa84ccd91672cee629afb8eb159ed9a335cbd3a72bf1faf6e6c593"
+      }
+    },
+    {
+      "file": "animal-panda.webp",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "bytes": 52832,
+      "sha256": "fcfc4fbe69fb23dbc33fc7f72c29164ca87598e5cf3b101d977f881342377a68",
+      "source": {
+        "file": "exec-80b44b0a-4d67-4816-82e5-fd60801750c3.png",
+        "sha256": "4a1d834a259f14e253a0b0d50584b7d999dd9dd549d279a8290e2343e1e2924d"
+      }
+    },
+    {
+      "file": "animal-bear.webp",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "bytes": 45674,
+      "sha256": "d705b27e6dc4689f7804620521eba2a5a47858e311a59841ac001e9b4c28528e",
+      "source": {
+        "file": "exec-c8b92ed0-7643-48a3-bc32-ae56b05fb5bc.png",
+        "sha256": "7667d9e783174f49ff63987b03a8f7369cdc6938ceea104d2e8d606249e0327b"
+      }
+    }
+  ]
+}

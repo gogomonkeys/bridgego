@@ -1,24 +1,12 @@
-# Logs
-logs
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+backend/target/
+**/__pycache__/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+.env
+.env.local
+.env.*.local
+qa/client-under-test.mjs
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+qa/ui-preview/dist/

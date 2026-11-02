@@ -1,0 +1,16 @@
+# Preparation only: review in your own Render account; do not accept paid upgrades.
+services:
+  - type: web
+    name: bridgego-beta
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: 'off'
+    healthCheckPath: /health/ready
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PUBLIC_ORIGIN
+        sync: false
