@@ -110,7 +110,9 @@ async def match(number,humans):
                                 high=max([p['card']['rank'] for p in table if p['card']['suit']==strain],default=0)
                                 cuts=[c for c in hand if c['suit']==strain and c['rank']>high]
                                 if cuts:assert card in cuts and card['rank']==min(c['rank'] for c in cuts)
-                                else:assert card['rank']==min(c['rank'] for c in hand)
+                                else:
+                                    discards=[c for c in hand if c['suit']!=strain] or hand
+                                    assert card in discards and card['rank']==min(c['rank'] for c in discards)
                     hand.remove(card);table.append(move)
                 lead=winner(table,strain);assert lead==trick['winnerSeat']
             check(f'{number}: deal{deal["dealIndex"]} everybotplaymatchespolicy and rightorder',True)

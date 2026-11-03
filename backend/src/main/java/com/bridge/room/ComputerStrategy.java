@@ -43,8 +43,7 @@ final class ComputerStrategy {
     // Legal follow-suit obligations take precedence over conserving a partner's winning trick.
     if (table.size() == 3 && winner.seat() % 2 == seat % 2) {
       if (!following.isEmpty()) return minimum(following, random);
-      List<GameState.Card> nonTrumps = hand.stream().filter(c -> !c.suit().equals(trump)).toList();
-      return minimum(nonTrumps.isEmpty() ? hand : nonTrumps, random);
+      return discard(hand, trump, random);
     }
     if (!following.isEmpty()) {
       GameState.Card largest = following.stream().max(rank).orElseThrow();
@@ -55,7 +54,12 @@ final class ComputerStrategy {
         .mapToInt(GameState.Card::rank).max().orElse(0);
     Optional<GameState.Card> cut = hand.stream().filter(c -> c.suit().equals(trump) && c.rank() > tableTrump).min(rank);
     if (cut.isPresent()) return cut.get();
-    return minimum(hand, random);
+    return discard(hand, trump, random);
+  }
+
+  private static GameState.Card discard(List<GameState.Card> hand, String trump, RandomGenerator random) {
+    List<GameState.Card> nonTrumps = hand.stream().filter(c -> !c.suit().equals(trump)).toList();
+    return minimum(nonTrumps.isEmpty() ? hand : nonTrumps, random);
   }
 
   private static GameState.Card minimum(List<GameState.Card> hand, RandomGenerator random) {

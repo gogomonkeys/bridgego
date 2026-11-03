@@ -20,7 +20,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.9.0", disconnects: diagnostics },
+    { version: "0.9.1", disconnects: diagnostics },
     null,
     2,
   );
@@ -101,7 +101,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.9.0</span>
+              <span className="eyebrow">v0.9.1</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"

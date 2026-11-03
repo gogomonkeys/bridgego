@@ -1,4 +1,4 @@
-# BridgeGo v0.9.0 contract — three-deal play and scoring
+# BridgeGo v0.9.1 contract — three-deal play and scoring
 
 Local independent guest-session app. Four seats with at least one human and optional server-controlled computer players, no dummy/double/redouble. Server-authoritative private dealing, privilege, auction, play, completed-deal scoring and fixed three-deal match. Existing native transport remains unchanged.
 
@@ -109,7 +109,7 @@ The existing synchronized sweep revalidates the current phase/turn and applies a
 - Lead: randomly choose a held suit, then its highest card.
 - Follow-suit is always mandatory. On the fourth play, if partner currently wins, follow with the smallest lead-suit card. When void, prefer the smallest non-trump card; only if all remaining cards are trumps, play the smallest trump (which may overtake partner). No-trump makes all cards non-trumps.
 - Otherwise, when following, play the smallest lead-suit card if even the largest cannot beat the actual current winning card; play the largest if it can win. The same trick comparator accounts for trump precedence, not raw cross-suit rank.
-- Otherwise, when void, play the smallest trump beating every current table trump, or the smallest held trump if none has been played. If unable to cut, play the globally smallest rank. All minimum-rank ties are random.
+- Otherwise, when void, play the smallest trump beating every current table trump, or the smallest held trump if none has been played. If unable to cut, prefer the smallest non-trump card; only when no non-trump remains, play the smallest trump. In no-trump contracts every card is a non-trump. All minimum-rank ties are random.
 
 Bot management preserves the existing idempotent command ledger and revision checks. Added errors include `INVALID_SEAT`, `SEAT_OCCUPIED`, `NOT_COMPUTER_PLAYER`, and `HOST_OFFLINE`; existing `HOST_ONLY`, `WRONG_PHASE`, and `STALE_REVISION` apply. No bot identity can authenticate to fetch a private hand.
 

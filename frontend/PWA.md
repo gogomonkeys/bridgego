@@ -1,4 +1,4 @@
-# BridgeGo PWA（V0.9.0）
+# BridgeGo PWA（V0.9.1）
 
 ## 使用
 正式建置由同一 HTTPS 網域提供前端、/api、/ws 與 /health（localhost 可測試）。

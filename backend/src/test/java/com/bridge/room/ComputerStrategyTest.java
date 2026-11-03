@@ -27,15 +27,27 @@ class ComputerStrategyTest {
     assertEquals(c("HEART", 3), ComputerStrategy.play(1, hand,
         List.of(p("CLUB", 12)), "HEART", new Random()));
   }
-  @Test void fallbackUsesGlobalMinimumAndRandomTiesAlsoForNoTrump() {
-    var hand = List.of(c("HEART", 2), c("SPADE", 2), c("DIAMOND", 5));
+  @Test void fallbackPrefersMinimumNonTrumpAndRandomTiesAlsoForNoTrump() {
+    var hand = List.of(c("HEART", 2), c("SPADE", 5), c("DIAMOND", 5));
     Set<GameState.Card> seen = new HashSet<>();
     var random = new Random(2);
     for (int i = 0; i < 100; i++) seen.add(ComputerStrategy.play(1, hand,
         List.of(p("CLUB", 9), p("HEART", 14)), "HEART", random));
-    assertEquals(Set.of(c("HEART", 2), c("SPADE", 2)), seen);
+    assertEquals(Set.of(c("SPADE", 5), c("DIAMOND", 5)), seen);
     for (int i = 0; i < 100; i++) assertEquals(2, ComputerStrategy.play(1, hand,
         List.of(p("CLUB", 9)), "NO_TRUMP", random).rank());
+  }
+  @Test void opponentWinningCannotOvertrumpDiscardsNonTrumpEvenWhenHigherRank() {
+    var table = List.of(new TrickEngine.Play(1,c("DIAMOND",6),"BOT"),
+        new TrickEngine.Play(0,c("DIAMOND",10),"BOT"),new TrickEngine.Play(3,c("SPADE",8),"BOT"));
+    assertEquals(c("CLUB",9), ComputerStrategy.play(2,
+        List.of(c("SPADE",3),c("CLUB",9)),table,"SPADE",new Random()));
+    assertEquals(c("SPADE",3), ComputerStrategy.play(2,
+        List.of(c("SPADE",3),c("SPADE",5)),table,"SPADE",new Random()));
+    assertEquals(c("DIAMOND",2), ComputerStrategy.play(2,
+        List.of(c("DIAMOND",2),c("DIAMOND",14),c("CLUB",9)),table,"SPADE",new Random()));
+    assertEquals(c("SPADE",9), ComputerStrategy.play(2,
+        List.of(c("SPADE",3),c("SPADE",9),c("SPADE",14),c("CLUB",2)),table,"SPADE",new Random()));
   }
   @Test void losingFollowUsesSmallestButWinningFollowStillUsesLargest() {
     var hand = List.of(c("CLUB", 2), c("CLUB", 10), c("HEART", 3));
