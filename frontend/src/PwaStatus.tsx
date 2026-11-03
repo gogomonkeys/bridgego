@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PwaUpdateController, updateMessage } from "./pwa-update";
 
 interface InstallEvent extends Event {
   prompt(): Promise<void>;
@@ -18,8 +19,7 @@ export default function PwaStatus({
   );
   const [install, setInstall] = useState<InstallEvent | null>(null);
   const [waiting, setWaiting] = useState(false);
-  const [registration, setRegistration] =
-    useState<ServiceWorkerRegistration | null>(null);
+  const [updater, setUpdater] = useState<PwaUpdateController | null>(null);
   const [message, setMessage] = useState("");
   useEffect(() => {
     const onOffline = () => setOffline(true);
@@ -34,20 +34,18 @@ export default function PwaStatus({
     window.addEventListener("beforeinstallprompt", onInstall);
     window.addEventListener("appinstalled", installed);
     let disposed = false;
+    let controller: PwaUpdateController | null = null;
     if (import.meta.env.PROD && "serviceWorker" in navigator) {
       void navigator.serviceWorker
         .register("/sw.js", { updateViaCache: "none" })
         .then((reg) => {
           if (disposed) return;
-          setRegistration(reg);
-          const inspect = () => {
-            if (!disposed) setWaiting(!!reg.waiting);
-          };
-          inspect();
-          reg.installing?.addEventListener("statechange", inspect);
-          reg.addEventListener("updatefound", () => {
-            reg.installing?.addEventListener("statechange", inspect);
+          controller = new PwaUpdateController(reg, (status) => {
+            if (disposed) return;
+            setWaiting(!!reg.waiting);
+            setMessage(updateMessage[status]);
           });
+          setUpdater(controller);
         })
         .catch(() => {
           if (!disposed)
@@ -56,6 +54,7 @@ export default function PwaStatus({
     }
     return () => {
       disposed = true;
+      controller?.dispose();
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("beforeinstallprompt", onInstall);
@@ -104,19 +103,10 @@ export default function PwaStatus({
               Edge：若瀏覽器選單提供「安裝應用程式」或「加入主畫面」即可使用；未提供時可直接用網頁遊玩。
             </p>
           )}
-          {registration && (
+          {updater && (
             <button
               onClick={() => {
-                setMessage("正在檢查更新…");
-                void registration
-                  .update()
-                  .then(() => {
-                    setWaiting(!!registration.waiting);
-                    setMessage("已完成檢查；下載中的更新準備好後會顯示通知。");
-                  })
-                  .catch(() =>
-                    setMessage("目前無法檢查更新，請確認網路後再試。"),
-                  );
+                void updater.check();
               }}
             >
               檢查更新

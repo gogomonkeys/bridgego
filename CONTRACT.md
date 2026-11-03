@@ -1,4 +1,4 @@
-# BridgeGo v0.7.1 contract — three-deal play and scoring
+# BridgeGo v0.7.2 contract — three-deal play and scoring
 
 Local independent guest-session app. Four real players, no dummy/double/redouble. Server-authoritative private dealing, privilege, auction, play, completed-deal scoring and fixed three-deal match. Existing native transport remains unchanged.
 
