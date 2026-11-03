@@ -89,6 +89,22 @@ public class RoomController {
   record CallRequest(
       String actionId, Long expectedRevision, String type, Integer level, String strain) {}
 
+  record ComputerRequest(String actionId, Long expectedRevision, Integer seat) {}
+
+  @PostMapping("/rooms/{id}/bots")
+  public RoomService.CommandResult addComputer(@PathVariable String id,
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestBody ComputerRequest request) {
+    return service.addComputer(id, identity(auth), request.actionId(), request.expectedRevision(), request.seat());
+  }
+
+  @DeleteMapping("/rooms/{id}/bots/{playerId}")
+  public RoomService.CommandResult removeComputer(@PathVariable String id, @PathVariable String playerId,
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestBody StartRequest request) {
+    return service.removeComputer(id, identity(auth), playerId, request.actionId(), request.expectedRevision());
+  }
+
   @PostMapping("/rooms/{id}/start")
   public RoomService.CommandResult start(
       @PathVariable String id,

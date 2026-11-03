@@ -38,7 +38,11 @@ final class GameState {
 
   record ForfeitEvent(String playerId, int seat, String cause) {}
 
-  record PlayerInfo(String playerId, String displayName, int seat, String teamId) {}
+  record PlayerInfo(String playerId, String displayName, int seat, String teamId, String playerType) {
+    PlayerInfo(String playerId, String displayName, int seat, String teamId) {
+      this(playerId, displayName, seat, teamId, "HUMAN");
+    }
+  }
 
   record PlayView(
       Integer nextSeat,
@@ -276,13 +280,15 @@ final class GameState {
     return null;
   }
 
-  void choose(int seat, boolean use) {
+  void choose(int seat, boolean use) { choose(seat, use, "MANUAL"); }
+
+  void choose(int seat, boolean use, String source) {
     if (!phase.equals("PRIVILEGE_DECISION"))
       throw RoomService.fail(409, "WRONG_PHASE", "Not choosing privilege");
     if (votes.containsKey(seat) || teamChoice(seat % 2) != null)
       throw RoomService.fail(409, "CHOICE_LOCKED", "This team's choice is already fixed");
     votes.put(seat, use);
-    voteSources.put(seat, "MANUAL");
+    voteSources.put(seat, source);
     if (teamChoice(0) != null && teamChoice(1) != null) {
       revealed = true;
       phase = "BIDDING";
@@ -298,7 +304,7 @@ final class GameState {
     call(seat, type, level, strain, "MANUAL");
   }
 
-  private void call(int seat, String type, Integer level, String strain, String source) {
+  void call(int seat, String type, Integer level, String strain, String source) {
     if (!phase.equals("BIDDING")) throw RoomService.fail(409, "WRONG_PHASE", "Not bidding");
     if (seat != nextSeat) throw RoomService.fail(409, "NOT_YOUR_TURN", "Wait for your turn");
     if ("PASS".equals(type)) {
@@ -384,7 +390,9 @@ final class GameState {
       for (int seat = 0; seat < 4; seat++) {
         if (!votes.containsKey(seat)) {
           votes.put(seat, false);
-          voteSources.put(seat, "TIMEOUT");
+          int votingSeat = seat;
+          boolean computer = roster.stream().anyMatch(p -> p.seat() == votingSeat && p.playerType().equals("BOT"));
+          voteSources.put(seat, computer ? "BOT" : "TIMEOUT");
         }
       }
       revealed = true;
@@ -423,7 +431,9 @@ final class GameState {
     return seat == null || paused || !phase.equals("PLAYING") ? List.of() : tricks.legalCards(seat);
   }
 
-  void play(int seat, Card card) {
+  void play(int seat, Card card) { play(seat, card, "MANUAL"); }
+
+  void play(int seat, Card card, String source) {
     if (!phase.equals("PLAYING")) throw RoomService.fail(409, "WRONG_PHASE", "Not playing");
     if (!Objects.equals(tricks.nextSeat(), seat))
       throw RoomService.fail(409, "NOT_YOUR_TURN", "Wait for your turn");
@@ -435,7 +445,7 @@ final class GameState {
       throw RoomService.fail(400, "INVALID_CARD", "Card requires valid suit and rank 2..14");
     if (!tricks.legalCards(seat).contains(card))
       throw RoomService.fail(409, "ILLEGAL_CARD", "Choose a legal card from your hand");
-    tricks.play(seat, card);
+    tricks.play(seat, card, source);
     afterPlay();
   }
 

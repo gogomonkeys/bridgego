@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 public class RoomService {
   public static final long INITIAL_SUBSCRIPTION_MS = 5_000;
   public static final long GAME_RECONNECT_MS = 10_000;
+  static final long COMPUTER_ACTION_MS = 900;
 
   public record Identity(String token, String playerId, String displayName) {}
 
@@ -30,7 +31,7 @@ public class RoomService {
       Long disconnectedAt,
       Long reconnectDeadline,
       Long initialSubscriptionDeadline,
-      String teamId) {}
+      String teamId, String playerType) {}
 
   public record Snapshot(
       String roomId,
@@ -78,6 +79,8 @@ public class RoomService {
     Identity identity;
     int seat;
     boolean ready;
+    boolean computer;
+    boolean present() { return computer || !connections.isEmpty(); }
     Long disconnectedAt;
     Long initialSubscriptionDeadline;
     Long reconnectDeadline;
@@ -99,6 +102,10 @@ public class RoomService {
     GameState game;
     GameState.MatchArchive lastMatch;
     Long allOfflineSince;
+    String computerActionKey;
+    long computerActionDue;
+    String computerTargetDeal;
+    final Map<Integer, String> computerTargets = new HashMap<>();
     final Map<String, AcceptedAction> actions = new HashMap<>();
     // Captured once at first network failure. Later disconnects cannot extend adjudication.
     final Map<String, Long> adjudicationDeadlines = new LinkedHashMap<>();
@@ -237,6 +244,57 @@ public class RoomService {
     return snapshot(room, id);
   }
 
+  public synchronized CommandResult addComputer(String roomId, Identity id, String actionId,
+      Long expected, Integer seat) {
+    requireRunning();
+    expireInitialSubscriptions();
+    Room r = room(roomId);
+    member(r, id);
+    String signature = "ADD_COMPUTER:" + seat;
+    AcceptedAction old = accepted(r, id, actionId, signature);
+    if (old != null) return replay(r, id, actionId, old);
+    revision(r, expected);
+    computerHost(r, id);
+    if (seat == null || seat < 0 || seat > 3)
+      throw fail(400, "INVALID_SEAT", "Seat must be between 0 and 3");
+    if (r.members.values().stream().anyMatch(m -> m.seat == seat))
+      throw fail(409, "SEAT_OCCUPIED", "Seat is occupied");
+    Identity bot = new Identity(null, "bot-" + UUID.randomUUID(), "電腦" + List.of("一", "二", "三", "四").get(seat));
+    Member m = new Member(bot, seat, clock.millis());
+    m.computer = true;
+    m.ready = true;
+    m.disconnectedAt = null;
+    m.initialSubscriptionDeadline = null;
+    r.members.put(bot.playerId(), m);
+    return applied(r, id, actionId, signature);
+  }
+
+  public synchronized CommandResult removeComputer(String roomId, Identity id, String playerId,
+      String actionId, Long expected) {
+    requireRunning();
+    expireInitialSubscriptions();
+    Room r = room(roomId);
+    member(r, id);
+    String signature = "REMOVE_COMPUTER:" + playerId;
+    AcceptedAction old = accepted(r, id, actionId, signature);
+    if (old != null) return replay(r, id, actionId, old);
+    revision(r, expected);
+    computerHost(r, id);
+    Member bot = r.members.get(playerId);
+    if (bot == null || !bot.computer)
+      throw fail(409, "NOT_COMPUTER_PLAYER", "Only a computer player can be removed");
+    r.members.remove(playerId);
+    return applied(r, id, actionId, signature);
+  }
+
+  private void computerHost(Room r, Identity id) {
+    if (!Objects.equals(r.hostPlayerId, id.playerId()))
+      throw fail(403, "HOST_ONLY", "Only the host can manage computer players");
+    if (r.game != null) throw fail(409, "WRONG_PHASE", "Computer seats are locked after starting");
+    if (member(r, id).connections.isEmpty())
+      throw fail(409, "HOST_OFFLINE", "Host must connect before managing computer players");
+  }
+
   public synchronized Snapshot ready(String roomId, Identity id, boolean ready) {
     requireRunning();
     expireInitialSubscriptions();
@@ -362,7 +420,10 @@ public class RoomService {
           }
         }
       }
-      if (r.game != null && !paused(r) && r.game.expireOperation()) changed(r);
+      boolean computerMoved = advanceComputer(r, monotonicNow);
+      if (r.game != null && !paused(r)
+          && (!computerMoved || r.game.phase.equals("PRIVILEGE_DECISION"))
+          && r.game.expireOperation()) changed(r);
       for (Member m : new ArrayList<>(r.members.values())) {
         if (m.initialSubscriptionDeadline != null && now >= m.initialSubscriptionDeadline) {
           remove(r, m.identity.playerId());
@@ -372,10 +433,60 @@ public class RoomService {
     cleanupIdle(monotonicNow);
   }
 
+  // One bounded action per room/sweep. No executor, socket, guest session or recursive loop.
+  private boolean advanceComputer(Room r, long now) {
+    if (r.game == null || !r.game.active() || paused(r)) {
+      r.computerActionKey = null;
+      return false;
+    }
+    GameState g = r.game;
+    Member actor = null;
+    for (Member m : r.members.values()) {
+      if (!m.computer) continue;
+      GameState.View view = g.view(m.seat, false);
+      if ((g.phase.equals("PRIVILEGE_DECISION") && view.privilege().canChoose())
+          || (g.phase.equals("BIDDING") && Objects.equals(view.auction().nextSeat(), m.seat))
+          || (g.phase.equals("PLAYING") && Objects.equals(view.play().nextSeat(), m.seat))
+          || (g.phase.equals("DEAL_RESULT") && g.canAcknowledge(m.seat, false))) {
+        actor = m;
+        break;
+      }
+    }
+    if (actor == null) { r.computerActionKey = null; return false; }
+    GameState.PlayView publicPlay = g.view(null, false).play();
+    String key = g.id + ":" + g.dealId + ":" + g.phase + ":" + actor.seat + ":"
+        + g.calls.size() + ":" + (publicPlay == null ? "" : publicPlay.trickNumber() + ":" + publicPlay.currentTrick().size());
+    // The key identifies a turn without serializing private hands or completed trick history.
+    if (!key.equals(r.computerActionKey)) {
+      r.computerActionKey = key;
+      var timer = g.view(null, false).operationTimer();
+      r.computerActionDue = now + (timer == null ? COMPUTER_ACTION_MS : Math.min(COMPUTER_ACTION_MS, timer.remainingMs()));
+    }
+    if (now < r.computerActionDue) return false;
+    int seat = actor.seat;
+    if (g.phase.equals("PRIVILEGE_DECISION")) g.choose(seat, false, "BOT");
+    else if (g.phase.equals("BIDDING")) {
+      if (!g.dealId.equals(r.computerTargetDeal)) {
+        r.computerTargetDeal = g.dealId;
+        r.computerTargets.clear();
+      }
+      String target = r.computerTargets.computeIfAbsent(seat,
+          ignored -> ComputerStrategy.longestSuit(g.hands.get(seat), random));
+      GameState.LegalCall call = ComputerStrategy.call(seat, target, g.highest);
+      g.call(seat, call.type(), call.level(), call.strain(), "BOT");
+    } else if (g.phase.equals("PLAYING")) {
+      var play = g.view(null, false).play();
+      g.play(seat, ComputerStrategy.play(seat, g.hands.get(seat), play.currentTrick(), g.contract.strain(), random), "BOT");
+    } else g.acknowledge(seat);
+    r.computerActionKey = null;
+    changed(r);
+    return true;
+  }
+
   private void cleanupIdle(long now) {
     for (Room r : new ArrayList<>(rooms.values())) {
       boolean offlineTerminal = r.game != null && r.game.terminal()
-          && r.members.values().stream().allMatch(m -> m.connections.isEmpty());
+          && r.members.values().stream().filter(m -> !m.computer).allMatch(m -> m.connections.isEmpty());
       if (!offlineTerminal) r.allOfflineSince = null;
       else if (r.allOfflineSince == null) r.allOfflineSince = now;
       else if (now - r.allOfflineSince >= limits.finishedRoomIdleMs()) {
@@ -450,9 +561,16 @@ public class RoomService {
   private void remove(Room r, String playerId) {
     r.members.remove(playerId);
     membership.remove(playerId);
+    if (r.members.values().stream().noneMatch(m -> !m.computer)) {
+      r.members.clear();
+      rooms.remove(r.id);
+      changed(r);
+      return;
+    }
     if (r.game == null && Objects.equals(r.hostPlayerId, playerId))
       r.hostPlayerId =
           r.members.values().stream()
+              .filter(m -> !m.computer)
               .min(Comparator.comparingInt(m -> m.seat))
               .map(m -> m.identity.playerId())
               .orElse(null);
@@ -473,7 +591,7 @@ public class RoomService {
 
   private Member member(Room r, Identity id) {
     Member m = r.members.get(id.playerId());
-    if (m == null) throw fail(403, "NOT_MEMBER", "Not a member of this room");
+    if (m == null || m.computer) throw fail(403, "NOT_MEMBER", "Not a human member of this room");
     return m;
   }
 
@@ -496,7 +614,7 @@ public class RoomService {
     if (host == null || host.connections.isEmpty())
       r.hostPlayerId =
           r.members.values().stream()
-              .filter(m -> !m.connections.isEmpty())
+              .filter(m -> !m.computer && !m.connections.isEmpty())
               .min(Comparator.comparingInt(m -> m.seat))
               .map(m -> m.identity.playerId())
               .orElse(null);
@@ -528,11 +646,11 @@ public class RoomService {
                         m.identity.displayName(),
                         m.seat,
                         m.ready,
-                        !m.connections.isEmpty(),
+                        m.present(),
                         m.disconnectedAt,
                         m.reconnectDeadline,
                         m.initialSubscriptionDeadline,
-                        GameState.team(m.seat)))
+                        GameState.team(m.seat), m.computer ? "BOT" : "HUMAN"))
             .toList();
     return new Snapshot(
         r.id,
@@ -559,7 +677,7 @@ public class RoomService {
     return r.game != null
         && r.game.active()
         && (r.game.phase.equals("FORFEIT_PENDING")
-            || r.members.values().stream().anyMatch(m -> m.connections.isEmpty()));
+            || r.members.values().stream().anyMatch(m -> !m.present()));
   }
 
   private You you(Room r, Member m) {
@@ -630,7 +748,7 @@ public class RoomService {
       throw fail(403, "HOST_ONLY", "Only the host can start");
     if (r.game != null) throw fail(409, "WRONG_PHASE", "This room already started a game");
     if (r.members.size() != 4
-        || r.members.values().stream().anyMatch(m -> !m.ready || m.connections.isEmpty()))
+        || r.members.values().stream().anyMatch(m -> !m.ready || !m.present()))
       throw fail(409, "START_NOT_READY", "Four ready and connected players are required");
     r.game = new GameState(random, ticker);
     r.game.roster(
@@ -642,7 +760,7 @@ public class RoomService {
                         m.identity.playerId(),
                         m.identity.displayName(),
                         m.seat,
-                        GameState.team(m.seat)))
+                        GameState.team(m.seat), m.computer ? "BOT" : "HUMAN"))
             .toList());
     return applied(r, id, actionId, signature);
   }
@@ -759,11 +877,11 @@ public class RoomService {
       throw fail(409, "WRONG_PHASE", "Rematch requires a connected host and finished game");
     // The terminal transition already captured the immutable participant-filtered archive.
     for (Member m : new ArrayList<>(r.members.values())) {
-      if (m.connections.isEmpty()) {
+      if (!m.present()) {
         r.members.remove(m.identity.playerId());
         membership.remove(m.identity.playerId());
       } else {
-        m.ready = false;
+        m.ready = m.computer;
         m.initialSubscriptionDeadline = null;
         m.disconnectedAt = null;
       }
@@ -772,6 +890,9 @@ public class RoomService {
     r.adjudicationDeadlines.clear();
     r.failedTeams.clear();
     r.game = null;
+    r.computerActionKey = null;
+    r.computerTargetDeal = null;
+    r.computerTargets.clear();
     return applied(r, id, actionId, signature);
   }
 

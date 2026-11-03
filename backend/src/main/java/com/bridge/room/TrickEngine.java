@@ -67,7 +67,7 @@ final class TrickEngine {
     play(next, legalCards(next).stream().min(LOWEST).orElseThrow(), "TIMEOUT");
   }
 
-  private void play(int seat, GameState.Card card, String source) {
+  void play(int seat, GameState.Card card, String source) {
     if (finished()) throw new IllegalStateException("Deal complete");
     if (seat != next) throw new IllegalArgumentException("Not your turn");
     if (card == null || !legalCards(seat).contains(card))
@@ -81,15 +81,19 @@ final class TrickEngine {
     String led = current.get(0).card().suit();
     Play winner = current.get(0);
     for (Play candidate : current) {
-      int a = category(candidate.card(), led), b = category(winner.card(), led);
-      if (a > b || (a == b && candidate.card().rank() > winner.card().rank())) winner = candidate;
+      if (beats(candidate.card(), winner.card(), led, trump)) winner = candidate;
     }
     completed.add(new Trick(completed.size() + 1, leader, List.copyOf(current), winner.seat()));
     current.clear();
     leader = next = winner.seat();
   }
 
-  private int category(GameState.Card card, String led) {
+  static boolean beats(GameState.Card candidate, GameState.Card incumbent, String led, String trump) {
+    int a = category(candidate, led, trump), b = category(incumbent, led, trump);
+    return a > b || (a == b && candidate.rank() > incumbent.rank());
+  }
+
+  private static int category(GameState.Card card, String led, String trump) {
     return card.suit().equals(trump) ? 2 : card.suit().equals(led) ? 1 : 0;
   }
 

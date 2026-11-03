@@ -25,7 +25,10 @@ export interface Call {
   level: number | null;
   strain: string | null;
 }
+export type PlayerType = "HUMAN" | "BOT";
+export type ActionSource = "MANUAL" | "TIMEOUT" | "BOT";
 export interface Player {
+  playerType?: PlayerType;
   playerId: string;
   displayName: string;
   seat: number;
@@ -45,14 +48,14 @@ export interface OperationTimer {
 export interface Play {
   seat: number;
   card: Card;
-  source: "MANUAL" | "TIMEOUT";
+  source: ActionSource;
 }
 export interface AuctionRound {
   dealId: string;
   dealIndex: number;
   redealCount: number;
   dealerSeat: number;
-  calls: Array<Call & { seat: number; source: "MANUAL" | "TIMEOUT" }>;
+  calls: Array<Call & { seat: number; source: ActionSource }>;
   result: Game["auction"]["result"];
   status: "IN_PROGRESS" | "ALL_PASS" | "CONTRACT";
 }
@@ -103,13 +106,13 @@ export interface Game {
   privilege: {
     status: "PENDING" | "REVEALED";
     yourChoice: boolean | null;
-    yourChoiceSource: "MANUAL" | "TIMEOUT" | null;
+    yourChoiceSource: ActionSource | null;
     canChoose: boolean;
     usedByTeam: Record<Team, boolean> | null;
   };
   auction: {
     nextSeat: number | null;
-    calls: Array<Call & { seat: number; source: "MANUAL" | "TIMEOUT" }>;
+    calls: Array<Call & { seat: number; source: ActionSource }>;
     highestBid: { seat: number; level: number; strain: string } | null;
     result: {
       type: "CONTRACT";
@@ -121,6 +124,7 @@ export interface Game {
   };
   auctionRounds?: AuctionRound[];
   roster: Array<{
+    playerType?: PlayerType;
     playerId: string;
     displayName: string;
     seat: number;

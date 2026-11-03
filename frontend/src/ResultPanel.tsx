@@ -42,6 +42,7 @@ export function PublicCards({
             {symbols[play.card.suit]} {rankLabel(play.card.rank)}
           </strong>
           {play.source === "TIMEOUT" && <small>逾時自動出牌</small>}
+          {play.source === "BOT" && <small>電腦出牌</small>}
         </li>
       ))}
     </ol>

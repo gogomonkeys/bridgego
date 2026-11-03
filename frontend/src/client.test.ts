@@ -1391,3 +1391,84 @@ describe("foreground lifecycle recovery", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("computer seat commands", () => {
+  it("adds and removes through revision-bound idempotent commands", async () => {
+    const { client, getClientState } = await setup();
+    const socket = MockSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "snapshot", room: room(7) });
+    const withBot = room(8);
+    withBot.players.push({
+      ...withBot.players[0],
+      playerId: "bot-1",
+      displayName: "電腦二",
+      seat: 1,
+      playerType: "BOT",
+      ready: true,
+    });
+    pendingResponse = Promise.resolve(json({ room: withBot }));
+    await client.addComputer(1);
+    const add = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/rooms/ROOM01/bots",
+    )!;
+    expect(add[1].method).toBe("POST");
+    expect(JSON.parse(add[1].body)).toMatchObject({
+      seat: 1,
+      expectedRevision: 7,
+      actionId: expect.any(String),
+    });
+    expect(getClientState().room?.players).toHaveLength(2);
+    pendingResponse = Promise.resolve(json({ room: room(9) }));
+    await client.removeComputer("bot-1");
+    const remove = fetchMock.mock.calls.find(
+      (c) => c[0] === "/api/rooms/ROOM01/bots/bot-1",
+    )!;
+    expect(remove[1].method).toBe("DELETE");
+    expect(JSON.parse(remove[1].body)).toMatchObject({
+      expectedRevision: 8,
+      actionId: expect.any(String),
+    });
+  });
+  it("preserves failed add identity on explicit retry and does not duplicate automatically", async () => {
+    const { client, getClientState } = await setup();
+    const socket = MockSocket.instances[0];
+    socket.open();
+    socket.receive({ type: "snapshot", room: room(3) });
+    pendingResponse = Promise.resolve(new Response("", { status: 500 }));
+    await client.addComputer(1);
+    expect(getClientState().pendingAction).toBe("加入電腦玩家");
+    const addCalls = () =>
+      fetchMock.mock.calls.filter((c) => c[0] === "/api/rooms/ROOM01/bots");
+    expect(addCalls()).toHaveLength(1);
+    const body = addCalls()[0][1].body;
+    await client.addComputer(2);
+    expect(addCalls()).toHaveLength(1);
+    pendingResponse = Promise.resolve(json({ room: room(4) }));
+    await client.retryCommand();
+    expect(addCalls()).toHaveLength(2);
+    expect(addCalls()[1][1].body).toBe(body);
+  });
+  it("refuses nonhost, invalid seat, human removal, active match and offline writes", async () => {
+    const { client } = await setup();
+    const socket = MockSocket.instances[0];
+    socket.open();
+    const snapshot = room(1);
+    snapshot.hostPlayerId = "other";
+    socket.receive({ type: "snapshot", room: snapshot });
+    await client.addComputer(1);
+    socket.receive({ type: "snapshot", room: room(2) });
+    await client.addComputer(4);
+    await client.removeComputer("alice");
+    socket.receive({
+      type: "snapshot",
+      room: { ...room(3), phase: "BIDDING" },
+    });
+    await client.addComputer(1);
+    socket.close();
+    await client.addComputer(1);
+    expect(
+      fetchMock.mock.calls.filter((c) => String(c[0]).includes("/bots")),
+    ).toHaveLength(0);
+  });
+});

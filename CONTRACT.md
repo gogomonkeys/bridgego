@@ -1,12 +1,14 @@
-# BridgeGo v0.7.2 contract — three-deal play and scoring
+# BridgeGo v0.8.0 contract — three-deal play and scoring
 
-Local independent guest-session app. Four real players, no dummy/double/redouble. Server-authoritative private dealing, privilege, auction, play, completed-deal scoring and fixed three-deal match. Existing native transport remains unchanged.
+Local independent guest-session app. Four seats with at least one human and optional server-controlled computer players, no dummy/double/redouble. Server-authoritative private dealing, privilege, auction, play, completed-deal scoring and fixed three-deal match. Existing native transport remains unchanged.
 
 ## HTTP and command authority
 Existing session/room endpoints unchanged: POST /api/sessions {displayName}; GET /api/me; GET/POST /api/rooms; POST /api/rooms/{id}/join; GET /api/rooms/{id}; PUT /api/rooms/{id}/ready {ready}; POST /api/rooms/{id}/leave. Bearer token identity only. No spectators or replacement game participants.
 
 Commands:
-- POST `/api/rooms/{id}/start` {actionId,expectedRevision}; host, four ready and connected only.
+- POST `/api/rooms/{id}/bots` {actionId,expectedRevision,seat:0..3}; connected human host, WAITING only, empty seat.
+- DELETE `/api/rooms/{id}/bots/{playerId}` {actionId,expectedRevision}; connected human host, WAITING only, bot target only.
+- POST `/api/rooms/{id}/start` {actionId,expectedRevision}; host, four ready and present seats (connected humans or server-controlled bots) only.
 - PUT `/api/rooms/{id}/games/{gameId}/deals/{dealId}/privilege` {actionId,expectedRevision,use:boolean}.
 - POST same deal prefix `/calls` {actionId,expectedRevision,type:"PASS"} or {actionId,expectedRevision,type:"BID",level:1..7,strain}.
 - POST same deal prefix `/plays` {actionId,expectedRevision,card:{suit,rank}}.
@@ -21,7 +23,8 @@ type Team = "NS"|"EW";
 type Suit = "CLUB"|"DIAMOND"|"HEART"|"SPADE";
 type Strain = Suit|"NO_TRUMP";
 type Card = {suit:Suit;rank:number}; // 2..14, Ace high
-type Source = "MANUAL"|"TIMEOUT";
+type Source = "MANUAL"|"TIMEOUT"|"BOT";
+type PlayerType = "HUMAN"|"BOT";
 type Contract = {type:"CONTRACT";holderSeat:number;level:number;strain:Strain;teamId:Team};
 type Play = {seat:number;card:Card;source:Source};
 type Trick = {number:number;leaderSeat:number;plays:Play[];winnerSeat:number;cardsVisible:boolean};
@@ -29,15 +32,15 @@ type AuctionRound = {dealId:string;dealIndex:number;redealCount:number;dealerSea
 type TeamScore = {won:boolean;privilegeUsed:boolean;base:number;exactTargetBonus:number;penalty:number;privilegeAdjustment:number;total:number};
 type DealResult = {dealId:string;dealIndex:number;dealerSeat:number;contract:Contract;privilegeUsed:Record<Team,boolean>;tricksByTeam:Record<Team,number>;scores:Record<Team,TeamScore>;completedTricks:Trick[];auctionRounds:AuctionRound[]};
 type MatchResult = {outcome:"SCORED"|"FORFEIT"|"NO_CONTEST";winnerTeamId:Team|null;reason:"THREE_DEALS_COMPLETE"|"MANUAL_EXIT"|"RECONNECT_TIMEOUT"|"BOTH_TEAMS_FAILED";failedTeamIds:Team[]};
-type MatchArchive = {gameId:string;roster:Array<{playerId:string;displayName:string;seat:number;teamId:Team}>;teamTotals:Record<Team,number>;completedDealResults:DealResult[];matchResult:MatchResult;forfeitEvents:Array<{playerId:string;seat:number;cause:"MANUAL_EXIT"|"RECONNECT_TIMEOUT"}>;auctionRounds:AuctionRound[]};
+type MatchArchive = {gameId:string;roster:Array<{playerId:string;displayName:string;playerType:PlayerType;seat:number;teamId:Team}>;teamTotals:Record<Team,number>;completedDealResults:DealResult[];matchResult:MatchResult;forfeitEvents:Array<{playerId:string;seat:number;cause:"MANUAL_EXIT"|"RECONNECT_TIMEOUT"}>;auctionRounds:AuctionRound[]};
 type RoomSummary = {roomId:string;playerCount:number;capacity:4;state:"WAITING"|"ACTIVE"|"FINISHED";phase:Room["phase"];joinable:boolean};
 type Room = {
  roomId:string;revision:number;phase:"WAITING"|"PRIVILEGE_DECISION"|"BIDDING"|"PLAYING"|"TRICK_RESULT"|"DEAL_RESULT"|"FORFEIT_PENDING"|"MATCH_RESULT"|"ABORTED";
  capacity:4;allReady:boolean;hostPlayerId:string|null;canStart:boolean;canRematch:boolean;lastMatch:MatchArchive|null;
- players:Array<{playerId:string;displayName:string;seat:number;ready:boolean;connected:boolean;disconnectedAt:number|null;reconnectDeadline:number|null;initialSubscriptionDeadline:number|null;teamId:Team}>;
+ players:Array<{playerId:string;displayName:string;playerType:PlayerType;seat:number;ready:boolean;connected:boolean;disconnectedAt:number|null;reconnectDeadline:number|null;initialSubscriptionDeadline:number|null;teamId:Team}>;
  game:null|{
   gameId:string;dealId:string;plannedDeals:3;dealIndex:number;completedDeals:number;dealerSeat:number;redealCount:number;paused:boolean;abortReason:string|null;
-  roster:Array<{playerId:string;displayName:string;seat:number;teamId:Team}>;
+  roster:Array<{playerId:string;displayName:string;playerType:PlayerType;seat:number;teamId:Team}>;
   operationTimer:null|{kind:"PRIVILEGE"|"BID_TURN"|"PLAY_TURN"|"TRICK_RESULT"|"DEAL_RESULT";turnSeat:number|null;remainingMs:number;paused:boolean};
   privilege:{status:"PENDING"|"REVEALED";yourChoice:boolean|null;yourChoiceSource:Source|null;canChoose:boolean;usedByTeam:Record<Team,boolean>|null};
   auction:{nextSeat:number|null;calls:Array<{seat:number;type:"PASS"|"BID";level:number|null;strain:Strain|null;source:Source}>;highestBid:{seat:number;level:number;strain:Strain}|null;result:Contract|null};
@@ -55,7 +58,7 @@ type Room = {
 Only internal publisher transition may have you=null. REST and WS deliver personalized immutable projections. Remaining hands and legal cards are viewer-only. Live currentTrick is public, including its two-second final-four display. Collected histories have cardsVisible=false and plays=[] for every viewer until the deal actually enters settlement; then cardsVisible=true with all four plays. This applies to play.completedTricks, completedDealResults and terminal archives. Earlier settled deals stay visible. Incomplete-forfeit histories stay hidden. Previously public live cards cannot be erased from a user recording. Privilege source/choice are viewer-only until joint team-use reveal. Roster contains no token and retains start-time names/teams even after departures. Unrevealed cards remain private even on forfeit.
 
 ## Play, settlement and between-deal confirmation
-Seat 0 is the first dealer; auction turns run leftward 0→1→2→3, with opposite teams NS (0/2) and EW (1/3). Waiting host departure transfers to lowest occupied seat. Each completed deal rotates dealer clockwise; all-pass redeal keeps dealer, increments redealCount, creates new dealId without incrementing completedDeals/dealIndex. First caller is current dealer.
+Seat 0 is the first dealer; auction turns run leftward 0→1→2→3, with opposite teams NS (0/2) and EW (1/3). Waiting host departure transfers to lowest occupied human seat. Each completed deal rotates dealer clockwise; all-pass redeal keeps dealer, increments redealCount, creates new dealId without incrementing completedDeals/dealIndex. First caller is current dealer.
 Privilege per player yes/no immutable; any yes resolves team true, both no false; reveal both teams together. Shared 20-second phase budget, missing votes become no without overriding yes. Ascending bids level1..7, CLUB<DIAMOND<HEART<SPADE<NO_TRUMP. Three passes after bid immediately enter PLAYING; four opening passes redeal.
 Opening lead is last bidder's right `(holderSeat+3)%4`. Play proceeds rightward `(seat+3)%4` (0→3→2→1), unlike leftward auction rotation. Each trick winner leads the next trick. Must follow led suit if held; otherwise any card. Highest trump wins, else highest led suit; Ace high; NT no trump. Each turn lasts 20 seconds; timeout picks lowest legal rank, ties CLUB/DIAMOND/HEART/SPADE (explicit deterministic implementation default), source TIMEOUT.
 After every fourth card enter TRICK_RESULT for a shared authoritative 2,000 ms. play.currentTrick retains all four cards, nextSeat=null, and trickNumber/leaderSeat describe the completed trick. completedTricks includes that same trick, whose winnerSeat identifies the winning card. Clients must not double-count the retained currentTrick when reconstructing played-card history. No legal cards or next-player turn budget exists during this phase; derive per-seat current-deal wins from completedTricks. At expiry, nonfinal tricks return PLAYING with the winner leading and a fresh full 20-second PLAY_TURN budget. No UI animation or local timeout may advance the game.
@@ -66,8 +69,8 @@ Operation budgets use monotonic time and domain-lock serialization. Due timeout 
 WAITING detected last socket loss immediately releases seat/ready; another live tab preserves presence. Initial HTTP join has distinct 5-second subscription cleanup. During active game last socket loss starts that player's 10-second grace, preserving private state; no replacement player. Manual active leave immediately forfeits that player's team irrespective of current points. Completed scores remain; unfinished deal is not scored.
 Reconnect grace authority uses monotonic time; exposed epoch reconnectDeadline is display-only. `forfeitEvents` attributes actual triggering players with safe IDs/seats/causes, resolving names through frozen roster; stale callbacks and terminal leaves add no events.
 Network adjudication is deterministic: at first grace expiry mark that team failed. If opposing players already have unexpired reconnect grace, capture only those existing deadlines and wait paused. Each must recover within their own original grace; otherwise opponent also fails. No new disconnect can extend this fixed pending window. First failed team cannot undo failure by returning late. One failed team means other team wins; both failed means NO_CONTEST with no winner. During pending, opposing manual exit marks second failure/no-contest immediately; failed-team exit does not change outcome. Simultaneous expiry is both failed regardless iteration order.
-MATCH_RESULT never changes after later closes/leaves. Terminal socket loss retains result-view membership (no running game/grace/replacement); explicit leave releases membership. This allows all-offline participants to return and inspect no-contest. An empty room after all explicit leaves can be removed. Host-controlled rematch is explicit: MATCH_RESULT→WAITING, retaining only currently online members and original seats, clearing all ready flags and per-game/grace/adjudication state. No new game/deal exists until normal host Start with4ready+connected. Room revision and accepted-action ledger are not reset; stale old-game commands and rematch retries cannot mutate a new match. Old offline members may rejoin only as fresh capacity-aware waiting participants.
-Terminal host transfers to lowest occupied online seat when the host leaves or loses its last connection; no online participants means hostPlayerId=null, and first returning participant is elected. This applies equally to scored/forfeit/no-contest terminals. Waiting host transfer remains lowest occupied seat.
+MATCH_RESULT never changes after later closes/leaves. Terminal socket loss retains result-view membership (no running game/grace/replacement); explicit leave releases membership. This allows all-offline participants to return and inspect no-contest. An empty room after all explicit leaves can be removed. Host-controlled rematch is explicit: MATCH_RESULT→WAITING, retaining currently online humans and bots at original seats, clearing human ready flags while bots remain ready and per-game/grace/adjudication state. No new game/deal exists until normal host Start with4ready+connected. Room revision and accepted-action ledger are not reset; stale old-game commands and rematch retries cannot mutate a new match. Old offline members may rejoin only as fresh capacity-aware waiting participants.
+Terminal host transfers to lowest occupied online human seat when the host leaves or loses its last connection; no online participants means hostPlayerId=null, and first returning participant is elected. This applies equally to scored/forfeit/no-contest terminals. Waiting host transfer remains lowest occupied human seat.
 The last terminal match is copied into a safe MatchArchive before reset. Each archive value is immutable, but the retained projection refreshes on terminal transitions so final-trick card faces remain hidden until MATCH_RESULT and then become reviewable. It excludes unplayed hands, private choices, action ledger and credentials. Snapshot lastMatch and GET last-match reveal it only to original participant IDs, never a new guest taking an old seat. Public internal notifications have lastMatch=null. A newer terminal match replaces the last archive. All explicit leave deletes the room and its memory archive; restart also clears it. Room summaries expose WAITING/ACTIVE/FINISHED and phase; finished rooms are not mislabelled active and remain unjoinable until rematch. Existing members may still restore their terminal result access.
 
 ## Native WebSocket (not STOMP)
@@ -87,4 +90,19 @@ privilege.canChoose is viewer-specific: true only during unpaused privilege sele
 
 ## V0.6 auction retention
 
-Game and archive auctionRounds include all started rounds, with each all-Pass redeal stored immutably before a new dealId. DealResult.auctionRounds contains that dealIndex's rounds, including redeals. Calls retain authenticated seat, bid/Pass, strain/level and MANUAL/TIMEOUT source, but no private privilege votes or hands. Names resolve against the original match roster.
+Game and archive auctionRounds include all started rounds, with each all-Pass redeal stored immutably before a new dealId. DealResult.auctionRounds contains that dealIndex's rounds, including redeals. Calls retain authenticated seat, bid/Pass, strain/level and MANUAL/TIMEOUT/BOT source, but no private privilege votes or hands. Names resolve against the original match roster.
+
+## Computer players (local implementation, not a release declaration)
+
+A human host can fill 1–3 empty waiting seats with bots, remove them, and start once all four seats are ready. Bots have explicit `playerType: "BOT"`, no bearer token, no fake socket, and no session membership. Their `connected: true` indicates server control, not a human connection. Existing room capacity and two-table beta cap apply. Bots cannot become host or keep a bot-only room alive. Human disconnection pauses bot actions under the existing reconnect rules; terminal idle cleanup considers human connectivity only. Rematch retains bot seats and automatic readiness, and bots acknowledge inter-deal results automatically.
+
+The existing synchronized sweep revalidates the current phase/turn and applies at most one paced bot action per room per sweep (normally 900 ms). No separate bot executor or client commands are used. Bot choices/calls/plays are recorded as `BOT`; real-human timeout behavior remains unchanged. Decisions use only that bot's own hand and public auction/current-trick data, never other private hands or an external AI service.
+
+- Privilege: do not use; never override a teammate's committed choice.
+- Auction: choose a longest held suit, random among ties, stable for the deal. Pass if partner currently holds the highest bid. Otherwise make the lowest legal bid in that suit up to level 2, or Pass. Do not bid no-trump.
+- Lead: randomly choose a held suit, then its highest card.
+- Follow-suit is always mandatory. On the fourth play, if partner currently wins, follow with the smallest lead-suit card. When void, prefer the smallest non-trump card; only if all remaining cards are trumps, play the smallest trump (which may overtake partner). No-trump makes all cards non-trumps.
+- Otherwise, when following, play the smallest lead-suit card if even the largest cannot beat the actual current winning card; play the largest if it can win. The same trick comparator accounts for trump precedence, not raw cross-suit rank.
+- Otherwise, when void, play the smallest trump beating every current table trump, or the smallest held trump if none has been played. If unable to cut, play the globally smallest rank. All minimum-rank ties are random.
+
+Bot management preserves the existing idempotent command ledger and revision checks. Added errors include `INVALID_SEAT`, `SEAT_OCCUPIED`, `NOT_COMPUTER_PLAYER`, and `HOST_OFFLINE`; existing `HOST_ONLY`, `WRONG_PHASE`, and `STALE_REVISION` apply. No bot identity can authenticate to fetch a private hand.

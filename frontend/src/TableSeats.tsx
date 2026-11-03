@@ -66,15 +66,21 @@ export default function TableSeats({
                 }
               >
                 {player
-                  ? player.connected
+                  ? player.playerType === "BOT"
                     ? room.phase === "WAITING"
-                      ? player.ready
-                        ? "✓ 已準備"
-                        : "尚未準備"
+                      ? "電腦 · 已準備"
                       : seat === turnSeat
-                        ? "● 目前輪到"
-                        : "● 在線"
-                    : "○ 離線"
+                        ? "電腦 · 輪到"
+                        : "電腦玩家"
+                    : player.connected
+                      ? room.phase === "WAITING"
+                        ? player.ready
+                          ? "✓ 已準備"
+                          : "尚未準備"
+                        : seat === turnSeat
+                          ? "● 目前輪到"
+                          : "● 在線"
+                      : "○ 離線"
                   : "空位"}
               </small>
             </div>

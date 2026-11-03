@@ -124,7 +124,10 @@ const messages: Record<string, string> = {
     "席位已釋出（斷線或手動離開）。請重新加入，是否有空位以房間現況為準。",
   NOT_MEMBER:
     "席位已釋出（斷線或手動離開）。請重新加入，是否有空位以房間現況為準。",
-  HOST_ONLY: "只有房主可以開始遊戲。",
+  HOST_ONLY: "只有房主可以執行此操作。",
+  INVALID_SEAT: "請選擇有效的空位。",
+  SEAT_OCCUPIED: "這個席位已有人，請重新選擇空位。",
+  NOT_COMPUTER_PLAYER: "只能移除電腦玩家。",
   START_NOT_READY: "需要四位玩家全部在線且已準備。",
   WRONG_PHASE: "遊戲階段已變更，請重新同步後操作。",
   GAME_IN_PROGRESS: "這個房間已開局，無法再加入；請建立或選擇其他等候室。",
@@ -628,7 +631,46 @@ function gameCommand(
     });
   });
 }
+function computerCommand(action: "add" | "remove", target: number | string) {
+  return run(async () => {
+    if (pendingCommand)
+      throw new Error("請先重試上一個未確認的操作，或重新同步。");
+    const room = state.room;
+    if (!room || state.status !== "online" || state.networkAvailable === false)
+      throw new Error("請等候連線完成。");
+    if (room.phase !== "WAITING") throw new Error(messages.WRONG_PHASE);
+    if (room.hostPlayerId !== state.session?.playerId)
+      throw new Error(messages.HOST_ONLY);
+    if (
+      action === "add" &&
+      (!Number.isInteger(target) || Number(target) < 0 || Number(target) > 3)
+    )
+      throw new Error(messages.INVALID_SEAT);
+    if (
+      action === "remove" &&
+      !room.players.some((p) => p.playerId === target && p.playerType === "BOT")
+    )
+      throw new Error(messages.NOT_COMPUTER_PLAYER);
+    const root = `/rooms/${encodeURIComponent(room.roomId)}/bots`;
+    await executeCommand({
+      path:
+        action === "add"
+          ? root
+          : `${root}/${encodeURIComponent(String(target))}`,
+      method: action === "add" ? "POST" : "DELETE",
+      body: {
+        actionId: crypto.randomUUID(),
+        expectedRevision: room.revision,
+        ...(action === "add" ? { seat: target } : {}),
+      },
+      generation,
+      label: action === "add" ? "加入電腦玩家" : "移除電腦玩家",
+    });
+  });
+}
 export const client = {
+  addComputer: (seat: number) => computerCommand("add", seat),
+  removeComputer: (playerId: string) => computerCommand("remove", playerId),
   checkService: () =>
     run(async () => {
       const revision = epochRevision;

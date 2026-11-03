@@ -37,6 +37,9 @@ export function AuctionRecords({
                     <span>{playerLabel(roster, call.seat)}</span>
                     <strong>
                       {callLabel(call)}
+                      {call.source === "BOT" && (
+                        <small className="computer-source">電腦叫牌</small>
+                      )}
                       {call.source === "TIMEOUT" && (
                         <small className="timeout-source">逾時自動</small>
                       )}

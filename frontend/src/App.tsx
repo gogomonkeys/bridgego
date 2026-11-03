@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { client, useClient, getConnectionDiagnostics } from "./client";
 import GamePanel from "./GamePanel";
 import TableSeats from "./TableSeats";
+import ComputerPlayers from "./ComputerPlayers";
 import AnimalAvatar from "./AnimalAvatar";
 import { nicknameValidation } from "./nickname";
 import { PreviousMatchSummary } from "./ResultPanel";
@@ -19,7 +20,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.7.2", disconnects: diagnostics },
+    { version: "0.8.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -100,7 +101,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.7.2</span>
+              <span className="eyebrow">v0.8.0</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"
@@ -378,6 +379,18 @@ export default function App() {
                 <br />
                 人到齊，再一起準備。
               </p>
+              <ComputerPlayers
+                room={state.room}
+                playerId={state.session.playerId}
+                disabled={
+                  state.busy ||
+                  state.status !== "online" ||
+                  state.networkAvailable === false ||
+                  !!state.pendingAction
+                }
+                onAdd={(seat) => void client.addComputer(seat)}
+                onRemove={(playerId) => void client.removeComputer(playerId)}
+              />
               <div className="ready-count">
                 <strong>
                   {state.room.players.filter((p) => p.ready).length}
@@ -387,7 +400,7 @@ export default function App() {
               </div>
               {state.room.allReady && (
                 <p className="all-ready" role="status">
-                  四人在線且已準備完成 ✓<br />
+                  四位玩家已就緒 ✓<br />
                   <small>請等候房主按「開始遊戲」，不會自動開局。</small>
                 </p>
               )}
