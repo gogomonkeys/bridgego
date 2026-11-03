@@ -11,13 +11,15 @@ export default function OperationClock({
 }) {
   if (!timer || seconds === null) return null;
   const label =
-    timer.kind === "TRICK_RESULT"
-      ? "回合結果展示"
-      : timer.kind === "PRIVILEGE"
-        ? "特權選擇"
-        : timer.kind === "DEAL_RESULT"
-          ? "局間確認"
-          : `輪到${playerLabel(roster, timer.turnSeat)}${timer.kind === "PLAY_TURN" ? "出牌" : "叫牌"}`;
+    timer.kind === "REDEAL_DECISION"
+      ? "倒牌確認"
+      : timer.kind === "TRICK_RESULT"
+        ? "回合結果展示"
+        : timer.kind === "PRIVILEGE"
+          ? "特權選擇"
+          : timer.kind === "DEAL_RESULT"
+            ? "局間確認"
+            : `輪到${playerLabel(roster, timer.turnSeat)}${timer.kind === "PLAY_TURN" ? "出牌" : "叫牌"}`;
   return (
     <section
       className={`turn-clock ${timer.paused ? "paused" : ""} ${seconds === 0 ? "timer-zero" : ""}`}
@@ -37,11 +39,13 @@ export default function OperationClock({
               ? "等候伺服器更新結果；此頁不會自行送出操作。"
               : timer.kind === "TRICK_RESULT"
                 ? "展示四張牌與本回合贏家，下一回合尚未開始。"
-                : timer.kind === "PRIVILEGE"
-                  ? "未選者逾時由後端視為不使用。"
-                  : timer.kind === "BID_TURN"
-                    ? "逾時由後端自動 Pass。"
-                    : "逾時由後端自動出最低合法牌。"}
+                : timer.kind === "REDEAL_DECISION"
+                  ? "符合資格者共用倒數；未選者逾時保留手牌。"
+                  : timer.kind === "PRIVILEGE"
+                    ? "未選者逾時由後端視為不使用。"
+                    : timer.kind === "BID_TURN"
+                      ? "逾時由後端自動 Pass。"
+                      : "逾時由後端自動出最低合法牌。"}
         </p>
       )}
       {timer.kind !== "DEAL_RESULT" && (

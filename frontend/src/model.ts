@@ -8,6 +8,7 @@ export type Suit = "CLUB" | "DIAMOND" | "HEART" | "SPADE";
 export type Strain = Suit | "NO_TRUMP";
 export type Phase =
   | "WAITING"
+  | "REDEAL_DECISION"
   | "PRIVILEGE_DECISION"
   | "BIDDING"
   | "DEAL_RESULT"
@@ -26,8 +27,10 @@ export interface Call {
   strain: string | null;
 }
 export type PlayerType = "HUMAN" | "BOT";
-export type ActionSource = "MANUAL" | "TIMEOUT" | "BOT";
+export type ActionSource = "MANUAL" | "TIMEOUT" | "BOT" | "BOT_TAKEOVER";
+export type ControlMode = "HUMAN" | "RECONNECTING" | "BOT_TAKEOVER" | "BOT";
 export interface Player {
+  controlMode?: ControlMode;
   playerType?: PlayerType;
   playerId: string;
   displayName: string;
@@ -40,7 +43,13 @@ export interface Player {
   teamId: Team;
 }
 export interface OperationTimer {
-  kind: "PRIVILEGE" | "BID_TURN" | "PLAY_TURN" | "DEAL_RESULT" | "TRICK_RESULT";
+  kind:
+    | "REDEAL_DECISION"
+    | "PRIVILEGE"
+    | "BID_TURN"
+    | "PLAY_TURN"
+    | "DEAL_RESULT"
+    | "TRICK_RESULT";
   turnSeat: number | null;
   remainingMs: number;
   paused: boolean;
@@ -100,9 +109,16 @@ export interface Game {
   completedDeals: number;
   dealerSeat: number;
   redealCount: number;
+  lastRedealReason?: "HAND_REDEAL" | "ALL_PASS" | null;
   paused: boolean;
   abortReason: string | null;
   operationTimer: OperationTimer | null;
+  redeal?: {
+    yourPoints: number | null;
+    eligible: boolean;
+    yourChoice: boolean | null;
+    canChoose: boolean;
+  };
   privilege: {
     status: "PENDING" | "REVEALED";
     yourChoice: boolean | null;
@@ -158,11 +174,14 @@ export interface Game {
       | "THREE_DEALS_COMPLETE"
       | "MANUAL_EXIT"
       | "RECONNECT_TIMEOUT"
-      | "BOTH_TEAMS_FAILED";
+      | "BOTH_TEAMS_FAILED"
+      | "NO_HUMANS_CONNECTED"
+      | "NO_HUMANS_REMAIN";
     failedTeamIds: Team[];
   };
 }
 export interface Room {
+  allHumansReconnectDeadline?: number | null;
   roomId: string;
   revision: number;
   phase: Phase;

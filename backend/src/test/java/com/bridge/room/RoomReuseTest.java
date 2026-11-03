@@ -24,6 +24,7 @@ class RoomReuseTest {
       service.ready(room, players[i], true);
     }
     service.start(room, players[0], action(), view(0).revision());
+    KeepDealFixture.keep(service, room, players);
   }
 
   String action() {
@@ -35,8 +36,20 @@ class RoomReuseTest {
   }
 
   void finish() {
-    service.leave(room, players[3]);
+    // Finish normally before removing a participant: an active leave now causes bot takeover.
+    var flow = new PlayFlowTest();
+    flow.clock = clock;
+    flow.service = service;
+    flow.players = players;
+    flow.room = room;
+    for (int deal = 1; deal <= 3; deal++) {
+      flow.auctionToPlay();
+      flow.playRemainingDeal();
+      if (deal < 3) flow.advanceResult();
+    }
     assertEquals("MATCH_RESULT", view(0).phase());
+    assertEquals(3, view(0).game().completedDealResults().size());
+    service.leave(room, players[3]);
   }
 
   RoomService.CommandResult rematch(int seat) {
@@ -237,6 +250,7 @@ class RoomReuseTest {
           seat == 3 ? finalId : action(),
           s.revision());
     }
+    KeepDealFixture.keep(service, room, players);
     var next = view(0);
     assertEquals("PRIVILEGE_DECISION", next.phase());
     assertEquals(2, next.game().dealIndex());

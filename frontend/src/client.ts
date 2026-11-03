@@ -1,3 +1,4 @@
+import { errorMessages as messages } from "./error-messages";
 import { useSyncExternalStore } from "react";
 import { nicknameValidation } from "./nickname";
 import { timerDisplayAnchor } from "./timer-view";
@@ -110,40 +111,7 @@ class HttpResponseError extends Error {
   }
 }
 let recoveryError: string | null = null;
-const messages: Record<string, string> = {
-  SERVER_RESTARTED:
-    "服務已重新啟動，原牌局與訪客身分已結束。請輸入名稱重新加入，開始新的遊戲。",
-  SERVER_MAINTENANCE: "服務正在重新啟動，原牌局無法延續，請稍後確認服務狀態。",
-  ROOM_LIMIT_REACHED: "目前兩桌皆已使用，請加入現有等候室或稍後再試。",
-  SESSION_CAPACITY: "目前體驗人數已滿，請稍後再試。",
-  RATE_LIMITED: "操作太頻繁，請稍候再試。",
-  CONNECTION_LIMIT: "連線數已達上限，請關閉多餘分頁後再試。",
-  ROOM_FULL: "房間已滿，最多只能有四位玩家。",
-  ROOM_NOT_FOUND: "找不到這個房間，可能已經解散。",
-  NOT_IN_ROOM:
-    "席位已釋出（斷線或手動離開）。請重新加入，是否有空位以房間現況為準。",
-  NOT_MEMBER:
-    "席位已釋出（斷線或手動離開）。請重新加入，是否有空位以房間現況為準。",
-  HOST_ONLY: "只有房主可以執行此操作。",
-  INVALID_SEAT: "請選擇有效的空位。",
-  SEAT_OCCUPIED: "這個席位已有人，請重新選擇空位。",
-  NOT_COMPUTER_PLAYER: "只能移除電腦玩家。",
-  START_NOT_READY: "需要四位玩家全部在線且已準備。",
-  WRONG_PHASE: "遊戲階段已變更，請重新同步後操作。",
-  GAME_IN_PROGRESS: "這個房間已開局，無法再加入；請建立或選擇其他等候室。",
-  GAME_PAUSED: "有人離線，遊戲暫停中，請等候重連。",
-  NOT_YOUR_TURN: "還沒輪到你叫牌。",
-  ILLEGAL_CALL: "這個叫牌目前不可使用，請以最新狀態為準。",
-  STALE_REVISION: "狀態已更新，已重新同步；請再次確認後操作。",
-  ACTION_ID_REUSED: "操作識別碼衝突，請重新同步。",
-  CHOICE_LOCKED: "你的特權選擇已送出，不能更改。",
-  WRONG_GAME: "這場遊戲已變更，請重新同步。",
-  WRONG_DEAL: "已重新發牌，請依新手牌重新選擇。",
-  INVALID_NAME: "請輸入 1–5 個字的訪客名稱，不可包含控制字元。",
-  ALREADY_IN_ROOM: "你已在另一個房間，請先離開。",
-  UNAUTHORIZED: "訪客身分已失效，請重新建立。",
-  INVALID_SESSION: "訪客身分已失效，請重新建立。",
-};
+
 function observeEpoch(next: string | null): boolean {
   if (!next || next.length > 128) return false;
   const changed = serverEpoch !== null && serverEpoch !== next;
@@ -407,7 +375,7 @@ function connect() {
         : wasPending
           ? `${reason}（代碼 ${event.code}），正在恢復重連裁定狀態；既有期限不重置，失敗判定以伺服器為準。`
           : wasActive
-            ? `${reason}（代碼 ${event.code}），正在恢復原遊戲。伺服器偵測斷線後保留 10 秒；逾時依規則判負，已完成分數保留，未完成局不計分。`
+            ? `${reason}（代碼 ${event.code}），正在恢復原遊戲。伺服器偵測斷線後保留 10 秒；仍有真人在線時，逾時由電腦代打；原身分回來可接手。若所有真人都未在 10 秒內回來，本場結束。`
             : state.room?.phase === "WAITING"
               ? `${reason}（代碼 ${event.code}），正在確認席位。等候室斷線後不保留席位；若已釋出，請重新加入，不保證仍有空位。`
               : `${reason}（代碼 ${event.code}），正在確認房間與席位狀態，請稍候。`,
@@ -571,7 +539,16 @@ async function executeCommand(command: PendingCommand) {
   } catch (error) {
     if (error instanceof ApiError) {
       if (pendingCommand === command) clearPending();
-      if (error.code === "STALE_REVISION" && generation === command.generation)
+      if (
+        [
+          "STALE_REVISION",
+          "STALE_DEAL",
+          "WRONG_DEAL",
+          "STALE_GAME",
+          "WRONG_GAME",
+        ].includes(error.code) &&
+        generation === command.generation
+      )
         await synchronizeRoom();
       throw error;
     }
@@ -588,6 +565,7 @@ function gameCommand(
   operation:
     | "start"
     | "privilege"
+    | "redeal"
     | "calls"
     | "plays"
     | "acknowledge-result"
@@ -609,7 +587,8 @@ function gameCommand(
           : `${root}/games/${encodeURIComponent(room.game!.gameId)}/deals/${encodeURIComponent(room.game!.dealId)}/${operation}`;
     await executeCommand({
       path,
-      method: operation === "privilege" ? "PUT" : "POST",
+      method:
+        operation === "privilege" || operation === "redeal" ? "PUT" : "POST",
       body: {
         actionId: crypto.randomUUID(),
         expectedRevision: room.revision,
@@ -619,15 +598,17 @@ function gameCommand(
       label:
         operation === "start"
           ? "開局"
-          : operation === "privilege"
-            ? "特權選擇"
-            : operation === "plays"
-              ? "出牌"
-              : operation === "acknowledge-result"
-                ? "確認結算"
-                : operation === "rematch"
-                  ? "返回等候室"
-                  : "叫牌",
+          : operation === "redeal"
+            ? "倒牌選擇"
+            : operation === "privilege"
+              ? "特權選擇"
+              : operation === "plays"
+                ? "出牌"
+                : operation === "acknowledge-result"
+                  ? "確認結算"
+                  : operation === "rematch"
+                    ? "返回等候室"
+                    : "叫牌",
     });
   });
 }
@@ -697,6 +678,7 @@ export const client = {
   play: (card: Card) =>
     gameCommand("plays", { card: { suit: card.suit, rank: card.rank } }),
   start: () => gameCommand("start"),
+  redeal: (redeal: boolean) => gameCommand("redeal", { redeal }),
   privilege: (use: boolean) => gameCommand("privilege", { use }),
   call: (call: Call) =>
     gameCommand(
@@ -819,7 +801,7 @@ export const client = {
       emit({
         room: null,
         notice: wasActive
-          ? "已退出遊戲，勝負依伺服器判定；已完成局數保留，未完成的局不計分。"
+          ? "已退出並放棄原席位；仍有真人在線時由電腦接手，否則本場結束。"
           : "已離開房間，準備狀態與席位已立即清除。",
       });
       await refreshRooms();

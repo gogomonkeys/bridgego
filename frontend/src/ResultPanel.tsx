@@ -43,6 +43,7 @@ export function PublicCards({
           </strong>
           {play.source === "TIMEOUT" && <small>逾時自動出牌</small>}
           {play.source === "BOT" && <small>電腦出牌</small>}
+          {play.source === "BOT_TAKEOVER" && <small>電腦代打出牌</small>}
         </li>
       ))}
     </ol>
@@ -174,6 +175,8 @@ export function MatchSummary({
     THREE_DEALS_COMPLETE: "三局皆已完成",
     MANUAL_EXIT: "有玩家主動退出",
     RECONNECT_TIMEOUT: "重連期限屆滿",
+    NO_HUMANS_CONNECTED: "所有真人皆未在 10 秒內恢復連線",
+    NO_HUMANS_REMAIN: "所有真人皆已離開",
     BOTH_TEAMS_FAILED: "兩隊均未完成有效重連／退出",
   }[result.reason];
   return (

@@ -71,7 +71,9 @@ class BetaSafetyTest {
     for(int i=0;i<4;i++)service.disconnect(room,players[i].playerId(),"s"+i);
     clock.now.addAndGet(10000);service.expireInitialSubscriptions();
     assertEquals("MATCH_RESULT",service.get(room,players[0]).phase());
-    assertEquals("ROOM_LIMIT_REACHED",assertThrows(RoomService.Failure.class,()->service.create(service.createSession("New"))).code);
+    var newGuest=service.createSession("New");
+    assertNotNull(service.create(newGuest));
+    service.leave(service.me(newGuest).roomId(),newGuest);
     clock.now.addAndGet(1999);service.expireInitialSubscriptions();
     assertEquals(room,service.me(players[0]).roomId());
     clock.now.incrementAndGet();service.expireInitialSubscriptions();

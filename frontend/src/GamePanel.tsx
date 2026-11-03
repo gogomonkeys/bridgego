@@ -14,6 +14,7 @@ import OperationClock from "./OperationClock";
 import IconTip from "./IconTip";
 import PrivilegeBadge from "./PrivilegeBadge";
 import HandPanel from "./HandPanel";
+import RedealControls from "./RedealControls";
 import { playerLabel } from "./player-label";
 import { CurrentDealRecords, SettlementRecords } from "./RecordsPanel";
 
@@ -127,6 +128,7 @@ export default function GamePanel({
   const seconds = remaining === null ? null : Math.ceil(remaining / 1000);
   const phaseLabel = {
     WAITING: "等候室",
+    REDEAL_DECISION: "倒牌確認",
     PRIVILEGE_DECISION: "選擇特權",
     BIDDING: "叫牌",
     PLAYING: "出牌",
@@ -196,8 +198,19 @@ export default function GamePanel({
         <section className="pause-banner" role="status">
           <strong>遊戲暫停 · 等候原玩家重連</strong>
           <p>
-            偵測斷線後保留 10 秒，所有玩家恢復連線才可繼續；逾時依規則判負。
+            斷線保留 10 秒；仍有真人在線時，逾時由電腦代打。所有真人都離線時，10
+            秒內無人回來則結束本場。
           </p>
+          {room.allHumansReconnectDeadline != null && (
+            <p>
+              等候任一真人回來：約{" "}
+              {Math.max(
+                0,
+                Math.ceil((room.allHumansReconnectDeadline - now) / 1000),
+              )}{" "}
+              秒
+            </p>
+          )}
           {room.players
             .filter((p) => p.reconnectDeadline !== null)
             .map((p) => (
@@ -266,7 +279,7 @@ export default function GamePanel({
           <OperationClock
             timer={game.operationTimer}
             seconds={seconds}
-            roster={game.roster}
+            roster={room.players}
           />
           <div className="ack-seats">
             {game.roster.map((player) => (
@@ -303,6 +316,19 @@ export default function GamePanel({
         <>
           <section className="table-dashboard" aria-label="本局狀態與操作倒數">
             <div className="table-status-strip">
+              {game.redealCount > 0 && (
+                <span
+                  className="redeal-count"
+                  title="本局倒牌與全員 Pass 的累計重發次數"
+                >
+                  已重發 {game.redealCount} 次
+                  {game.lastRedealReason === "HAND_REDEAL"
+                    ? " · 最近倒牌"
+                    : game.lastRedealReason === "ALL_PASS"
+                      ? " · 最近全員 Pass"
+                      : ""}
+                </span>
+              )}
               <p className="contract-chip">
                 {game.auction.result
                   ? `定約 ${game.auction.result.level}${symbols[game.auction.result.strain]} · ${teamNames[game.auction.result.teamId]}`
@@ -382,7 +408,7 @@ export default function GamePanel({
                 <OperationClock
                   timer={game.operationTimer}
                   seconds={seconds}
-                  roster={game.roster}
+                  roster={room.players}
                 />
               )}
             </div>
@@ -412,11 +438,13 @@ export default function GamePanel({
                   <CurrentBid game={game} />
                 ) : (
                   <h3 className="table-stage-label">
-                    {room.phase === "PRIVILEGE_DECISION"
-                      ? "特權選擇"
-                      : myTurn
-                        ? "請在下方叫牌"
-                        : "叫牌中"}
+                    {room.phase === "REDEAL_DECISION"
+                      ? "倒牌確認"
+                      : room.phase === "PRIVILEGE_DECISION"
+                        ? "特權選擇"
+                        : myTurn
+                          ? "請在下方叫牌"
+                          : "叫牌中"}
                   </h3>
                 )}
               </div>
@@ -424,8 +452,16 @@ export default function GamePanel({
             <TrumpEffects events={trumpEffects} ownSeat={room.you?.seat ?? 0} />
           </section>
           {((room.phase === "BIDDING" && myTurn) ||
-            room.phase === "PRIVILEGE_DECISION") && (
+            room.phase === "PRIVILEGE_DECISION" ||
+            room.phase === "REDEAL_DECISION") && (
             <div className="table-action-dock" aria-label="本回合操作區">
+              {room.phase === "REDEAL_DECISION" && (
+                <RedealControls
+                  key={game.dealId}
+                  decision={game.redeal}
+                  locked={locked}
+                />
+              )}
               {room.phase === "BIDDING" && myTurn && (
                 <div className="phase-main-controls">
                   <BidControls
@@ -527,7 +563,7 @@ export default function GamePanel({
         >
           <summary>更多</summary>
           <div className="match-more-panel">
-            <small>v0.8.0 · 狀態版本 {room.revision}</small>
+            <small>v0.9.0 · 狀態版本 {room.revision}</small>
             <button
               className="secondary"
               disabled={busy}
@@ -619,10 +655,9 @@ export default function GamePanel({
               }
             }}
           >
-            <h2 id="exit-title">確定退出並接受本隊判負？</h2>
+            <h2 id="exit-title">確定退出並交由電腦接手？</h2>
             <p id="exit-description">
-              主動退出會立即判定本隊失敗；已完成分數保留，未完成的局不計分。若兩隊均失敗可能裁定無勝負，這不是
-              10 秒重連保留。
+              主動退出會放棄本場席位，無法取回控制權；若仍有真人在線，電腦會立即接手。最後一位真人退出時，本場結束，未完成的局不計分。
             </p>
             <div className="choice-buttons">
               <button

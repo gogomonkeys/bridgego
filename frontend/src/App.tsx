@@ -20,7 +20,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.8.0", disconnects: diagnostics },
+    { version: "0.9.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -101,7 +101,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.8.0</span>
+              <span className="eyebrow">v0.9.0</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"
@@ -196,13 +196,15 @@ export default function App() {
               </li>
               <li>
                 等候室手動離開會立即釋出席位。開局後斷線保留原手牌 10
-                秒並暫停；逾時由後端判定失敗隊伍，主動退出本隊判負。已完成分數保留，未完成局不計分；兩隊均失敗時無勝負。
+                秒並暫停；仍有真人在線時，逾時由電腦代打，原身分重連可接手，已出的牌不回溯。所有真人皆斷線時，10
+                秒內無人回來則結束。主動退出會放棄席位，由電腦接手；最後真人退出即結束，未完成局不計分。
               </li>
             </ol>
             <h3>三局競賽與局間確認</h3>
             <p>
               每局看完自己的 13
-              張牌後選特權。雙方確定後一起公開，再依順時針叫牌。四人開頭全 Pass
+              張牌後，先確認是否倒牌，再選特權。雙方確定後一起公開，再依左向輪流叫牌。四人開頭全
+              Pass
               會重發，不算完成一局。跟牌必須跟首引花色；每回合四張牌出齊後會短暫顯示回合勝者；每局
               13 回合後結算；前兩局最多等 90
               秒，四人確認可提前開始下一局，第三局保留整場結果。
@@ -210,6 +212,14 @@ export default function App() {
             <p>
               四人各出一張牌是一個回合，贏得這四張牌算拿下一墩；每局共有 13
               回合。
+            </p>
+            <h3>倒牌與重發</h3>
+            <p>
+              A 算 4 點、K 算 3 點、Q 算 2 點、J 算 1 點，其餘 0 點。 少於 5
+              點，或剛好 5 點且沒有 A，可在特權選擇前選擇倒牌；只有 A 的 4
+              點手牌也符合。 符合資格者共用 20
+              秒倒數，逾時保留。任一人倒牌就同局重發，總分與首叫位置不變。
+              電腦符合資格會自動倒牌，重發後仍符合可再次倒牌；手牌點數只供自己查看。
             </p>
             <h3>特權與叫牌</h3>
             <p>

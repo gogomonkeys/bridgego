@@ -153,12 +153,12 @@ class TrickResultTest {
     var before = f.view(0);
     f.service.leave(f.room, f.players[0]);
     var after = f.view(1);
-    assertEquals("MATCH_RESULT", after.phase());
-    assertEquals("FORFEIT", after.game().matchResult().outcome());
+    assertEquals("TRICK_RESULT", after.phase());
+    assertNull(after.game().matchResult());
     assertEquals(before.game().teamTotals(), after.game().teamTotals());
     assertEquals(before.game().completedDealResults().get(0).scores(), after.game().completedDealResults().get(0).scores());
-    assertTrue(after.game().completedDealResults().get(0).completedTricks().get(0).cardsVisible());
-    assertNull(after.game().operationTimer());
+    assertFalse(after.game().completedDealResults().get(0).completedTricks().get(0).cardsVisible());
+    assertNotNull(after.game().operationTimer());
   }
 
   @Test

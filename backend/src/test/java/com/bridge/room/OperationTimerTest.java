@@ -36,7 +36,9 @@ class OperationTimerTest {
   }
 
   RoomService.Snapshot start() {
-    return service.start(room, players[0], action(), view(0).revision()).room();
+    service.start(room, players[0], action(), view(0).revision());
+    KeepDealFixture.keep(service, room, players);
+    return view(0);
   }
 
   RoomService.Snapshot vote(int seat, boolean use) {
@@ -109,6 +111,7 @@ class OperationTimerTest {
       clock.now.addAndGet(20_000);
       view(0);
     }
+    KeepDealFixture.keep(service, room, players);
     var s = view(0);
     assertNotEquals(oldDeal, s.game().dealId());
     assertEquals("PRIVILEGE", s.game().operationTimer().kind());
@@ -145,9 +148,9 @@ class OperationTimerTest {
   }
 
   @Test
-  void abortCancelsTimer() {
+  void allHumansOfflineTerminationCancelsTimer() {
     start();
-    service.disconnect(room, players[0].playerId(), "socket-0");
+    for (int i=0;i<4;i++) service.disconnect(room, players[i].playerId(), "socket-"+i);
     clock.now.addAndGet(10_000);
     assertEquals("MATCH_RESULT", view(1).phase());
     assertNull(view(1).game().operationTimer());
@@ -206,6 +209,7 @@ class OperationTimerTest {
   void independentMonotonicTickerIgnoresWallClockJump() {
     var mono = new java.util.concurrent.atomic.AtomicLong(100);
     var g = new GameState(new java.security.SecureRandom(), mono::get);
+    KeepDealFixture.keep(g);
     clock.now.addAndGet(1_000_000);
     assertFalse(g.expireOperation());
     mono.addAndGet(20_000);

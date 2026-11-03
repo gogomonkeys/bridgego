@@ -22,6 +22,13 @@ class ComputerRoomTest {
     for (int seat=1;seat<4;seat++) bot(seat);
     service.ready(room,host,true);
     service.start(room,host,action(),state().revision());
+    // Resolve real redeal choices and paced bot automatic redeals before later-phase tests.
+    for (int step=0; state().phase().equals("REDEAL_DECISION") && step<1000; step++) {
+      var s=state();
+      if(s.game().redeal().canChoose())service.redeal(room,host,s.game().gameId(),s.game().dealId(),action(),s.revision(),false);
+      else tick(1000);
+    }
+    assertEquals("PRIVILEGE_DECISION",state().phase());
   }
   @Test void managementIdempotentNoBotAuthAndSeatCapacity() {
     String id = action(); long rev=state().revision();
@@ -70,7 +77,8 @@ class ComputerRoomTest {
       var s=state();var g=s.game();
       assertNotNull(s.you());assertEquals(host.playerId(),s.you().playerId());
       assertNull(service.viewFor(room,host).players().get(1).reconnectDeadline());
-      if(g.privilege().canChoose()) service.privilege(room,host,g.gameId(),g.dealId(),action(),s.revision(),false);
+      if(g.redeal().canChoose())service.redeal(room,host,g.gameId(),g.dealId(),action(),s.revision(),false);
+      else if(g.privilege().canChoose()) service.privilege(room,host,g.gameId(),g.dealId(),action(),s.revision(),false);
       else if(!s.you().legalCalls().isEmpty()) service.call(room,host,g.gameId(),g.dealId(),action(),s.revision(),"PASS",null,null);
       else if(!s.you().legalCards().isEmpty()) service.play(room,host,g.gameId(),g.dealId(),action(),s.revision(),s.you().legalCards().get(0));
       else if(s.you().canAcknowledgeResult()) service.acknowledgeResult(room,host,g.gameId(),g.dealId(),action(),s.revision());
@@ -93,9 +101,9 @@ class ComputerRoomTest {
     var g=state().game();assertEquals("TIMEOUT",g.privilege().yourChoiceSource());
     tick(20000);assertTrue(state().game().auction().calls().stream().anyMatch(c->c.seat()==0&&c.source().equals("TIMEOUT")));
   }
-  @Test void lastHumanDisconnectedForfeitAndIdleCleanupStillWork() {
+  @Test void lastHumanDisconnectedEndsNoContestAndFixedCleanupStillWorks() {
     start();service.disconnect(room,host.playerId(),"host");tick(10001);
-    assertEquals("MATCH_RESULT",state().phase());assertEquals("FORFEIT",state().game().matchResult().outcome());
+    assertEquals("MATCH_RESULT",state().phase());assertEquals("NO_CONTEST",state().game().matchResult().outcome());
     tick(BetaLimits.defaults().finishedRoomIdleMs()+1);
     assertTrue(service.list().isEmpty());
   }

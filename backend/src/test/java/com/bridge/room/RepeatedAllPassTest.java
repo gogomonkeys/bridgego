@@ -16,6 +16,7 @@ class RepeatedAllPassTest {
     List<GameState.Card> previous=f.view(0).you().ownHand();
     GameState.AuctionRound first=null;
     var json=new ObjectMapper();
+    int keepMutations = 0;
     for(int cycle=1;cycle<=100;cycle++) {
       // Every fresh deal gets the full privilege decision budget.
       var before=f.view(0);
@@ -35,6 +36,8 @@ class RepeatedAllPassTest {
         assertEquals(call,f.view(0).game().auction().calls().size());
         f.clock.now.incrementAndGet();f.service.expireInitialSubscriptions();
       }
+      // Keep the newly dealt cards explicitly before checking the privilege timer.
+      int keepEvents = KeepDealFixture.keep(f.service, f.room, f.players);
       var fresh=f.view(0);
       assertTrue(ids.add(fresh.game().dealId()));
       assertEquals(gameId,fresh.game().gameId());
@@ -69,8 +72,9 @@ class RepeatedAllPassTest {
       }
       assertEquals(52,allCards.size());
       assertNotEquals(previous,fresh.you().ownHand());previous=fresh.you().ownHand();
-      // Five authoritative mutations only: privilege timeout plus four Pass timeouts.
-      assertEquals(cycle*5,events.get());
+      // Five timer mutations per cycle, plus the explicit eligible KEEP commands.
+      keepMutations += keepEvents;
+      assertEquals(cycle*5 + keepMutations,events.get());
     }
   }
 
@@ -78,6 +82,7 @@ class RepeatedAllPassTest {
     var f=new OperationTimerTest();f.setup();var initial=f.start();
     String gameId=initial.game().gameId();String previous=initial.game().dealId();
     for(int cycle=1;cycle<=25;cycle++) {
+      KeepDealFixture.keep(f.service, f.room, f.players);
       for(int seat=0;seat<4;seat++)f.vote(seat,false);
       for(int seat=0;seat<4;seat++)f.call(seat,"PASS",null,null);
       var s=f.view(0);

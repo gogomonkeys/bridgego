@@ -26,6 +26,8 @@ final class GameState {
       boolean canChoose,
       Map<String, Boolean> usedByTeam) {}
 
+  record Redeal(Integer yourPoints, boolean eligible, Boolean yourChoice, boolean canChoose) {}
+
   record Auction(Integer nextSeat, List<Call> calls, Bid highestBid, Contract result) {}
 
   record AuctionRound(String dealId, int dealIndex, int redealCount, int dealerSeat,
@@ -99,11 +101,13 @@ final class GameState {
       int completedDeals,
       int dealerSeat,
       int redealCount,
+      String lastRedealReason,
       boolean paused,
       String abortReason,
       OperationTimer operationTimer,
       List<PlayerInfo> roster,
       Privilege privilege,
+      Redeal redeal,
       Auction auction,
       List<AuctionRound> auctionRounds,
       PlayView play,
@@ -127,10 +131,13 @@ final class GameState {
   String phase = "PRIVILEGE_DECISION";
   String abortReason;
   int redealCount;
+  String lastRedealReason;
   int nextSeat;
   int consecutivePasses;
   boolean revealed;
   final Map<Integer, List<Card>> hands = new HashMap<>();
+  private final Set<Integer> redealEligible = new HashSet<>();
+  private final Map<Integer, Boolean> redealChoices = new HashMap<>();
   final Map<Integer, Boolean> votes = new HashMap<>();
   final Map<Integer, String> voteSources = new HashMap<>();
   final List<Call> calls = new ArrayList<>();
@@ -183,6 +190,7 @@ final class GameState {
     dealIndex++;
     dealerSeat = (dealerSeat + 1) % 4;
     redealCount = 0;
+    lastRedealReason = null;
     deal();
   }
 
@@ -222,6 +230,14 @@ final class GameState {
     results.forEach(result -> reviewableDeals.add(result.dealId()));
   }
 
+  void finishWithoutHumans(String reason) {
+    if (!active()) return;
+    matchResult = new MatchResult("NO_CONTEST", null, reason, List.of());
+    pendingForfeit = null;
+    phase = "MATCH_RESULT";
+    results.forEach(result -> reviewableDeals.add(result.dealId()));
+  }
+
   GameState(SecureRandom random) {
     this(random, () -> System.nanoTime() / 1_000_000);
   }
@@ -238,6 +254,8 @@ final class GameState {
     phase = "PRIVILEGE_DECISION";
     resultAcknowledgments.clear();
     votes.clear();
+    redealEligible.clear();
+    redealChoices.clear();
     voteSources.clear();
     calls.clear();
     hands.clear();
@@ -251,8 +269,49 @@ final class GameState {
     for (String suit : STRAINS.subList(0, 4))
       for (int rank = 2; rank <= 14; rank++) deck.add(new Card(suit, rank));
     Collections.shuffle(deck, random);
-    for (int seat = 0; seat < 4; seat++)
+    for (int seat = 0; seat < 4; seat++) {
       hands.put(seat, List.copyOf(deck.subList(seat * 13, seat * 13 + 13)));
+      if (qualifiesForRedeal(hands.get(seat))) redealEligible.add(seat);
+    }
+    if (!redealEligible.isEmpty()) phase = "REDEAL_DECISION";
+  }
+
+  static int highCardPoints(List<Card> hand) {
+    return hand.stream().mapToInt(card -> switch (card.rank()) {
+      case 14 -> 4;
+      case 13 -> 3;
+      case 12 -> 2;
+      case 11 -> 1;
+      default -> 0;
+    }).sum();
+  }
+
+  static boolean qualifiesForRedeal(List<Card> hand) {
+    int points = highCardPoints(hand);
+    return points < 5 || (points == 5 && hand.stream().noneMatch(c -> c.rank() == 14));
+  }
+
+  boolean canChooseRedeal(Integer seat, boolean paused) {
+    return seat != null && !paused && phase.equals("REDEAL_DECISION")
+        && redealEligible.contains(seat) && !redealChoices.containsKey(seat);
+  }
+
+  void chooseRedeal(int seat, boolean redeal) {
+    if (!phase.equals("REDEAL_DECISION"))
+      throw RoomService.fail(409, "WRONG_PHASE", "Not choosing whether to redeal");
+    if (!redealEligible.contains(seat))
+      throw RoomService.fail(409, "REDEAL_NOT_ELIGIBLE", "This hand does not qualify for a redeal");
+    if (redealChoices.containsKey(seat))
+      throw RoomService.fail(409, "CHOICE_LOCKED", "The redeal choice is already fixed");
+    redealChoices.put(seat, redeal);
+    if (redeal) {
+      lastRedealReason = "HAND_REDEAL";
+      redealCount++;
+      deal();
+    } else if (redealChoices.keySet().containsAll(redealEligible)) {
+      phase = "PRIVILEGE_DECISION";
+      resetTimer();
+    }
   }
 
   static String team(int seat) {
@@ -314,6 +373,7 @@ final class GameState {
       consecutivePasses++;
       if (highest == null && consecutivePasses == 4) {
         finishedAuctions.add(auctionRound("ALL_PASS"));
+        lastRedealReason = "ALL_PASS";
         redealCount++;
         deal();
         return;
@@ -347,7 +407,8 @@ final class GameState {
   }
 
   private boolean timed() {
-    return phase.equals("PRIVILEGE_DECISION")
+    return phase.equals("REDEAL_DECISION")
+        || phase.equals("PRIVILEGE_DECISION")
         || phase.equals("BIDDING")
         || phase.equals("PLAYING")
         || phase.equals("DEAL_RESULT")
@@ -384,15 +445,31 @@ final class GameState {
   }
 
   // One transition only: a delayed scheduler never burns future players' entire turns.
-  boolean expireOperation() {
+  boolean expireOperation() { return expireOperation(Map.of()); }
+
+  boolean expireOperation(Map<Integer, String> automatedSources) {
     if (!timed() || timerPaused || remaining() > 0) return false;
-    if (phase.equals("PRIVILEGE_DECISION")) {
+    if (phase.equals("REDEAL_DECISION")) {
+      // An automated eligible seat must still choose redeal when a scheduler wakes late.
+      for (int seat = 0; seat < 4; seat++) {
+        int candidate = seat;
+        boolean automated = automatedSources.containsKey(seat)
+            || roster.stream().anyMatch(p -> p.seat() == candidate && p.playerType().equals("BOT"));
+        if (automated && canChooseRedeal(seat, false)) {
+          chooseRedeal(seat, true);
+          return true;
+        }
+      }
+      for (int seat : redealEligible) redealChoices.putIfAbsent(seat, false);
+      phase = "PRIVILEGE_DECISION";
+      resetTimer();
+    } else if (phase.equals("PRIVILEGE_DECISION")) {
       for (int seat = 0; seat < 4; seat++) {
         if (!votes.containsKey(seat)) {
           votes.put(seat, false);
           int votingSeat = seat;
           boolean computer = roster.stream().anyMatch(p -> p.seat() == votingSeat && p.playerType().equals("BOT"));
-          voteSources.put(seat, computer ? "BOT" : "TIMEOUT");
+          voteSources.put(seat, automatedSources.getOrDefault(seat, computer ? "BOT" : "TIMEOUT"));
         }
       }
       revealed = true;
@@ -414,6 +491,7 @@ final class GameState {
   private OperationTimer operationTimer() {
     if (!timed()) return null;
     String kind = switch (phase) {
+      case "REDEAL_DECISION" -> "REDEAL_DECISION";
       case "TRICK_RESULT" -> "TRICK_RESULT";
       case "DEAL_RESULT" -> "DEAL_RESULT";
       case "PLAYING" -> "PLAY_TURN";
@@ -554,6 +632,10 @@ final class GameState {
   }
 
   View view(Integer viewerSeat, boolean paused) {
+    return view(viewerSeat, paused, false);
+  }
+
+  View view(Integer viewerSeat, boolean paused, boolean controlTakenOver) {
     return new View(
         id,
         dealId,
@@ -562,6 +644,7 @@ final class GameState {
         results.size(),
         dealerSeat,
         redealCount,
+        lastRedealReason,
         paused,
         abortReason,
         operationTimer(),
@@ -571,11 +654,18 @@ final class GameState {
             viewerSeat == null ? null : votes.get(viewerSeat),
             viewerSeat == null ? null : voteSources.get(viewerSeat),
             viewerSeat != null
+                && !controlTakenOver
                 && !paused
                 && phase.equals("PRIVILEGE_DECISION")
                 && !votes.containsKey(viewerSeat)
                 && teamChoice(viewerSeat % 2) == null,
             revealed ? Map.of("NS", teamChoice(0), "EW", teamChoice(1)) : null),
+        new Redeal(
+            viewerSeat != null && phase.equals("REDEAL_DECISION")
+                ? highCardPoints(hands.getOrDefault(viewerSeat, List.of())) : null,
+            viewerSeat != null && phase.equals("REDEAL_DECISION") && redealEligible.contains(viewerSeat),
+            viewerSeat == null || !phase.equals("REDEAL_DECISION") ? null : redealChoices.get(viewerSeat),
+            !controlTakenOver && canChooseRedeal(viewerSeat, paused)),
         new Auction(
             phase.equals("BIDDING") ? nextSeat : null, List.copyOf(calls), highest, contract),
         auctionRounds(),

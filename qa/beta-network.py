@@ -69,7 +69,7 @@ def action(r,u,kind,data=None):
     b=snapshot(r,u);path='/api/rooms/'+r
     path+= '/start' if kind=='start' else '/games/'+b['game']['gameId']+'/deals/'+b['game']['dealId']+'/'+kind
     payload={'actionId':str(uuid.uuid4()),'expectedRevision':b['revision'],**(data or {})}
-    return request('PUT' if kind=='privilege' else 'POST',path,u['token'],payload),path,payload
+    return request('PUT' if kind in ('privilege','redeal') else 'POST',path,u['token'],payload),path,payload
 
 async def main():
     epoch=start();clients=[]
@@ -112,6 +112,10 @@ async def main():
         for r,us in zip(rooms,seats):
             for u in us:assert request('PUT','/api/rooms/'+r+'/ready',u['token'],{'ready':True})[0]==200
             assert action(r,us[0],'start')[0][0]==200
+            for u in us:
+                if snapshot(r,u)['game']['redeal']['canChoose']:
+                    assert action(r,u,'redeal',{'redeal':False})[0][0]==200
+            assert snapshot(r,us[0])['phase']=='PRIVILEGE_DECISION'
             for i in(0,1):assert action(r,us[i],'privilege',{'use':True})[0][0]==200
         await asyncio.sleep(.3)
         hands=[]

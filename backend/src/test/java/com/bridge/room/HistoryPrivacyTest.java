@@ -50,9 +50,15 @@ class HistoryPrivacyTest {
     visible(old.completedTricks());f.advanceResult();
     assertEquals(old,f.view(0).game().completedDealResults().get(0));
   }
-  @Test void incompleteForfeitNeverUnlocksCollectedFacesOrIncludesUnplayedHandsInArchive() {
-    f.playing(); trick();f.finishTrickDisplay();f.service.leave(f.room,f.players[0]);
-    var terminal=f.view(1);hidden(terminal.game().play().completedTricks());
+  @Test void incompleteNoHumanTerminationNeverUnlocksCollectedFacesOrIncludesUnplayedHandsInArchive() {
+    f.playing(); trick(); f.finishTrickDisplay();
+    for (int seat = 0; seat < 4; seat++)
+      f.service.disconnect(f.room, f.players[seat].playerId(), "socket-" + seat);
+    f.clock.now.addAndGet(10_000);
+    f.service.expireInitialSubscriptions();
+    var terminal=f.view(1);
+    assertEquals("MATCH_RESULT", terminal.phase());
+    hidden(terminal.game().play().completedTricks());
     assertTrue(terminal.lastMatch().completedDealResults().isEmpty());
     assertEquals(1,terminal.lastMatch().auctionRounds().size());
   }

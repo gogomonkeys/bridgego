@@ -13,7 +13,7 @@ def view(g,seat=0):
 def command(g,seat,kind,payload=None,revision=None,action_id=None,deal=None):
     r=view(g,seat);body={'actionId':action_id or str(uuid.uuid4()),'expectedRevision':r['revision'] if revision is None else revision,**(payload or {})}
     path=g['path']+'/start' if kind=='start' else g['path']+'/games/'+r['game']['gameId']+'/deals/'+(deal or r['game']['dealId'])+'/'+kind
-    status,response=api('PUT' if kind=='privilege' else 'POST',path,g['users'][seat]['token'],body)
+    status,response=api('PUT' if kind in ('privilege','redeal') else 'POST',path,g['users'][seat]['token'],body)
     return status,response,body,path
 async def await_trick_transition(g,seconds=5):
     end=time.monotonic()+seconds
@@ -22,7 +22,15 @@ async def await_trick_transition(g,seconds=5):
         if r['phase']!='TRICK_RESULT':return r
         await asyncio.sleep(.05)
     raise AssertionError('trick presentation did not advance')
+def keep_deal(g):
+    for seat in range(4):
+        r=view(g,seat)
+        if r['game']['redeal']['canChoose']:
+            assert command(g,seat,'redeal',{'redeal':False})[0]==200
+    assert view(g)['phase']=='PRIVILEGE_DECISION'
+
 async def deal_to_play(g,deal_number):
+    keep_deal(g)
     r=view(g);assert r['phase']=='PRIVILEGE_DECISION'
     # Mixed privilege flags exercise independent score adjustments.
     use_ns=deal_number!=2;use_ew=deal_number==2
@@ -40,6 +48,14 @@ async def main():
     g=await game.setup('three-deal');
     try:
         assert command(g,0,'start')[0]==200
+        # Preserve the separate four-Pass redeal path before playing three scored deals.
+        keep_deal(g)
+        all_pass_deal=view(g)['game']['dealId']
+        for seat in range(4):assert command(g,seat,'privilege',{'use':False})[0]==200
+        for _ in range(4):
+            r=view(g);assert command(g,r['game']['auction']['nextSeat'],'calls',{'type':'PASS'})[0]==200
+        r=view(g)
+        check('four Pass redeals same first deal and retains auction history',r['game']['dealId']!=all_pass_deal and r['game']['dealIndex']==1 and r['game']['completedDeals']==0 and r['game']['auctionRounds'][0]['status']=='ALL_PASS' and len(r['game']['auctionRounds'][0]['calls'])==4)
         cumulative={'NS':0,'EW':0};initial_hands={}
         for deal_number in range(1,4):
             start,strain,use_ns,use_ew=await deal_to_play(g,deal_number)
@@ -95,6 +111,7 @@ async def main():
                 for i in range(4):assert command(g,i,'acknowledge-result')[0]==200
                 revision=view(g)['revision'];old_command={**body,'actionId':str(uuid.uuid4()),'expectedRevision':revision}
                 check('old deal fresh play cannot affect next deal',api('POST',path,g['users'][seat]['token'],old_command)[0]==409 and view(g)['revision']==revision)
+                keep_deal(g)
                 check('four acknowledgments begin next deal with fresh privilege budget',view(g)['game']['dealId']!=deal_id and view(g)['game']['operationTimer']['kind']=='PRIVILEGE' and view(g)['game']['operationTimer']['remainingMs']>18000)
         await asyncio.sleep(.3)
         for seat,c in enumerate(g['clients']):

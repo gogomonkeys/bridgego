@@ -38,9 +38,11 @@ def state(room,user):
 
 def command(room,user,kind,payload=None):
     s=state(room,user);base='/api/rooms/'+room
+    if kind=='redeal' and not s['game']['redeal']['canChoose']:return False
+    if kind=='privilege' and not s['game']['privilege']['canChoose']:return False
     path=base+'/'+kind if kind in ('start','bots') else base+'/games/'+s['game']['gameId']+'/deals/'+s['game']['dealId']+'/'+kind
     body={'actionId':str(uuid.uuid4()),'expectedRevision':s['revision'],**(payload or {})}
-    status,result=request('PUT' if kind=='privilege' else 'POST',path,user['token'],body)
+    status,result=request('PUT' if kind in ('privilege','redeal') else 'POST',path,user['token'],body)
     # A bot may commit between snapshot and mutation; retry only the explicit rejected stale command.
     if status==409 and result.get('code')=='STALE_REVISION':return False
     assert status==200,(status,result);return True
@@ -63,7 +65,8 @@ async def match(number,humans):
             if s['phase']=='MATCH_RESULT':break
             for user in users:
                 s=state(room,user);g=s['game'];you=s['you']
-                if g['privilege']['canChoose']:command(room,user,'privilege',{'use':False})
+                if g['redeal']['canChoose']:command(room,user,'redeal',{'redeal':False})
+                elif g['privilege']['canChoose']:command(room,user,'privilege',{'use':False})
                 elif you['legalCalls']:command(room,user,'calls',{'type':'PASS'})
                 elif you['legalCards']:command(room,user,'plays',{'card':you['legalCards'][0]})
                 elif you['canAcknowledgeResult']:command(room,user,'acknowledge-result')
@@ -75,6 +78,10 @@ async def match(number,humans):
             for trick in deal['completedTricks']:
                 for move in trick['plays']:hands[move['seat']].append(move['card'])
             initial={seat:list(cards) for seat,cards in hands.items()}
+            for seat in range(humans,4):
+                points=sum({14:4,13:3,12:2,11:1}.get(c['rank'],0) for c in initial[seat])
+                assert points>5 or (points==5 and any(c['rank']==14 for c in initial[seat])), 'Eligible bot failed to redeal' 
+            check(f'{number}: deal{deal["dealIndex"]} bot low-point hands are always redealt',True)
             check(f'{number}: deal{deal["dealIndex"]} conserves52cards',sum(map(len,hands.values()))==52 and len({(c['suit'],c['rank']) for h in hands.values() for c in h})==52)
             strain=deal['contract']['strain'];lead=(deal['contract']['holderSeat']+3)%4
             for trick in deal['completedTricks']:
@@ -128,6 +135,11 @@ async def match(number,humans):
             for snap in client.snapshots:
                 assert snap['you']['playerId']==client.u['playerId']
                 assert all('ownHand' not in p and 'token' not in p for p in snap['players'])
+                if snap['game']:
+                    assert set(snap['game']['redeal'])=={'yourPoints','eligible','yourChoice','canChoose'}
+                    if snap['phase']=='REDEAL_DECISION':
+                        expected_points=sum({14:4,13:3,12:2,11:1}.get(card['rank'],0) for card in snap['you']['ownHand'])
+                        assert snap['game']['redeal']['yourPoints']==expected_points
                 if snap['game'] and snap['game']['play']:
                     for trick in snap['game']['play']['completedTricks']:
                         assert trick['cardsVisible'] or trick['plays']==[]

@@ -37,6 +37,9 @@ export function AuctionRecords({
                     <span>{playerLabel(roster, call.seat)}</span>
                     <strong>
                       {callLabel(call)}
+                      {call.source === "BOT_TAKEOVER" && (
+                        <small className="computer-source">電腦代打叫牌</small>
+                      )}
                       {call.source === "BOT" && (
                         <small className="computer-source">電腦叫牌</small>
                       )}

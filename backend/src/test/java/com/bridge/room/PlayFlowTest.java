@@ -36,7 +36,9 @@ class PlayFlowTest {
   }
 
   RoomService.Snapshot start() {
-    return service.start(room, players[0], action(), view(0).revision()).room();
+    service.start(room, players[0], action(), view(0).revision());
+    KeepDealFixture.keep(service, room, players);
+    return view(0);
   }
 
   RoomService.Snapshot vote(int seat, boolean use) {
@@ -79,6 +81,7 @@ class PlayFlowTest {
   }
 
   RoomService.Snapshot auctionToPlay() {
+    KeepDealFixture.keep(service, room, players);
     vote(0, true);
     vote(1, true);
     int dealer = view(0).game().dealerSeat();
@@ -150,6 +153,7 @@ class PlayFlowTest {
         assertEquals("DEAL_RESULT", s.phase());
         assertTrue(s.you().ownHand().isEmpty());
         advanceResult();
+        KeepDealFixture.keep(service, room, players);
         s = view(0);
         assertEquals("PRIVILEGE_DECISION", s.phase());
         assertEquals(13, s.you().ownHand().size());
@@ -241,7 +245,7 @@ class PlayFlowTest {
   }
 
   @Test
-  void completedScoresSurviveMidSecondDealForfeit() {
+  void completedScoresSurviveMidSecondDealReplacement() {
     playing();
     playRemainingDeal();
     var before = view(0);
@@ -259,14 +263,27 @@ class PlayFlowTest {
     var after = view(1);
     assertEquals(before.game().completedDealResults(), after.game().completedDealResults());
     assertEquals(before.game().teamTotals(), after.game().teamTotals());
-    assertEquals("FORFEIT", after.game().matchResult().outcome());
-    assertEquals("EW", after.game().matchResult().winnerTeamId());
+    assertNull(after.game().matchResult());
+    assertEquals("PLAYING", after.phase());
+  }
+
+  @Test
+  void allHumansGonePreservesCompletedScoreWithoutRevealingSecondDeal() {
+    playing();playRemainingDeal();advanceResult();auctionToPlay();
+    var before=view(0);for(int i=0;i<4;i++)service.disconnect(room,players[i].playerId(),"socket-"+i);
+    clock.now.addAndGet(10000);var after=view(0);
+    assertEquals("NO_CONTEST",after.game().matchResult().outcome());
+    assertEquals(before.game().teamTotals(),after.game().teamTotals());
+    assertEquals(1,after.game().completedDealResults().size());
+    assertEquals(1,after.lastMatch().completedDealResults().size());
+    assertNotEquals(after.game().dealId(),after.lastMatch().completedDealResults().get(0).dealId());
   }
 
   @Test
   void controlledThreeDealTieAndNoOvercount() {
     var g = new GameState(new java.security.SecureRandom(), clock::millis);
     for (int deal = 0; deal < 3; deal++) {
+      KeepDealFixture.keep(g);
       for (int seat = 0; seat < 4; seat++) {
         var cards = new ArrayList<GameState.Card>();
         for (int rank = 2; rank <= 14; rank++)
@@ -306,6 +323,7 @@ class PlayFlowTest {
         cards.add(new GameState.Card(GameState.STRAINS.get(seat), rank));
       g.hands.put(seat, List.copyOf(cards));
     }
+    KeepDealFixture.keep(g);
     g.choose(0, true);
     g.choose(1, true);
     g.call(0, "BID", 1, "CLUB");

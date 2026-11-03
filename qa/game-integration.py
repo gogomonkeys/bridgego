@@ -36,10 +36,13 @@ def cards(value):
     return found
 def private_valid(r,user):
     you=r.get('you');hand=you and you.get('ownHand')
-    allowed={'roomId','revision','phase','capacity','allReady','hostPlayerId','canStart','players','game','you','canRematch','lastMatch'}
+    allowed={'roomId','revision','phase','capacity','allReady','hostPlayerId','canStart','players','game','you','canRematch','lastMatch','allHumansReconnectDeadline'}
     if set(r)!=allowed or not you or you['playerId']!=user['playerId']:return False
-    if r['game'] and set(r['game'])!={'gameId','dealId','plannedDeals','dealIndex','completedDeals','dealerSeat','redealCount','paused','abortReason','privilege','auction','teamTotals','completedDealResults','operationTimer','roster','play','pendingForfeit','matchResult','forfeitEvents','resultAcknowledgedSeats','auctionRounds'}:return False
+    if r['game'] and set(r['game'])!={'gameId','dealId','plannedDeals','dealIndex','completedDeals','dealerSeat','redealCount','lastRedealReason','paused','abortReason','redeal','privilege','auction','teamTotals','completedDealResults','operationTimer','roster','play','pendingForfeit','matchResult','forfeitEvents','resultAcknowledgedSeats','auctionRounds'}:return False
     if r['game'] and set(r['game']['privilege'])!={'status','yourChoice','yourChoiceSource','usedByTeam','canChoose'}:return False
+    if r['game'] and set(r['game']['redeal'])!={'yourPoints','eligible','yourChoice','canChoose'}:return False
+    if r['game'] and r['game']['redeal']['yourPoints'] is not None:
+        if not isinstance(r['game']['redeal']['yourPoints'],int):return False
     legal=you.get('legalCards',[])
     if any(c not in hand for c in legal):return False
     # Played cards are intentionally public; private cards may only occur in ownHand/legalCards.

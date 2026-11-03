@@ -31,7 +31,7 @@ public class RoomService {
       Long disconnectedAt,
       Long reconnectDeadline,
       Long initialSubscriptionDeadline,
-      String teamId, String playerType) {}
+      String teamId, String playerType, String controlMode) {}
 
   public record Snapshot(
       String roomId,
@@ -45,7 +45,8 @@ public class RoomService {
       boolean canRematch,
       GameState.MatchArchive lastMatch,
       GameState.View game,
-      You you) {}
+      You you,
+      Long allHumansReconnectDeadline) {}
 
   public record You(
       String playerId,
@@ -80,7 +81,14 @@ public class RoomService {
     int seat;
     boolean ready;
     boolean computer;
-    boolean present() { return computer || !connections.isEmpty(); }
+    boolean takeover;
+    boolean automated() { return computer || takeover; }
+    boolean present() { return automated() || !connections.isEmpty(); }
+    boolean humanOnline() { return !computer && !connections.isEmpty(); }
+    String controlMode() {
+      return computer ? "BOT" : takeover ? "BOT_TAKEOVER"
+          : reconnectDueTick != null ? "RECONNECTING" : "HUMAN";
+    }
     Long disconnectedAt;
     Long initialSubscriptionDeadline;
     Long reconnectDeadline;
@@ -102,14 +110,14 @@ public class RoomService {
     GameState game;
     GameState.MatchArchive lastMatch;
     Long allOfflineSince;
+    Long allHumansReconnectDeadline;
+    Long allHumansReconnectDue;
+    Long closedAtTick;
     String computerActionKey;
     long computerActionDue;
     String computerTargetDeal;
     final Map<Integer, String> computerTargets = new HashMap<>();
     final Map<String, AcceptedAction> actions = new HashMap<>();
-    // Captured once at first network failure. Later disconnects cannot extend adjudication.
-    final Map<String, Long> adjudicationDeadlines = new LinkedHashMap<>();
-    final Set<String> failedTeams = new TreeSet<>();
     Map<String, Member> members = new LinkedHashMap<>();
 
     Room(String id) {
@@ -190,6 +198,7 @@ public class RoomService {
   public synchronized List<Summary> list() {
     expireInitialSubscriptions();
     return rooms.values().stream()
+        .filter(r -> r.closedAtTick == null)
         .map(
             r ->
                 new Summary(
@@ -206,7 +215,7 @@ public class RoomService {
     requireRunning();
     expireInitialSubscriptions();
     ensureFree(id);
-    if (rooms.size() >= limits.maxRooms())
+    if (rooms.values().stream().filter(r -> r.closedAtTick == null).count() >= limits.maxRooms())
       throw fail(409, "ROOM_LIMIT_REACHED", "The beta table limit has been reached");
     Room room = new Room(UUID.randomUUID().toString());
     room.hostPlayerId = id.playerId();
@@ -316,17 +325,26 @@ public class RoomService {
     if (!current.equals(roomId)) throw fail(403, "NOT_MEMBER", "Not a member of this room");
     Room room = room(roomId);
     if (room.game != null && room.game.active()) {
-      int departingSeat = member(room, id).seat;
-      room.game.recordForfeit(id.playerId(), departingSeat, "MANUAL_EXIT");
-      String team = GameState.team(departingSeat);
-      if (room.game.phase.equals("FORFEIT_PENDING")) {
-        room.failedTeams.add(team);
-        room.adjudicationDeadlines.remove(id.playerId());
-        advanceAdjudication(room, ticker.getAsLong());
-      } else {
-        room.failedTeams.add(team);
-        finishForfeit(room, "MANUAL_EXIT");
+      Member departing = member(room, id);
+      int seat = departing.seat;
+      room.members.remove(id.playerId());
+      membership.remove(id.playerId());
+      Member replacement = permanentComputer(seat);
+      room.members.put(replacement.identity.playerId(), replacement);
+      room.computerActionKey = null;
+      electConnectedHost(room);
+      if (!hasOnlineHuman(room)) terminateNoHumans(room, "NO_HUMANS_REMAIN");
+      else {
+        if (!paused(room)) room.game.resumeTimer();
+        changed(room);
       }
+      // With no remaining human owners there is nobody authorized to retrieve an archive.
+      if (room.members.values().stream().noneMatch(m -> !m.computer)) {
+        room.members.clear();
+        rooms.remove(room.id);
+        changed(room);
+      }
+      return;
     }
     remove(room, id.playerId());
   }
@@ -346,8 +364,11 @@ public class RoomService {
     m.initialSubscriptionDeadline = null;
     m.reconnectDeadline = null;
     m.reconnectDueTick = null;
-    if (room.game != null && room.game.phase.equals("FORFEIT_PENDING"))
-      advanceAdjudication(room, ticker.getAsLong());
+    m.takeover = false;
+    room.computerActionKey = null;
+    room.allHumansReconnectDeadline = null;
+    room.allHumansReconnectDue = null;
+    if (room.game != null && room.game.active()) electConnectedHost(room);
     if (room.game != null && !paused(room)) room.game.resumeTimer();
     if (wasDisconnected) changed(room);
     return snapshot(room, id);
@@ -364,14 +385,15 @@ public class RoomService {
     if (r.game != null && r.game.active()) {
       r.game.pauseTimer();
       m.disconnectedAt = clock.millis();
-      if (r.game.phase.equals("FORFEIT_PENDING")) {
-        // Newly lost connections during adjudication cannot acquire a fresh grace period.
-        m.reconnectDeadline = null;
-        m.reconnectDueTick = null;
-      } else {
-        m.reconnectDeadline = clock.millis() + GAME_RECONNECT_MS;
-        m.reconnectDueTick = ticker.getAsLong() + GAME_RECONNECT_MS;
+      m.takeover = false;
+      m.reconnectDeadline = clock.millis() + GAME_RECONNECT_MS;
+      m.reconnectDueTick = ticker.getAsLong() + GAME_RECONNECT_MS;
+      r.computerActionKey = null;
+      if (!hasOnlineHuman(r) && r.allHumansReconnectDue == null) {
+        r.allHumansReconnectDeadline = clock.millis() + GAME_RECONNECT_MS;
+        r.allHumansReconnectDue = ticker.getAsLong() + GAME_RECONNECT_MS;
       }
+      electConnectedHost(r);
       changed(r);
     } else if (r.game != null && r.game.terminal()) {
       // Finished participants may reconnect to inspect the retained result; only explicit leave
@@ -390,7 +412,7 @@ public class RoomService {
         && r.members.get(playerId).connections.contains(connection);
   }
 
-  // One authority sweep handles initial subscriptions (5s), active reconnect forfeits (10s),
+  // One authority sweep handles initial subscriptions (5s), active takeover grace (10s),
   // and operation budgets (20s). WAITING disconnects still release immediately.
   @Scheduled(fixedDelay = 100)
   public synchronized void expireInitialSubscriptions() {
@@ -399,31 +421,31 @@ public class RoomService {
     long monotonicNow = ticker.getAsLong();
     for (Room r : new ArrayList<>(rooms.values())) {
       if (r.game != null && r.game.active()) {
-        if (r.game.phase.equals("FORFEIT_PENDING")) {
-          advanceAdjudication(r, monotonicNow);
+        if (!hasOnlineHuman(r)) {
+          if (r.allHumansReconnectDue != null && monotonicNow >= r.allHumansReconnectDue)
+            terminateNoHumans(r, "NO_HUMANS_CONNECTED");
         } else {
-          Set<String> expired = new TreeSet<>();
+          boolean transitioned = false;
           for (Member m : r.members.values()) {
-            if (m.reconnectDueTick != null && monotonicNow >= m.reconnectDueTick) {
-              r.game.recordForfeit(m.identity.playerId(), m.seat, "RECONNECT_TIMEOUT");
-              expired.add(GameState.team(m.seat));
+            if (!m.computer && m.connections.isEmpty() && m.reconnectDueTick != null
+                && monotonicNow >= m.reconnectDueTick) {
+              m.takeover = true;
+              m.reconnectDeadline = null;
+              m.reconnectDueTick = null;
+              transitioned = true;
             }
           }
-          if (!expired.isEmpty()) {
-            r.failedTeams.addAll(expired);
-            for (Member m : r.members.values())
-              if (m.connections.isEmpty()
-                  && m.reconnectDueTick != null
-                  && !r.failedTeams.contains(GameState.team(m.seat)))
-                r.adjudicationDeadlines.put(m.identity.playerId(), m.reconnectDueTick);
-            advanceAdjudication(r, monotonicNow);
+          if (transitioned) {
+            r.computerActionKey = null;
+            if (!paused(r)) r.game.resumeTimer();
+            changed(r);
           }
         }
       }
       boolean computerMoved = advanceComputer(r, monotonicNow);
       if (r.game != null && !paused(r)
           && (!computerMoved || r.game.phase.equals("PRIVILEGE_DECISION"))
-          && r.game.expireOperation()) changed(r);
+          && r.game.expireOperation(automatedSources(r))) changed(r);
       for (Member m : new ArrayList<>(r.members.values())) {
         if (m.initialSubscriptionDeadline != null && now >= m.initialSubscriptionDeadline) {
           remove(r, m.identity.playerId());
@@ -442,9 +464,10 @@ public class RoomService {
     GameState g = r.game;
     Member actor = null;
     for (Member m : r.members.values()) {
-      if (!m.computer) continue;
+      if (!m.automated()) continue;
       GameState.View view = g.view(m.seat, false);
-      if ((g.phase.equals("PRIVILEGE_DECISION") && view.privilege().canChoose())
+      if ((g.phase.equals("REDEAL_DECISION") && g.canChooseRedeal(m.seat, false))
+          || (g.phase.equals("PRIVILEGE_DECISION") && view.privilege().canChoose())
           || (g.phase.equals("BIDDING") && Objects.equals(view.auction().nextSeat(), m.seat))
           || (g.phase.equals("PLAYING") && Objects.equals(view.play().nextSeat(), m.seat))
           || (g.phase.equals("DEAL_RESULT") && g.canAcknowledge(m.seat, false))) {
@@ -464,7 +487,9 @@ public class RoomService {
     }
     if (now < r.computerActionDue) return false;
     int seat = actor.seat;
-    if (g.phase.equals("PRIVILEGE_DECISION")) g.choose(seat, false, "BOT");
+    String source = actor.computer ? "BOT" : "BOT_TAKEOVER";
+    if (g.phase.equals("REDEAL_DECISION")) g.chooseRedeal(seat, true);
+    else if (g.phase.equals("PRIVILEGE_DECISION")) g.choose(seat, false, source);
     else if (g.phase.equals("BIDDING")) {
       if (!g.dealId.equals(r.computerTargetDeal)) {
         r.computerTargetDeal = g.dealId;
@@ -473,10 +498,10 @@ public class RoomService {
       String target = r.computerTargets.computeIfAbsent(seat,
           ignored -> ComputerStrategy.longestSuit(g.hands.get(seat), random));
       GameState.LegalCall call = ComputerStrategy.call(seat, target, g.highest);
-      g.call(seat, call.type(), call.level(), call.strain(), "BOT");
+      g.call(seat, call.type(), call.level(), call.strain(), source);
     } else if (g.phase.equals("PLAYING")) {
       var play = g.view(null, false).play();
-      g.play(seat, ComputerStrategy.play(seat, g.hands.get(seat), play.currentTrick(), g.contract.strain(), random), "BOT");
+      g.play(seat, ComputerStrategy.play(seat, g.hands.get(seat), play.currentTrick(), g.contract.strain(), random), source);
     } else g.acknowledge(seat);
     r.computerActionKey = null;
     changed(r);
@@ -485,6 +510,15 @@ public class RoomService {
 
   private void cleanupIdle(long now) {
     for (Room r : new ArrayList<>(rooms.values())) {
+      if (r.closedAtTick != null) {
+        if (now - r.closedAtTick >= limits.finishedRoomIdleMs()) {
+          for (Member m : r.members.values()) membership.remove(m.identity.playerId(), r.id);
+          r.members.clear();
+          rooms.remove(r.id);
+          changed(r);
+        }
+        continue;
+      }
       boolean offlineTerminal = r.game != null && r.game.terminal()
           && r.members.values().stream().filter(m -> !m.computer).allMatch(m -> m.connections.isEmpty());
       if (!offlineTerminal) r.allOfflineSince = null;
@@ -519,43 +553,43 @@ public class RoomService {
     if (stopping) throw fail(503, "SERVER_MAINTENANCE", "Server is stopping; reconnect later");
   }
 
-  // A failed team cannot erase failure by returning late. Only the opponent's already-running
-  // grace can delay the final decision; newly disconnected players never start another window.
-  private void advanceAdjudication(Room r, long now) {
-    if (r.failedTeams.isEmpty() || !r.game.active()) return;
-    boolean updated = !r.game.phase.equals("FORFEIT_PENDING");
-    for (var entry : new ArrayList<>(r.adjudicationDeadlines.entrySet())) {
-      Member m = r.members.get(entry.getKey());
-      if (m == null || !m.connections.isEmpty()) {
-        r.adjudicationDeadlines.remove(entry.getKey());
-        updated = true;
-      } else if (now >= entry.getValue()) {
-        r.game.recordForfeit(m.identity.playerId(), m.seat, "RECONNECT_TIMEOUT");
-        r.failedTeams.add(GameState.team(m.seat));
-        r.adjudicationDeadlines.remove(entry.getKey());
-        updated = true;
-      }
-    }
-    if (r.failedTeams.size() == 2 || r.adjudicationDeadlines.isEmpty()) {
-      finishForfeit(r, r.failedTeams.size() == 2 ? "BOTH_TEAMS_FAILED" : "RECONNECT_TIMEOUT");
-      changed(r);
-    } else if (updated) {
-      List<Integer> waiting =
-          r.adjudicationDeadlines.keySet().stream()
-              .map(r.members::get)
-              .filter(Objects::nonNull)
-              .map(m -> m.seat)
-              .sorted()
-              .toList();
-      r.game.setPendingForfeit(r.failedTeams, waiting);
-      changed(r);
-    }
+  private boolean hasOnlineHuman(Room r) {
+    return r.members.values().stream().anyMatch(Member::humanOnline);
   }
 
-  private void finishForfeit(Room r, String reason) {
-    r.game.finishForfeit(reason, r.failedTeams);
-    r.adjudicationDeadlines.clear();
+  private Map<Integer, String> automatedSources(Room r) {
+    Map<Integer, String> sources = new HashMap<>();
+    for (Member m : r.members.values()) if (m.automated())
+      sources.put(m.seat, m.computer ? "BOT" : "BOT_TAKEOVER");
+    return sources;
+  }
+
+  private Member permanentComputer(int seat) {
+    Identity bot = new Identity(null, "bot-" + UUID.randomUUID(), "電腦" + List.of("一", "二", "三", "四").get(seat));
+    Member replacement = new Member(bot, seat, clock.millis());
+    replacement.computer = true;
+    replacement.ready = true;
+    replacement.disconnectedAt = null;
+    replacement.initialSubscriptionDeadline = null;
+    return replacement;
+  }
+
+  private void terminateNoHumans(Room r, String reason) {
+    if (r.game == null || !r.game.active()) return;
+    r.game.finishWithoutHumans(reason);
+    r.closedAtTick = ticker.getAsLong();
+    r.computerActionKey = null;
+    r.allHumansReconnectDue = null;
+    r.allHumansReconnectDeadline = null;
     clearGameDeadlines(r);
+    changed(r);
+  }
+
+  private void electConnectedHost(Room r) {
+    Member host = r.members.get(r.hostPlayerId);
+    if (host == null || !host.humanOnline())
+      r.hostPlayerId = r.members.values().stream().filter(Member::humanOnline)
+          .min(Comparator.comparingInt(m -> m.seat)).map(m -> m.identity.playerId()).orElse(null);
   }
 
   private void remove(Room r, String playerId) {
@@ -579,6 +613,8 @@ public class RoomService {
   }
 
   private void ensureFree(Identity id) {
+    Room previous = rooms.get(membership.get(id.playerId()));
+    if (previous != null && previous.closedAtTick != null) remove(previous, id.playerId());
     if (membership.containsKey(id.playerId()))
       throw fail(409, "ALREADY_IN_ROOM", "Leave your current room first");
   }
@@ -628,6 +664,7 @@ public class RoomService {
 
   private boolean canRematch(Room r, Identity viewer) {
     return viewer != null
+        && r.closedAtTick == null
         && r.game != null
         && r.game.phase.equals("MATCH_RESULT")
         && Objects.equals(r.hostPlayerId, viewer.playerId())
@@ -646,11 +683,11 @@ public class RoomService {
                         m.identity.displayName(),
                         m.seat,
                         m.ready,
-                        m.present(),
+                        m.computer || !m.connections.isEmpty(),
                         m.disconnectedAt,
                         m.reconnectDeadline,
                         m.initialSubscriptionDeadline,
-                        GameState.team(m.seat), m.computer ? "BOT" : "HUMAN"))
+                        GameState.team(m.seat), m.computer ? "BOT" : "HUMAN", m.controlMode()))
             .toList();
     return new Snapshot(
         r.id,
@@ -669,32 +706,35 @@ public class RoomService {
         archiveParticipant(r, viewer) ? r.lastMatch : null,
         r.game == null
             ? null
-            : r.game.view(viewer == null ? null : member(r, viewer).seat, paused(r)),
-        viewer == null ? null : you(r, member(r, viewer)));
+            : r.game.view(viewer == null ? null : member(r, viewer).seat,
+                paused(r), viewer != null && member(r, viewer).takeover),
+        viewer == null ? null : you(r, member(r, viewer)),
+        r.allHumansReconnectDeadline);
   }
 
   private boolean paused(Room r) {
     return r.game != null
         && r.game.active()
-        && (r.game.phase.equals("FORFEIT_PENDING")
-            || r.members.values().stream().anyMatch(m -> !m.present()));
+        && (!hasOnlineHuman(r) || r.members.values().stream().anyMatch(m -> !m.present()));
   }
 
   private You you(Room r, Member m) {
+    boolean unavailable = paused(r) || m.takeover;
     return new You(
         m.identity.playerId(),
         m.seat,
         GameState.team(m.seat),
         r.game == null ? List.of() : r.game.hands.getOrDefault(m.seat, List.of()),
-        r.game == null ? List.of() : r.game.legalCalls(m.seat, paused(r)),
-        r.game == null ? List.of() : r.game.legalCards(m.seat, paused(r)),
-        r.game != null && r.game.canAcknowledge(m.seat, paused(r)));
+        r.game == null ? List.of() : r.game.legalCalls(m.seat, unavailable),
+        r.game == null ? List.of() : r.game.legalCards(m.seat, unavailable),
+        r.game != null && r.game.canAcknowledge(m.seat, unavailable));
   }
 
   private void clearGameDeadlines(Room r) {
     for (Member m : r.members.values()) {
       m.reconnectDeadline = null;
       m.reconnectDueTick = null;
+      m.takeover = false;
     }
   }
 
@@ -774,6 +814,21 @@ public class RoomService {
     return r.game;
   }
 
+  public synchronized CommandResult redeal(String roomId, Identity id, String gameId,
+      String dealId, String actionId, Long expected, boolean redeal) {
+    requireRunning();
+    expireInitialSubscriptions();
+    Room r = room(roomId);
+    Member m = member(r, id);
+    String signature = "REDEAL:" + gameId + ":" + dealId + ":" + redeal;
+    AcceptedAction old = accepted(r, id, actionId, signature);
+    if (old != null) return replay(r, id, actionId, old);
+    revision(r, expected);
+    if (m.takeover) throw fail(409, "CONTROL_TAKEN_OVER", "Reconnect to resume control before acting");
+    activeGame(r, gameId, dealId).chooseRedeal(m.seat, redeal);
+    return applied(r, id, actionId, signature);
+  }
+
   public synchronized CommandResult privilege(
       String roomId,
       Identity id,
@@ -789,6 +844,7 @@ public class RoomService {
     String signature = "PRIVILEGE:" + gameId + ":" + dealId + ":" + use;
     AcceptedAction old = accepted(r, id, actionId, signature);
     if (old != null) return replay(r, id, actionId, old);
+    if (m.takeover) throw fail(409, "CONTROL_TAKEN_OVER", "Reconnect to resume control before acting");
     revision(r, expected);
     activeGame(r, gameId, dealId).choose(m.seat, use);
     return applied(r, id, actionId, signature);
@@ -811,6 +867,7 @@ public class RoomService {
     String signature = "CALL:" + gameId + ":" + dealId + ":" + type + ":" + level + ":" + strain;
     AcceptedAction old = accepted(r, id, actionId, signature);
     if (old != null) return replay(r, id, actionId, old);
+    if (m.takeover) throw fail(409, "CONTROL_TAKEN_OVER", "Reconnect to resume control before acting");
     revision(r, expected);
     activeGame(r, gameId, dealId).call(m.seat, type, level, strain);
     return applied(r, id, actionId, signature);
@@ -831,6 +888,7 @@ public class RoomService {
     String signature = "PLAY:" + gameId + ":" + dealId + ":" + card;
     AcceptedAction old = accepted(r, id, actionId, signature);
     if (old != null) return replay(r, id, actionId, old);
+    if (m.takeover) throw fail(409, "CONTROL_TAKEN_OVER", "Reconnect to resume control before acting");
     revision(r, expected);
     activeGame(r, gameId, dealId).play(m.seat, card);
     return applied(r, id, actionId, signature);
@@ -854,6 +912,7 @@ public class RoomService {
     String signature = "ACK_RESULT:" + gameId + ":" + dealId;
     AcceptedAction old = accepted(r, id, actionId, signature);
     if (old != null) return replay(r, id, actionId, old);
+    if (m.takeover) throw fail(409, "CONTROL_TAKEN_OVER", "Reconnect to resume control before acting");
     revision(r, expected);
     activeGame(r, gameId, dealId).acknowledge(m.seat);
     return applied(r, id, actionId, signature);
@@ -877,7 +936,7 @@ public class RoomService {
       throw fail(409, "WRONG_PHASE", "Rematch requires a connected host and finished game");
     // The terminal transition already captured the immutable participant-filtered archive.
     for (Member m : new ArrayList<>(r.members.values())) {
-      if (!m.present()) {
+      if (!m.computer && !m.humanOnline()) {
         r.members.remove(m.identity.playerId());
         membership.remove(m.identity.playerId());
       } else {
@@ -887,8 +946,8 @@ public class RoomService {
       }
     }
     clearGameDeadlines(r);
-    r.adjudicationDeadlines.clear();
-    r.failedTeams.clear();
+    r.allHumansReconnectDeadline = null;
+    r.allHumansReconnectDue = null;
     r.game = null;
     r.computerActionKey = null;
     r.computerTargetDeal = null;

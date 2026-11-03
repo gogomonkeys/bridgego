@@ -13,6 +13,7 @@ class TurnDirectionTest {
   void auctionMovesLeftButOpeningAndAllPlayMoveRight(int bidder) {
     var clock = new RoomServiceTest.MutableClock();
     var game = new GameState(new SecureRandom(), clock::millis);
+    KeepDealFixture.keep(game);
     for (int seat = 0; seat < 4; seat++) game.choose(seat, false);
     assertEquals(0, game.view(0, false).dealerSeat());
     for (int seat = 0; seat < bidder; seat++) {

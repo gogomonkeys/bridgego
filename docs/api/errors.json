@@ -1,0 +1,667 @@
+{
+  "description": "Stable application errors. httpStatuses refer to HTTP responses; INVALID_MESSAGE is a WS JSON error, not an HTTP response. Message text is informative, never branch logic. Do not infer retry safety from status alone.",
+  "applicationErrors": [
+    {
+      "code": "ACTION_ID_REUSED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "actionId already names a different command",
+      "category": "domain",
+      "meaning": "同一actionId對應不同payload",
+      "handling": "排查命令ID重用；不可修改原重試payload",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "ALREADY_IN_ROOM",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Leave your current room first",
+      "category": "domain",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "CHOICE_LOCKED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java"
+      ],
+      "exampleMessage": "This team's choice is already fixed",
+      "category": "domain",
+      "meaning": "本次選擇已鎖定（倒牌或特權）",
+      "handling": "保留既有選擇，不重送不同內容",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "CONNECTION_LIMIT",
+      "httpStatuses": [
+        429
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Too many connections for this guest",
+      "category": "domain",
+      "meaning": "可用連線額度耗盡",
+      "handling": "關閉多餘分頁後核對原席位再重連",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "CONTROL_TAKEN_OVER",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Reconnect to resume control before acting",
+      "category": "domain",
+      "meaning": "原真人席位目前由電腦暫代，尚未恢復控制",
+      "handling": "以原訪客身分重新訂閱房間，取得最新快照後才操作；不要重送舊動作",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "GAME_IN_PROGRESS",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "No replacement players after a game starts",
+      "category": "domain",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "GAME_PAUSED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Waiting for disconnected players",
+      "category": "domain",
+      "meaning": "有人斷線，既有遊戲暫停",
+      "handling": "等候伺服器恢復或裁定，不用客戶端倒數推進",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "HOST_OFFLINE",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Host must connect before managing computer players",
+      "category": "domain",
+      "meaning": "房主連線未建立",
+      "handling": "恢復房主連線再操作",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "HOST_ONLY",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Only the host can manage computer players",
+      "category": "domain",
+      "meaning": "不是房主",
+      "handling": "僅提供有權限的操作",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "ILLEGAL_CALL",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java"
+      ],
+      "exampleMessage": "Bid must exceed the current bid",
+      "category": "domain",
+      "meaning": "叫價未超過目前最高或不合法",
+      "handling": "依legalCalls重新選擇",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "ILLEGAL_CARD",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java"
+      ],
+      "exampleMessage": "Choose a legal card from your hand",
+      "category": "domain",
+      "meaning": "牌不在手上或未遵守跟花規則",
+      "handling": "依legalCards重新選擇",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_ACTION_ID",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "actionId must be a UUID",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_CALL",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java"
+      ],
+      "exampleMessage": "PASS has no level or strain",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_CARD",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java"
+      ],
+      "exampleMessage": "Card requires valid suit and rank 2..14",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_JSON",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomController.java"
+      ],
+      "exampleMessage": "Invalid request body",
+      "category": "validation",
+      "meaning": "HTTP JSON無法解析",
+      "handling": "排查序列化與Content-Type",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_MESSAGE",
+      "httpStatuses": [],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Expected a JSON object",
+      "category": "websocket-protocol",
+      "meaning": "WS訊息不是合法subscribe/ping格式",
+      "handling": "修正協定；伺服器會嘗試發error後關閉1008",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_NAME",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/Nickname.java"
+      ],
+      "exampleMessage": "Display name must be 1–5 visible characters without control characters",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_PRIVILEGE",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomController.java"
+      ],
+      "exampleMessage": "use must be a boolean",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_READY",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomController.java"
+      ],
+      "exampleMessage": "ready must be a boolean",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_REDEAL",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomController.java"
+      ],
+      "exampleMessage": "redeal must be a boolean",
+      "category": "domain",
+      "meaning": "倒牌選擇欄位不是布林值",
+      "handling": "檢查redeal為true或false；不能傳字串或省略",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_REVISION",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "expectedRevision is required",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_SEAT",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Seat must be between 0 and 3",
+      "category": "validation",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "NOT_COMPUTER_PLAYER",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Only a computer player can be removed",
+      "category": "domain",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "NOT_MEMBER",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java",
+        "backend/src/main/java/com/bridge/room/RoomService.java",
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Invalid participant seat",
+      "category": "domain",
+      "meaning": "不再是目前房間成員",
+      "handling": "同步身分/席位，不自動重新加入",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "NOT_PARTICIPANT",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Only original match participants may read its archive",
+      "category": "domain",
+      "meaning": "不是上一場的原參與者",
+      "handling": "停止讀取該紀錄",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "NOT_YOUR_TURN",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java"
+      ],
+      "exampleMessage": "Wait for your turn",
+      "category": "domain",
+      "meaning": "叫牌或出牌不是目前行動席位",
+      "handling": "等候最新快照，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "NO_LAST_MATCH",
+      "httpStatuses": [
+        404
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "No completed match is archived",
+      "category": "domain",
+      "meaning": "沒有上一場結算",
+      "handling": "顯示空狀態",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "RATE_LIMITED",
+      "httpStatuses": [
+        429
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/BetaRequestFilter.java"
+      ],
+      "exampleMessage": "Too many requests; try again later",
+      "category": "domain",
+      "meaning": "HTTP或WS流量超出上限",
+      "handling": "HTTP依Retry-After等待；WS依當前成員狀態恢復，勿自動重送改寫命令",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "REDEAL_NOT_ELIGIBLE",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java"
+      ],
+      "exampleMessage": "This hand does not qualify for a redeal",
+      "category": "domain",
+      "meaning": "自己的手牌不符合倒牌資格",
+      "handling": "依最新私人快照eligible/canChoose決定操作；不得推測其他玩家資格",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "REQUEST_TOO_LARGE",
+      "httpStatuses": [
+        413
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/BetaRequestFilter.java",
+        "backend/src/main/java/com/bridge/room/RoomController.java"
+      ],
+      "exampleMessage": "Request body is too large",
+      "category": "domain",
+      "meaning": "請求超過16KiB界線",
+      "handling": "排查payload，禁止原樣密集重試",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "ROOM_FULL",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Room already has four players",
+      "category": "domain",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "ROOM_LIMIT_REACHED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "The beta table limit has been reached",
+      "category": "domain",
+      "meaning": "目前房間數達上限",
+      "handling": "加入可用等候室或等待其他房間釋出",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "ROOM_NOT_FOUND",
+      "httpStatuses": [
+        404
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Room does not exist",
+      "category": "domain",
+      "meaning": "房間不存在或已清除",
+      "handling": "回大廳，由使用者選擇房間",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "SEAT_OCCUPIED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Seat is occupied",
+      "category": "domain",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "SERVER_MAINTENANCE",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java",
+        "backend/src/main/java/com/bridge/room/BetaRequestFilter.java"
+      ],
+      "exampleMessage": "Server is stopping; reconnect later",
+      "category": "domain",
+      "meaning": "服務正在停止",
+      "handling": "等待服務就緒並核對epoch；不保證舊場次延續",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "SESSION_CAPACITY",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Guest capacity reached; try again later",
+      "category": "domain",
+      "meaning": "訪客session容量上限",
+      "handling": "稍後再建立；不要密集重試",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "STALE_DEAL",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Deal no longer matches",
+      "category": "domain",
+      "meaning": "dealId已不是目前發牌",
+      "handling": "同步新手牌，請玩家重新選擇",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "STALE_GAME",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Game no longer matches",
+      "category": "domain",
+      "meaning": "gameId已不是目前場次",
+      "handling": "同步最新場次，丟棄舊場次未提交意圖",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "STALE_REVISION",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Refresh the room before trying again",
+      "category": "domain",
+      "meaning": "客戶端快照版本過期",
+      "handling": "重新同步，請玩家再次確認後送出新意圖",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "START_NOT_READY",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Four ready and connected players are required",
+      "category": "domain",
+      "meaning": "輸入或目前席位/流程不符合要求",
+      "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "UNAUTHORIZED",
+      "httpStatuses": [
+        401
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java",
+        "backend/src/main/java/com/bridge/room/RoomController.java",
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Guest session is missing or expired",
+      "category": "domain",
+      "meaning": "訪客憑證缺少、失效或過期",
+      "handling": "重新建立身分；不要回填舊token",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "WRONG_PHASE",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GameState.java",
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Not viewing a deal result",
+      "category": "domain",
+      "meaning": "目前階段不允許此操作",
+      "handling": "同步後顯示該階段可用控制",
+      "automaticMutationRetry": false
+    }
+  ],
+  "websocketCloseCodes": [
+    {
+      "code": 1000,
+      "meaning": "正常關閉",
+      "handling": "依最新成員狀態處理，不假設需要重連"
+    },
+    {
+      "code": 1001,
+      "meaning": "頁面或服務離開",
+      "handling": "回到頁面後核對狀態"
+    },
+    {
+      "code": 1006,
+      "meaning": "瀏覽器觀測未收到關閉訊框；不可作為wire close送出",
+      "handling": "未知根因，對照時間/visibility/伺服器log，不直接判定伺服器崩潰"
+    },
+    {
+      "code": 1008,
+      "meaning": "訂閱/訊息規則或連線限制不符",
+      "handling": "先看前一個JSON error code"
+    },
+    {
+      "code": 1011,
+      "meaning": "傳輸、輸出排隊或write timeout等伺服器WS失敗",
+      "handling": "對照安全日誌cause與時間，不能只憑1011定根因"
+    },
+    {
+      "code": 1012,
+      "meaning": "SERVER_STOPPING維護停止",
+      "handling": "檢查健康與新epoch，不重播操作"
+    },
+    {
+      "code": 4001,
+      "meaning": "原生Ping/Pong心跳逾時",
+      "handling": "恢復連線與原席位；系統背景/網路/負載都可能相關"
+    },
+    {
+      "code": 4002,
+      "meaning": "首次WS訂閱逾時",
+      "handling": "核對建立WS後是否立即subscribe，與HTTP加入5秒席位期限分開"
+    },
+    {
+      "code": 4003,
+      "meaning": "MEMBERSHIP_ENDED成員身分已結束",
+      "handling": "停止原房訂閱，不能自動冒充重入"
+    }
+  ],
+  "clientOnlyErrors": [
+    {
+      "code": "SERVER_RESTARTED",
+      "meaning": "已確認instanceEpoch改變",
+      "handling": "原訪客與記憶體房間失效，重新加入"
+    },
+    {
+      "code": "IDENTITY_CHANGED",
+      "meaning": "非同步回應已不屬於目前身分/epoch/generation",
+      "handling": "忽略過期回應，不還原舊身分"
+    },
+    {
+      "code": "HttpResponseError",
+      "meaning": "HTTP回應為空、非JSON或格式異常；不是穩定wire code",
+      "handling": "改寫結果未知，保留原actionId，禁止自動換ID重播"
+    },
+    {
+      "code": "NETWORK_ERROR",
+      "meaning": "此為排查分類，不是實際wire code；fetch網路失敗",
+      "handling": "同樣不得推定改寫未執行"
+    }
+  ]
+}

@@ -17,8 +17,10 @@ export default function TableSeats({
     <>
       {[0, 1, 2, 3].map((seat) => {
         const player = room.players.find((p) => p.seat === seat);
-        const roster = room.game?.roster ?? room.players;
+        const roster = room.players;
         const label = playerLabel(roster, seat);
+        const takeover = player?.controlMode === "BOT_TAKEOVER";
+        const offline = player?.connected === false && !takeover;
         const captured =
           room.game?.play?.completedTricks.filter(
             (trick) => trick.winnerSeat === seat,
@@ -59,28 +61,30 @@ export default function TableSeats({
                 {player?.playerId === room.hostPlayerId ? "· 房主" : ""}
               </small>
               <small
-                className={`seat-presence ${player?.connected === false ? "is-offline" : ""}`}
-                title={player?.connected === false ? `${label}離線` : undefined}
-                aria-label={
-                  player?.connected === false ? `${label}離線` : undefined
-                }
+                className={`seat-presence ${offline ? "is-offline" : ""}`}
+                title={offline ? `${label}離線` : undefined}
+                aria-label={offline ? `${label}離線` : undefined}
               >
                 {player
-                  ? player.playerType === "BOT"
-                    ? room.phase === "WAITING"
-                      ? "電腦 · 已準備"
-                      : seat === turnSeat
-                        ? "電腦 · 輪到"
-                        : "電腦玩家"
-                    : player.connected
+                  ? takeover
+                    ? "電腦代打"
+                    : player.playerType === "BOT"
                       ? room.phase === "WAITING"
-                        ? player.ready
-                          ? "✓ 已準備"
-                          : "尚未準備"
+                        ? "電腦 · 已準備"
                         : seat === turnSeat
-                          ? "● 目前輪到"
-                          : "● 在線"
-                      : "○ 離線"
+                          ? "電腦 · 輪到"
+                          : "電腦玩家"
+                      : player.connected
+                        ? room.phase === "WAITING"
+                          ? player.ready
+                            ? "✓ 已準備"
+                            : "尚未準備"
+                          : seat === turnSeat
+                            ? "● 目前輪到"
+                            : "● 在線"
+                        : player.controlMode === "RECONNECTING"
+                          ? "○ 重連中"
+                          : "○ 離線"
                   : "空位"}
               </small>
             </div>

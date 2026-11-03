@@ -100,7 +100,7 @@ class DealResultTest {
     var result =
         f.service.acknowledgeResult(
             f.room, f.players[3], old.game().gameId(), old.game().dealId(), id, old.revision());
-    assertEquals("PRIVILEGE_DECISION", result.room().phase());
+    assertTrue(Set.of("PRIVILEGE_DECISION", "REDEAL_DECISION").contains(result.room().phase()));
     assertEquals(2, result.room().game().dealIndex());
     assertEquals(1, result.room().game().dealerSeat());
     assertNotEquals(old.game().dealId(), result.room().game().dealId());
@@ -131,7 +131,7 @@ class DealResultTest {
                 old.game().dealId(),
                 GameFlowTest.action(),
                 old.revision()));
-    assertEquals("PRIVILEGE_DECISION", f.view(0).phase());
+    assertTrue(Set.of("PRIVILEGE_DECISION", "REDEAL_DECISION").contains(f.view(0).phase()));
     assertEquals(20_000, f.view(0).game().operationTimer().remainingMs());
   }
 
@@ -139,7 +139,7 @@ class DealResultTest {
   void largeClockAdvanceOnlyCreatesNextPrivilegePhase() {
     f.clock.now.addAndGet(100_000);
     var s = f.view(0);
-    assertEquals("PRIVILEGE_DECISION", s.phase());
+    assertTrue(Set.of("PRIVILEGE_DECISION", "REDEAL_DECISION").contains(s.phase()));
     assertEquals(20_000, s.game().operationTimer().remainingMs());
     assertEquals(1, s.game().completedDeals());
   }
@@ -157,7 +157,7 @@ class DealResultTest {
     f.service.disconnect(f.room, f.players[0].playerId(), "socket-0");
     assertEquals(List.of(1), f.view(0).game().resultAcknowledgedSeats());
     f.clock.now.addAndGet(84_000);
-    assertEquals("PRIVILEGE_DECISION", f.view(0).phase());
+    assertTrue(Set.of("PRIVILEGE_DECISION", "REDEAL_DECISION").contains(f.view(0).phase()));
   }
 
   @Test
@@ -166,12 +166,12 @@ class DealResultTest {
     f.service.disconnect(f.room, f.players[0].playerId(), "socket-0");
     f.clock.now.addAndGet(10_000);
     var s = f.view(1);
-    assertEquals("MATCH_RESULT", s.phase());
-    assertEquals("FORFEIT", s.game().matchResult().outcome());
+    assertEquals("DEAL_RESULT", s.phase());
+    assertNull(s.game().matchResult());
     assertEquals(before.game().completedDealResults(), s.game().completedDealResults());
     assertEquals(before.game().teamTotals(), s.game().teamTotals());
     assertEquals(before.game().dealId(), s.game().dealId());
-    assertNull(s.game().operationTimer());
+    assertNotNull(s.game().operationTimer());
   }
 
   @Test

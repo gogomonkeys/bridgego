@@ -82,6 +82,8 @@ public class RoomController {
 
   record StartRequest(String actionId, Long expectedRevision) {}
 
+  record RedealRequest(String actionId, Long expectedRevision, Boolean redeal) {}
+
   record PrivilegeRequest(String actionId, Long expectedRevision, Boolean use) {}
 
   record PlayRequest(String actionId, Long expectedRevision, GameState.Card card) {}
@@ -111,6 +113,17 @@ public class RoomController {
       @RequestHeader(value = "Authorization", required = false) String auth,
       @RequestBody StartRequest request) {
     return service.start(id, identity(auth), request.actionId(), request.expectedRevision());
+  }
+
+  @PutMapping("/rooms/{id}/games/{gameId}/deals/{dealId}/redeal")
+  public RoomService.CommandResult redeal(@PathVariable String id, @PathVariable String gameId,
+      @PathVariable String dealId,
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestBody RedealRequest request) {
+    RoomService.Identity who = identity(auth);
+    if (request.redeal() == null)
+      throw RoomService.fail(400, "INVALID_REDEAL", "redeal must be a boolean");
+    return service.redeal(id, who, gameId, dealId, request.actionId(), request.expectedRevision(), request.redeal());
   }
 
   @PutMapping("/rooms/{id}/games/{gameId}/deals/{dealId}/privilege")

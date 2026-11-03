@@ -40,7 +40,9 @@ class GameFlowTest {
   }
 
   RoomService.Snapshot start() {
-    return service.start(room, players[0], action(), view(0).revision()).room();
+    service.start(room, players[0], action(), view(0).revision());
+    KeepDealFixture.keep(service, room, players);
+    return view(0);
   }
 
   RoomService.Snapshot vote(int seat, boolean use) {
@@ -244,6 +246,7 @@ class GameFlowTest {
     bidding();
     for (String strain : GameState.STRAINS) {
       var g = new GameState(new java.security.SecureRandom());
+      KeepDealFixture.keep(g);
       g.choose(0, true);
       g.choose(1, true);
       g.call(0, "BID", level, strain);
@@ -276,6 +279,7 @@ class GameFlowTest {
     bidding();
     var old = view(0);
     for (int i = 0; i < 4; i++) call(i, "PASS", null, null);
+    KeepDealFixture.keep(service, room, players);
     var fresh = view(0);
     assertEquals(old.game().gameId(), fresh.game().gameId());
     assertNotEquals(old.game().dealId(), fresh.game().dealId());
@@ -367,30 +371,31 @@ class GameFlowTest {
   }
 
   @Test
-  void exactlyTenSecondsAbortsWithoutSettlementAndNoSeatTakeover() {
+  void exactlyTenSecondsTakesOverWithoutSettlementAndOriginalCanReclaim() {
     start();
     service.disconnect(room, players[0].playerId(), "socket-0");
     failure("GAME_IN_PROGRESS", () -> service.join(room, service.createSession("fifth")));
     clock.now.addAndGet(10000);
     service.expireInitialSubscriptions();
     var s = view(1);
-    assertEquals("MATCH_RESULT", s.phase());
-    assertEquals("RECONNECT_TIMEOUT", s.game().matchResult().reason());
+    assertEquals("PRIVILEGE_DECISION", s.phase());
+    assertEquals("BOT_TAKEOVER", s.players().get(0).controlMode());
     assertEquals(4, s.players().size());
     assertEquals(room, service.me(players[0]).roomId());
     assertTrue(s.game().completedDealResults().isEmpty());
     assertEquals(Map.of("NS", 0, "EW", 0), s.game().teamTotals());
-    assertEquals("MATCH_RESULT", service.connect(room, players[0], "late").phase());
+    assertEquals("PRIVILEGE_DECISION", service.connect(room, players[0], "late").phase());
   }
 
   @Test
-  void activeManualLeaveAbortsImmediatelyIncludingOtherOfflineSeats() {
+  void activeManualLeaveReplacesSeatAndPreservesOtherOfflineGrace() {
     start();
     service.disconnect(room, players[2].playerId(), "socket-2");
     service.leave(room, players[0]);
     var s = view(1);
-    assertEquals("MATCH_RESULT", s.phase());
-    assertEquals("MANUAL_EXIT", s.game().matchResult().reason());
+    assertEquals("PRIVILEGE_DECISION", s.phase());
+    assertEquals("BOT", s.players().get(0).playerType());
+    assertTrue(s.game().paused());
     assertNull(service.me(players[0]).roomId());
     assertEquals(room, service.me(players[2]).roomId());
     assertEquals(0, s.game().completedDeals());
@@ -444,7 +449,8 @@ class GameFlowTest {
     clock.now.addAndGet(10_000);
     service.expireInitialSubscriptions();
     assertEquals("REPLAYED", service.start(room, players[0], id, expected).outcome());
-    assertEquals("MATCH_RESULT", view(1).phase());
+    // Backpressure pauses the initial phase before optional KEEP can be sent.
+    assertEquals(accepted.room().phase(), view(1).phase());
     assertTrue(view(1).game().completedDealResults().isEmpty());
   }
 }

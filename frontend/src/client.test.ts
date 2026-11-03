@@ -1472,3 +1472,54 @@ describe("computer seat commands", () => {
     ).toHaveLength(0);
   });
 });
+
+describe("private redeal commands", () => {
+  it.each([true, false])(
+    "submits choice %s with captured deal and revision using PUT",
+    async (choice) => {
+      const { client } = await setup();
+      const socket = MockSocket.instances[0];
+      socket.open();
+      const current = gameRoom("REDEAL_DECISION");
+      socket.receive({ type: "snapshot", room: current });
+      fetchMock.mockResolvedValueOnce(
+        json({
+          outcome: "APPLIED",
+          room: { ...current, revision: current.revision + 1 },
+        }),
+      );
+      await client.redeal(choice);
+      const [path, options] = fetchMock.mock.calls.at(-1)!;
+      expect(path).toBe(
+        `/api/rooms/${current.roomId}/games/${current.game!.gameId}/deals/${current.game!.dealId}/redeal`,
+      );
+      expect(options.method).toBe("PUT");
+      expect(JSON.parse(options.body)).toMatchObject({
+        redeal: choice,
+        expectedRevision: current.revision,
+        actionId: expect.any(String),
+      });
+    },
+  );
+  it("refreshes a stale deal without replaying the choice on new cards", async () => {
+    const { client, getClientState } = await setup();
+    const socket = MockSocket.instances[0];
+    socket.open();
+    const current = gameRoom("REDEAL_DECISION");
+    socket.receive({ type: "snapshot", room: current });
+    const next = gameRoom("REDEAL_DECISION");
+    next.revision = current.revision + 2;
+    next.game!.dealId = "new-deal";
+    fetchMock
+      .mockResolvedValueOnce(
+        json({ code: "STALE_DEAL", message: "old deal" }, 409),
+      )
+      .mockResolvedValueOnce(json(next));
+    await client.redeal(true);
+    expect(getClientState().room?.game?.dealId).toBe("new-deal");
+    expect(
+      fetchMock.mock.calls.filter(([path]) => String(path).endsWith("/redeal")),
+    ).toHaveLength(1);
+    expect(getClientState().pendingAction).toBeNull();
+  });
+});

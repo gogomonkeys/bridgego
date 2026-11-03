@@ -1,9 +1,14 @@
 """Independent loopback-only black-box acceptance. Run with live backend on :8080."""
-import asyncio, json, time, urllib.request, urllib.error
+import asyncio, json, time, os, urllib.request, urllib.error
+from urllib.parse import urlsplit
 from pathlib import Path
 import websockets
 from raw_ws import raw_socket
-BASE='http://127.0.0.1:8080'
+BASE=os.environ.get('BRIDGE_BASE_URL','http://127.0.0.1:8080').rstrip('/')
+_base=urlsplit(BASE)
+if _base.scheme!='http' or _base.hostname not in ('127.0.0.1','localhost','::1'):
+    raise ValueError('Integration tests require an HTTP loopback base')
+WS_BASE='ws://'+_base.netloc
 results=[]
 def api(method,path,token=None,data=None):
     headers={'Content-Type':'application/json'}
@@ -24,7 +29,7 @@ def session(n):
 class Client:
     def __init__(self,u,r,heartbeat=True): self.u=u;self.r=r;self.heartbeat=heartbeat;self.snaps=[];self.errors=[]
     async def connect(self):
-        self.ws=await websockets.connect('ws://127.0.0.1:8080/ws')
+        self.ws=await websockets.connect(WS_BASE+'/ws')
         await self.ws.send(json.dumps({'type':'subscribe','token':self.u['token'],'roomId':self.r}))
         self.reader=asyncio.create_task(self.read()); self.pinger=asyncio.create_task(self.ping()) if self.heartbeat else None
         return self
