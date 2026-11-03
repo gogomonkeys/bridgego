@@ -15,7 +15,7 @@ room.you.ownHand=[{suit:"SPADE",rank:14},{suit:"SPADE",rank:13},{suit:"SPADE",ra
 room.you.legalCards=room.you.ownHand.filter(card=>card.suit==="HEART");
 room.you.legalCalls=[{type:"PASS",level:null,strain:null},{type:"BID",level:2,strain:"HEART"},{type:"BID",level:2,strain:"SPADE"},{type:"BID",level:2,strain:"NO_TRUMP"},{type:"BID",level:3,strain:"CLUB"}];
 if(params.has("allbids"))room.you.legalCalls=[{type:"PASS",level:null,strain:null},...Array.from({length:7},(_,i)=>["CLUB","DIAMOND","HEART","SPADE","NO_TRUMP"].map(strain=>({type:"BID",level:i+1,strain}))).flat()] as Call[];
-if(room.game!.play){room.game!.play!.nextSeat=own;room.game!.play!.trickNumber=4;room.game!.play!.tricksByTeam={NS:2,EW:1};room.game!.play!.currentTrick=[{seat:(own+3)%4,card:{suit:"HEART",rank:10},source:"MANUAL"}];room.game!.play!.completedTricks=[{number:3,leaderSeat:0,winnerSeat:3,plays:[{seat:0,card:{suit:"CLUB",rank:8},source:"MANUAL"},{seat:1,card:{suit:"CLUB",rank:9},source:"TIMEOUT"},{seat:2,card:{suit:"CLUB",rank:10},source:"MANUAL"},{seat:3,card:{suit:"CLUB",rank:14},source:"MANUAL"}]}];}
+if(room.game!.play){room.game!.play!.nextSeat=own;room.game!.play!.trickNumber=4;room.game!.play!.tricksByTeam={NS:2,EW:1};room.game!.play!.currentTrick=[{seat:(own+1)%4,card:{suit:"HEART",rank:10},source:"MANUAL"}];room.game!.play!.completedTricks=[{number:3,leaderSeat:0,winnerSeat:3,plays:[{seat:0,card:{suit:"CLUB",rank:8},source:"MANUAL"},{seat:1,card:{suit:"CLUB",rank:9},source:"TIMEOUT"},{seat:2,card:{suit:"CLUB",rank:10},source:"MANUAL"},{seat:3,card:{suit:"CLUB",rank:14},source:"MANUAL"}]}];}
 if(scenario==="bidding"){room.game!.auction.nextSeat=own;room.game!.auction.highestBid={seat:(own+3)%4,level:2,strain:"DIAMOND"};}
 room.game!.auction.calls=[{seat:0,type:"BID",level:1,strain:"CLUB",source:"MANUAL"},{seat:1,type:"PASS",level:null,strain:null,source:"TIMEOUT"}];
 if(params.has("allbids")&&scenario==="bidding"){room.game!.auction.highestBid=null;room.game!.auction.calls=[];}
@@ -73,7 +73,19 @@ if(params.has("winner")&&room.phase==="TRICK_RESULT"&&room.game?.play){
  room.game.play.completedTricks.at(-1)!.winnerSeat=winner;
  room.game.play.currentTrick=room.game.play.currentTrick.map(p=>({...p,card:{...p.card,rank:p.seat===winner?14:p.seat+5}}));
 }
-if(params.has("playcount")&&room.game?.play){const count=Math.max(0,Math.min(4,Number(params.get("playcount"))));room.game.play.currentTrick=[0,1,2,3].slice(0,count).map(seat=>({seat,card:{suit:"HEART" as const,rank:seat+10},source:"MANUAL" as const}));}
+if(params.has("playcount")&&room.game?.play){const count=Math.max(0,Math.min(4,Number(params.get("playcount"))));const leader=Number(params.get("leadseat")??0)%4;room.game.play.currentTrick=[0,1,2,3].slice(0,count).map(i=>({seat:(leader+i*3)%4,card:{suit:"HEART" as const,rank:i+10},source:"MANUAL" as const}));}
+// Keep result fixtures internally consistent after playcount overrides.
+if(room.phase === "TRICK_RESULT" && room.game?.play?.currentTrick.length === 4){
+ const p=room.game.play, t=p.completedTricks.at(-1);
+ if(t){p.currentTrick=p.currentTrick.map(x=>({...x,card:{...x.card,rank:x.seat===t.winnerSeat?14:Math.min(x.card.rank,13)}}));t.plays=p.currentTrick;t.leaderSeat=p.currentTrick[0].seat;}
+}
+// Rightward trick order; preserve each fixture's explicit leader and cards.
+if(room.game?.play){
+ const p=room.game.play;
+ const order=(list:typeof p.currentTrick,leader:number)=>[...list].sort((a,b)=>((leader-a.seat+4)%4)-((leader-b.seat+4)%4));
+ if(p.currentTrick.length){p.leaderSeat=p.currentTrick[0].seat;p.currentTrick=order(p.currentTrick,p.leaderSeat);if(p.currentTrick.length<4)p.nextSeat=(p.currentTrick.at(-1)!.seat+3)%4;}
+ p.completedTricks=p.completedTricks.map(t=>({...t,plays:order(t.plays,t.leaderSeat)}));
+}
 if(params.has("autoplay")&&room.game!.play)room.game!.play.currentTrick=room.game!.play.currentTrick.map(p=>({...p,source:"TIMEOUT"}));
 if(params.has("zero")&&room.game!.operationTimer)room.game!.operationTimer.remainingMs=0;
 if(params.has("paused")){room.game!.paused=true;if(room.game!.operationTimer)room.game!.operationTimer.paused=true;}
@@ -111,7 +123,7 @@ export function fixtureControl(action:string){
  if(action==="snapshot"){}
  if(action==="error")state={...state,error:"測試：連線中斷，需要重新同步"};
  if(action==="resumed"){room.game!.paused=false;if(room.game!.operationTimer)room.game!.operationTimer.paused=false;}
- if(action==="other-turn")room.game!.play!.nextSeat=(own+1)%4;
+ if(action=="other-turn")room.game!.play!.nextSeat=(own+3)%4;
  if(action==="own-turn")room.game!.play!.nextSeat=own;
  if(action==="offline")state={...state,status:"offline"};
  if(action==="online")state={...state,status:"online"};
@@ -131,7 +143,7 @@ function fxSetup(){
  room.game.auction.result={...playedRoom().game!.auction.result!,strain:fxMode==="notrump"?"NO_TRUMP":"HEART"};
  if(["cut","fourth","notrump","restored"].includes(fxMode)){
   const n=fxMode==="fourth"?3:fxMode==="restored"?2:1;
-  room.game.play.currentTrick=Array.from({length:n},(_,i)=>({seat:(fxSeat+i)%4,card:{suit:fxMode==="restored"&&i===1?"HEART":"CLUB",rank:8+i},source:"MANUAL"}));
+  room.game.play.currentTrick=Array.from({length:n},(_,i)=>({seat:(fxSeat+i*3)%4,card:{suit:fxMode==="restored"&&i===1?"HEART":"CLUB",rank:8+i},source:"MANUAL"}));
  }
  room.game.operationTimer={kind:room.phase==="BIDDING"?"BID_TURN":"PLAY_TURN",turnSeat:fxSeat,remainingMs:20000,paused:false};
  room.you!.legalCards=[];
@@ -141,8 +153,8 @@ function fxAppend(){
  const play=room.game?.play;if(!play||play.currentTrick.length>=4)return;
  room.phase="PLAYING";
  const i=play.currentTrick.length;
- play.currentTrick.push({seat:(fxSeat+i)%4,card:{suit:"HEART",rank:[12,13,14,2][i]},source:params.has("autoplay")?"TIMEOUT":"MANUAL"});
- play.nextSeat=(fxSeat+i+1)%4;
+ play.currentTrick.push({seat:(fxSeat+i*3)%4,card:{suit:"HEART",rank:[12,13,14,2][i]},source:params.has("autoplay")?"TIMEOUT":"MANUAL"});
+ play.nextSeat=(fxSeat+(i+1)*3)%4;
  room.game!.operationTimer={kind:"PLAY_TURN",turnSeat:play.nextSeat,remainingMs:20000,paused:false};
  if(play.currentTrick.length===4){room.phase="TRICK_RESULT";play.nextSeat=null;room.game!.operationTimer={kind:"TRICK_RESULT",turnSeat:null,remainingMs:2000,paused:false};play.completedTricks.push({number:play.trickNumber,leaderSeat:fxSeat,winnerSeat:(fxSeat+2)%4,cardsVisible:false,plays:[]});play.tricksByTeam[(fxSeat+2)%2===0?"NS":"EW"]++;}
 }

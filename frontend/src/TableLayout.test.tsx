@@ -90,7 +90,7 @@ describe("phase dock containment and readable public cards", () => {
       { seat: 3, card: { suit: "DIAMOND", rank: 2 }, source: "MANUAL" },
     ];
     const html = render(room);
-    expect(html).toContain('aria-label="alice出牌 ♠A"');
+    expect(html).toContain('aria-label="alice出牌 ♠A，本回合首引"');
     expect(html).toContain('aria-label="bob出牌 ♥10"');
     expect(html).toContain('aria-label="carol出牌 ♣K"');
     expect(html).toContain('aria-label="dan出牌 ♦2"');

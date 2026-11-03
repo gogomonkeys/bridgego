@@ -1,4 +1,5 @@
 import PwaStatus from "./PwaStatus";
+import ScreenAwake from "./ScreenAwake";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { client, useClient, getConnectionDiagnostics } from "./client";
 import GamePanel from "./GamePanel";
@@ -18,7 +19,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.7.0", disconnects: diagnostics },
+    { version: "0.7.1", disconnects: diagnostics },
     null,
     2,
   );
@@ -78,6 +79,16 @@ export default function App() {
             !!state.room && state.room.phase !== "WAITING" && page === "room"
           }
         />
+        <ScreenAwake
+          show={page === "help"}
+          activeGame={
+            !!state.room?.game &&
+            !["WAITING", "MATCH_RESULT", "ABORTED"].includes(
+              state.room.phase,
+            ) &&
+            !state.room.game.matchResult
+          }
+        />
         {state.serviceMaintenance && (
           <p className="notice" role="status">
             服務準備重新啟動，目前牌局無法繼續。
@@ -89,7 +100,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.7.0</span>
+              <span className="eyebrow">v0.7.1</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"

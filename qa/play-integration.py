@@ -34,7 +34,7 @@ async def deal_to_play(g,deal_number):
     assert command(g,first,'calls',{'type':'BID','level':1,'strain':strain})[0]==200
     for _ in range(3):
         r=view(g);assert command(g,r['game']['auction']['nextSeat'],'calls',{'type':'PASS'})[0]==200
-    r=view(g);check('deal '+str(deal_number)+' starts play at last bidder left',r['phase']=='PLAYING' and r['game']['play']['nextSeat']==(first+1)%4)
+    r=view(g);check('deal '+str(deal_number)+' starts play at last bidder right',r['phase']=='PLAYING' and r['game']['play']['nextSeat']==(first+3)%4)
     return r,strain,use_ns,use_ew
 async def main():
     g=await game.setup('three-deal');
@@ -50,7 +50,7 @@ async def main():
             for trick_index in range(13):
                 trick=[];leader=next_seat
                 for offset in range(4):
-                    seat=(leader+offset)%4;r=view(g,seat);legal=legal_cards(hands[seat],trick)
+                    seat=(leader+3*offset)%4;r=view(g,seat);legal=legal_cards(hands[seat],trick)
                     assert r['game']['play']['nextSeat']==seat
                     assert sorted(r['you']['ownHand'],key=card_key)==sorted(hands[seat],key=card_key)
                     assert sorted(r['you']['legalCards'],key=card_key)==legal

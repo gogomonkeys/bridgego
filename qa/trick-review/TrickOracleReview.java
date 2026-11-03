@@ -24,20 +24,20 @@ public final class TrickOracleReview {
     List<Integer> eligible = new ArrayList<>();
     for (int i = 0; i < 4; i++) if (orderedCards.get(i).suit().equals(winningSuit)) eligible.add(i);
     eligible.sort((a, b) -> Integer.compare(orderedCards.get(b).rank(), orderedCards.get(a).rank()));
-    return (leader + eligible.get(0)) % 4;
+    return (leader + 3 * eligible.get(0)) % 4;
   }
   static Map<Integer,List<GameState.Card>> forcedHands(List<GameState.Card> ordered, int leader) {
     Map<Integer,List<GameState.Card>> hands = new HashMap<>();
     for (int s = 0; s < 4; s++) hands.put(s, new ArrayList<>());
     Set<GameState.Card> used = new HashSet<>(ordered);
     require(used.size() == 4, "invalid oracle first trick");
-    for (int i = 0; i < 4; i++) hands.get((leader + i) % 4).add(ordered.get(i));
+    for (int i = 0; i < 4; i++) hands.get((leader + 3 * i) % 4).add(ordered.get(i));
     String led = ordered.get(0).suit();
     // A forced off-suit player must really be void in the led suit.
     for (GameState.Card c : DECK) if (!used.contains(c) && c.suit().equals(led)) {
       boolean assigned = false;
       for (int i = 0; i < 4; i++) {
-        List<GameState.Card> hand = hands.get((leader + i) % 4);
+        List<GameState.Card> hand = hands.get((leader + 3 * i) % 4);
         if (ordered.get(i).suit().equals(led) && hand.size() < 13) { hand.add(c); used.add(c); assigned = true; break; }
       }
       require(assigned, "oracle deal could not allocate led suit");
@@ -49,10 +49,10 @@ public final class TrickOracleReview {
   }
   static void firstTrick(List<GameState.Card> cards, String contract) {
     int leader = (int)(firstTricks % 4);
-    TrickEngine engine = new TrickEngine(forcedHands(cards, leader), (leader + 3) % 4, contract);
-    require(engine.nextSeat() == leader && engine.leaderSeat() == leader, "opening lead left of last bidder");
+    TrickEngine engine = new TrickEngine(forcedHands(cards, leader), (leader + 1) % 4, contract);
+    require(engine.nextSeat() == leader && engine.leaderSeat() == leader, "opening lead right of last bidder");
     for (int i = 0; i < 4; i++) {
-      int seat = (leader + i) % 4;
+      int seat = (leader + 3 * i) % 4;
       require(engine.legalCards(seat).contains(cards.get(i)), "oracle generated illegal forced card");
       engine.play(seat, cards.get(i));
     }
@@ -97,7 +97,7 @@ public final class TrickOracleReview {
     // Constructor must own its hand inventory independently of the caller's collections.
     for (List<GameState.Card> hand : hands.values()) hand.clear();
     hands.clear();
-    int expectedNext = (bidder+1)%4, leader = expectedNext, completed = 0, ns = 0;
+    int expectedNext = (bidder+3)%4, leader = expectedNext, completed = 0, ns = 0;
     List<GameState.Card> trick = new ArrayList<>();
     Set<GameState.Card> played = new HashSet<>();
     for (int n = 0; n < 52; n++) {
@@ -132,7 +132,7 @@ public final class TrickOracleReview {
         require(engine.completedTricks().get(completed).winnerSeat()==expectedWinner, "complete-deal trick winner mismatch");
         if(expectedWinner%2==0)ns++;
         completed++;expectedNext=leader=expectedWinner;trick.clear();
-      } else expectedNext=(actor+1)%4;
+      } else expectedNext=(actor+3)%4;
       require(engine.completedTricks().size()==completed && engine.currentTrick().size()==trick.size(), "history count mismatch");
       require(engine.tricksByTeam().get("NS")==ns && engine.tricksByTeam().get("EW")==completed-ns, "team trick conservation");
       int remaining=expectedHands.values().stream().mapToInt(Set::size).sum();
@@ -147,13 +147,13 @@ public final class TrickOracleReview {
   }
   static void rejectionAndViewCases() {
     var forced=List.of(card("HEART",14),card("HEART",3),card("HEART",4),card("HEART",5));
-    TrickEngine e=new TrickEngine(forcedHands(forced,0),3,"NO_TRUMP");
+    TrickEngine e=new TrickEngine(forcedHands(forced,0),1,"NO_TRUMP");
     rejectsUnchanged(e,()->e.play(0,null),false);
     rejectsUnchanged(e,()->e.play(-1,forced.get(0)),false);
     rejectsUnchanged(e,()->e.play(4,forced.get(0)),false);
     rejectsUnchanged(e,()->e.play(0,e.hand(1).get(0)),false);
     e.play(0,forced.get(0));rejectsUnchanged(e,()->e.play(0,forced.get(0)),false);
-    for(int seat=1;seat<4;seat++)e.play(seat,forced.get(seat));
+    for(int offset=1;offset<4;offset++)e.play((3*offset)%4,forced.get(offset));
     require(e.nextSeat()==0,"replay setup winner");
     rejectsUnchanged(e,()->e.play(0,forced.get(0)),false);
     for(Runnable mutate:List.<Runnable>of(()->e.hand(0).clear(),()->e.currentTrick().clear(),()->e.completedTricks().clear(),()->e.completedTricks().get(0).plays().clear(),()->e.tricksByTeam().clear())) {

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { tablePosition, seatRelationship } from "./table-view";
 describe("relative table geometry leaves server identity unchanged", () => {
   it.each([0, 1, 2, 3])(
-    "maps view %i without swapping teams or clockwise turn order",
+    "maps view %i without swapping teams or left/right neighbors",
     (own) => {
       expect(tablePosition(own, own)).toBe("bottom");
       expect(tablePosition((own + 1) % 4, own)).toBe("left");
@@ -17,3 +17,16 @@ describe("relative table geometry leaves server identity unchanged", () => {
     },
   );
 });
+
+// Confirmed 左喊右攻, viewed from each possible own seat.
+it.each([0, 1, 2, 3])(
+  "keeps leftward bidding and rightward play distinct for view %i",
+  (own) => {
+    expect(
+      [0, 1, 2, 3].map((offset) => tablePosition((own + offset) % 4, own)),
+    ).toEqual(["bottom", "left", "top", "right"]);
+    expect(
+      [1, 2, 3, 4].map((offset) => tablePosition((own + 3 * offset) % 4, own)),
+    ).toEqual(["right", "top", "left", "bottom"]);
+  },
+);

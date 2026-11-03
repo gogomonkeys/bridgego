@@ -31,16 +31,23 @@ class TrickEngineTest {
   }
 
   TrickEngine engine(String strain, Map<Integer, List<GameState.Card>> forced) {
-    return new TrickEngine(hands(forced), 3, strain);
+    return new TrickEngine(hands(forced), 1, strain);
   }
 
   @Test
-  void leftOfBidderAndClockwise() {
+  void rightOfBidderAndRightwardForEverySeat() {
     for (int bidder = 0; bidder < 4; bidder++) {
       var e = new TrickEngine(hands(Map.of()), bidder, "NO_TRUMP");
-      assertEquals((bidder + 1) % 4, e.nextSeat());
+      for (int offset = 1; offset <= 4; offset++) {
+        int expected = (bidder + 3 * offset) % 4;
+        assertEquals(expected, e.nextSeat());
+        assertEquals((bidder + 3) % 4, e.leaderSeat());
+        e.timeout();
+      }
+      var completed = e.completedTricks().get(0);
+      assertEquals(completed.winnerSeat(), e.nextSeat());
       e.timeout();
-      assertEquals((bidder + 2) % 4, e.nextSeat());
+      assertEquals((completed.winnerSeat() + 3) % 4, e.nextSeat());
     }
   }
 
@@ -48,13 +55,13 @@ class TrickEngineTest {
   void mustFollowSuitEvenHoldingTrump() {
     var e =
         engine(
-            "SPADE", Map.of(0, List.of(c("HEART", 2)), 1, List.of(c("HEART", 3), c("SPADE", 14))));
+            "SPADE", Map.of(0, List.of(c("HEART", 2)), 3, List.of(c("HEART", 3), c("SPADE", 14))));
     e.play(0, c("HEART", 2));
-    assertTrue(e.legalCards(1).stream().allMatch(c -> c.suit().equals("HEART")));
-    assertThrows(IllegalArgumentException.class, () -> e.play(1, c("SPADE", 14)));
-    assertEquals(13, e.hand(1).size());
-    e.play(1, c("HEART", 3));
-    assertEquals(12, e.hand(1).size());
+    assertTrue(e.legalCards(3).stream().allMatch(c -> c.suit().equals("HEART")));
+    assertThrows(IllegalArgumentException.class, () -> e.play(3, c("SPADE", 14)));
+    assertEquals(13, e.hand(3).size());
+    e.play(3, c("HEART", 3));
+    assertEquals(12, e.hand(3).size());
   }
 
   @Test
@@ -72,9 +79,9 @@ class TrickEngineTest {
                 3,
                 List.of(c("HEART", 2))));
     e.play(0, c("HEART", 10));
-    e.play(1, c("HEART", 14));
-    e.play(2, c("HEART", 13));
     e.play(3, c("HEART", 2));
+    e.play(2, c("HEART", 13));
+    e.play(1, c("HEART", 14));
     assertEquals(1, e.nextSeat());
     assertEquals(1, e.completedTricks().get(0).winnerSeat());
     assertEquals(1, e.tricksByTeam().get("EW"));
@@ -90,17 +97,17 @@ class TrickEngineTest {
       for (int r = 2; r <= 14; r++) list.add(c(GameState.STRAINS.get(seat), r));
       h.put(seat, list);
     }
-    var e = new TrickEngine(h, 3, "SPADE");
+    var e = new TrickEngine(h, 1, "SPADE");
     e.play(0, c("CLUB", 14));
-    e.play(1, c("DIAMOND", 14));
-    e.play(2, c("HEART", 14));
     e.play(3, c("SPADE", 2));
+    e.play(2, c("HEART", 14));
+    e.play(1, c("DIAMOND", 14));
     assertEquals(3, e.nextSeat());
-    var nt = new TrickEngine(h, 3, "NO_TRUMP");
+    var nt = new TrickEngine(h, 1, "NO_TRUMP");
     nt.play(0, c("CLUB", 2));
-    nt.play(1, c("DIAMOND", 14));
-    nt.play(2, c("HEART", 14));
     nt.play(3, c("SPADE", 14));
+    nt.play(2, c("HEART", 14));
+    nt.play(1, c("DIAMOND", 14));
     assertEquals(0, nt.nextSeat());
   }
 
@@ -120,9 +127,9 @@ class TrickEngineTest {
                 3,
                 List.of(c("SPADE", 3))));
     e.play(0, c("SPADE", 2));
-    e.play(1, c("SPADE", 13));
-    e.play(2, c("SPADE", 14));
     e.play(3, c("SPADE", 3));
+    e.play(2, c("SPADE", 14));
+    e.play(1, c("SPADE", 13));
     assertEquals(2, e.nextSeat());
   }
 

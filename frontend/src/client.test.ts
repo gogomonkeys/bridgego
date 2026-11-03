@@ -1204,3 +1204,190 @@ it("network fetch failure has Chinese guidance without claiming confirmed restar
   expect(getClientState().error).not.toContain("服務已重新啟動");
   expect(getClientState().session?.token).toBe(identity.token);
 });
+
+describe("foreground lifecycle recovery", () => {
+  function lifecycle() {
+    const windowEvents = new Map<string, () => void>();
+    const documentEvents = new Map<string, () => void>();
+    const doc = {
+      visibilityState: "visible",
+      addEventListener: (name: string, fn: () => void) =>
+        documentEvents.set(name, fn),
+    };
+    vi.stubGlobal("document", doc);
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal("window", {
+      addEventListener: (name: string, fn: () => void) =>
+        windowEvents.set(name, fn),
+    });
+    return {
+      doc,
+      show: () => windowEvents.get("pageshow")?.(),
+      online: () => windowEvents.get("online")?.(),
+      visibility: () => documentEvents.get("visibilitychange")?.(),
+    };
+  }
+  it("deduplicates pageshow, visible and online while preserving a healthy socket", async () => {
+    const life = lifecycle();
+    await setup();
+    const ws = MockSocket.instances[0];
+    ws.open();
+    ws.receive({ type: "snapshot", room: room(2) });
+    let resolve!: (r: Response) => void;
+    fetchMock.mockImplementation((path: string) =>
+      path === "/api/me"
+        ? new Promise((r) => {
+            resolve = r;
+          })
+        : Promise.resolve(json(path === "/api/rooms" ? [] : room(3))),
+    );
+    fetchMock.mockClear();
+    life.show();
+    life.visibility();
+    life.online();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolve(json({ ...identity, roomId: "ROOM01" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(MockSocket.instances).toHaveLength(1);
+    expect(ws.readyState).toBe(1);
+    expect(
+      fetchMock.mock.calls.every(([, options]) => options.method === "GET"),
+    ).toBe(true);
+    expect(ws.sent).toHaveLength(1);
+  });
+  it.each([2, 3])(
+    "does not poll in the background, but restores closing state %s without fresh joining",
+    async (closingState) => {
+      const life = lifecycle();
+      await setup();
+      const ws = MockSocket.instances[0];
+      ws.open();
+      fetchMock.mockClear();
+      life.doc.visibilityState = "hidden";
+      life.visibility();
+      life.show();
+      life.online();
+      expect(fetchMock).not.toHaveBeenCalled();
+      // Simulate OS-updated transport state whose close event has not yet arrived.
+      ws.readyState = closingState;
+      life.doc.visibilityState = "visible";
+      life.visibility();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(MockSocket.instances).toHaveLength(2);
+      expect(
+        fetchMock.mock.calls.every(([, options]) => options.method === "GET"),
+      ).toBe(true);
+    },
+  );
+  it("honors released membership on return and cancels delayed recovery instead of rejoining", async () => {
+    const life = lifecycle();
+    const { getClientState } = await setup();
+    const ws = MockSocket.instances[0];
+    ws.open();
+    ws.close();
+    fetchMock.mockImplementation((path: string) =>
+      Promise.resolve(
+        json(path === "/api/me" ? { ...identity, roomId: null } : []),
+      ),
+    );
+    fetchMock.mockClear();
+    life.show();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(getClientState().room).toBeNull();
+    expect(MockSocket.instances).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.filter(([path]) => path === "/api/me"),
+    ).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.every(([, options]) => options.method === "GET"),
+    ).toBe(true);
+  });
+
+  it("onclose during foreground membership query invalidates the old query and lets the new recovery win", async () => {
+    const life = lifecycle();
+    const { getClientState } = await setup();
+    const first = MockSocket.instances[0];
+    first.open();
+    let finishOld!: (value: Response) => void;
+    let queries = 0;
+    fetchMock.mockImplementation((path: string) => {
+      if (path === "/api/me" && ++queries === 1)
+        return new Promise((resolve) => {
+          finishOld = resolve;
+        });
+      return Promise.resolve(
+        json(
+          path === "/api/me"
+            ? { ...identity, roomId: "ROOM01" }
+            : path === "/api/rooms"
+              ? []
+              : room(20),
+        ),
+      );
+    });
+    fetchMock.mockClear();
+    life.show();
+    first.close();
+    await vi.advanceTimersByTimeAsync(500);
+    const second = MockSocket.instances[1];
+    second.open();
+    second.receive({ type: "snapshot", room: room(21) });
+    finishOld(json({ ...identity, roomId: null }));
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(getClientState().room?.revision).toBe(21);
+    expect(getClientState().status).toBe("online");
+    expect(MockSocket.instances).toHaveLength(2);
+    expect(second.readyState).toBe(1);
+    expect(
+      fetchMock.mock.calls.filter(([path]) => path === "/api/me"),
+    ).toHaveLength(2);
+  });
+  it("forgetting identity while foreground query is pending cannot resurrect a session or room", async () => {
+    const life = lifecycle();
+    const { client, getClientState } = await setup(false);
+    let finish!: (value: Response) => void;
+    fetchMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    fetchMock.mockClear();
+    life.show();
+    client.forget();
+    finish(json({ ...identity, roomId: "ROOM01" }));
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(getClientState().session).toBeNull();
+    expect(getClientState().room).toBeNull();
+    expect(MockSocket.instances).toHaveLength(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("confirmed boot change during foreground query cannot roll the boot back or restore the old room", async () => {
+    values.set("bridgego.server.epoch", "boot-one");
+    const life = lifecycle();
+    const { client, getClientState } = await setup();
+    let finish!: (value: Response) => void;
+    fetchMock.mockImplementation((path: string) => {
+      if (path === "/api/me")
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      const next = json([]);
+      next.headers.set("X-Bridge-Instance-Epoch", "boot-two");
+      return Promise.resolve(next);
+    });
+    fetchMock.mockClear();
+    life.show();
+    await client.refresh();
+    const stale = json({ ...identity, roomId: "ROOM01" });
+    stale.headers.set("X-Bridge-Instance-Epoch", "boot-one");
+    finish(stale);
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(getClientState().session).toBeNull();
+    expect(getClientState().room).toBeNull();
+    expect(values.get("bridgego.server.epoch")).toBe("boot-two");
+    expect(getClientState().notice).toContain("服務已重新啟動");
+    expect(MockSocket.instances).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

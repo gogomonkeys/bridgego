@@ -430,7 +430,14 @@ function enter(room: Room) {
     connect();
   } else {
     apply(room);
-    if (!socket) connect();
+    // A resumed page may observe CLOSED before the delayed close event arrives.
+    // An OPEN or CONNECTING transport is never replaced by foreground recovery.
+    if (!socket || socket.readyState >= 2) {
+      const old = socket;
+      socket = null;
+      old?.close();
+      connect();
+    }
   }
 }
 function scheduleRecovery(expectedGeneration: number) {
@@ -440,9 +447,36 @@ function scheduleRecovery(expectedGeneration: number) {
     Math.min(500 * 2 ** retryCount++, 2000),
   );
 }
-async function recover(
+let recoveryFlight: {
+  generation: number;
+  retry: boolean;
+  promise: Promise<void>;
+} | null = null;
+function recover(
   retryOnFailure = false,
   expectedGeneration = generation,
+): Promise<void> {
+  if (recoveryFlight?.generation === expectedGeneration) {
+    recoveryFlight.retry ||= retryOnFailure;
+    return recoveryFlight.promise;
+  }
+  const flight = {
+    generation: expectedGeneration,
+    retry: retryOnFailure,
+    promise: Promise.resolve(),
+  };
+  recoveryFlight = flight;
+  flight.promise = performRecovery(
+    expectedGeneration,
+    () => flight.retry,
+  ).finally(() => {
+    if (recoveryFlight === flight) recoveryFlight = null;
+  });
+  return flight.promise;
+}
+async function performRecovery(
+  expectedGeneration: number,
+  shouldRetry: () => boolean,
 ) {
   if (
     !state.session ||
@@ -483,7 +517,7 @@ async function recover(
     const permanent =
       (error instanceof ApiError || error instanceof HttpResponseError) &&
       [401, 403, 404].includes(error.status ?? 0);
-    if (retryOnFailure && state.session && !permanent)
+    if (shouldRetry() && state.session && !permanent)
       scheduleRecovery(recoveryGeneration);
   }
 }
@@ -654,10 +688,26 @@ export const client = {
         typeof navigator === "undefined" || navigator.onLine !== false,
     });
     window.addEventListener("offline", () => emit({ networkAvailable: false }));
-    window.addEventListener("online", () => {
-      emit({ networkAvailable: true });
+    const resume = () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
+      )
+        return;
+      emit({
+        networkAvailable:
+          typeof navigator === "undefined" || navigator.onLine !== false,
+      });
+      if (state.networkAvailable === false) return;
+      clearTimeout(retry);
+      // Read-only reconciliation, deduplicated with onclose/online recovery.
+      // Never rejoin released seats or replay a pending game command.
       void recover(true);
-    });
+    };
+    window.addEventListener("online", resume);
+    window.addEventListener("pageshow", resume);
+    if (typeof document !== "undefined")
+      document.addEventListener("visibilitychange", resume);
     await recover(true);
     emit({ initialized: true });
     // Same-origin tabs share a guest. A token change must stop the old room transport.

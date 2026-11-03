@@ -1,4 +1,4 @@
-# BridgeGo PWA（V0.7.0）
+# BridgeGo PWA（V0.7.1）
 
 ## 使用
 正式建置由同一 HTTPS 網域提供前端、/api、/ws 與 /health（localhost 可測試）。
@@ -25,3 +25,13 @@ HTTP 錯誤、重新導向、MIME 不符的回應不快取；任一預載資源�
 maintenance 訊框或1012清除即時牌桌，提供「確認服務狀態」只讀查詢 /health/ready；不自動建房、加入或重送操作。
 缺少 epoch 的舊本機後端仍可使用，但無法明確辨別重啟。
 免費服務重啟與部署不能無縫保留記憶體中的牌局。
+
+## 遊戲亮屏與返回前景
+「使用說明」內可自行勾選「保持螢幕開啟」，預設關閉，只保留在本次頁面生命週期。
+支援的裝置使用 Screen Wake Lock：只在進行中的牌局及局間休息、頁面可見時申請，取得後才顯示成功狀態。
+離房、整場結束、關閉設定或頁面隱藏時釋放；回到前景會依設定重新申請。系統拒絕或主動釋放不會自動無限重試，也不會影響出牌。
+iOS 主畫面 App 的 Screen Wake Lock 支援由 iOS 18.4 起修正，不能只依 Safari 16.4 支援表推論 PWA 可用。其他平台同樣依實際能力與請求結果處理。
+參考：https://webkit.org/blog/16574/webkit-features-in-safari-18-4/
+亮屏不是背景常駐：手動鎖屏、切 App、低電量或系統限制仍可能斷線。既有遊戲斷線保留 10 秒與判定規則不變。
+返回前景的 visibilitychange/pageshow/online 會合併只讀身分與房間核對；不重送叫牌或出牌、不重新加入已釋出的席位、不關閉健康的 OPEN/CONNECTING socket。
+只有已為 CLOSING/CLOSED 的 socket 才重建。沒有加入依 JavaScript 背景計時器判死的心跳；實體 Android/iPhone 自動熄屏與手動鎖屏仍須各別驗證。

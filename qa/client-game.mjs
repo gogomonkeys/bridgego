@@ -64,10 +64,10 @@ if (!isMainThread) {
     const plays = result.completedTricks.flatMap(trick => trick.plays);
     if (plays.length !== 52 || new Set(plays.map(play => key(play.card))).size !== 52 || plays.some(play => play.source !== 'MANUAL')) return false;
     const wins = { NS: 0, EW: 0 };
-    let expectedLeader = (result.contract.holderSeat + 1) % 4;
+    let expectedLeader = (result.contract.holderSeat + 3) % 4;
     for (const [index, trick] of result.completedTricks.entries()) {
       if (trick.number !== index + 1 || trick.leaderSeat !== expectedLeader || trick.plays.length !== 4) return false;
-      if (trick.plays.some((play, offset) => play.seat !== (expectedLeader + offset) % 4)) return false;
+      if (trick.plays.some((play, offset) => play.seat !== (expectedLeader + 3 * offset) % 4)) return false;
       const trump = result.contract.strain;
       const winningSuit = trump !== 'NO_TRUMP' && trick.plays.some(play => play.card.suit === trump) ? trump : trick.plays[0].card.suit;
       const eligible = trick.plays.filter(play => play.card.suit === winningSuit).sort((a, b) => b.card.rank - a.card.rank);
@@ -127,7 +127,7 @@ if (!isMainThread) {
       check(`actual frontend deal ${dealIndex} auction begins authoritative play without premature scoring`, states.every(state =>
         state.room.game.auction.result.level === dealIndex && state.room.game.auction.result.strain === strain
         && state.room.game.auction.result.holderSeat === dealer && state.room.game.auction.result.teamId === (dealer % 2 === 0 ? 'NS' : 'EW')
-        && state.room.game.play.nextSeat === (dealer + 1) % 4 && state.room.game.completedDeals === dealIndex - 1
+        && state.room.game.play.nextSeat === (dealer + 3) % 4 && state.room.game.completedDeals === dealIndex - 1
         && state.room.game.operationTimer.kind === 'PLAY_TURN'));
 
       if (dealIndex === 1) {

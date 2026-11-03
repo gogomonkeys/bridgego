@@ -2,7 +2,7 @@ package com.bridge.room;
 
 import java.util.*;
 
-/** Pure authoritative trick rules; not wired to rooms until the v0.3 lifecycle is approved. */
+/** Pure authoritative trick rules; auction moves left; opening lead and play move right. */
 final class TrickEngine {
   record Play(int seat, GameState.Card card, String source) {}
 
@@ -39,7 +39,7 @@ final class TrickEngine {
       hands.put(seat, new ArrayList<>(cards));
     }
     trump = strain.equals("NO_TRUMP") ? null : strain;
-    leader = next = (lastBidder + 1) % 4;
+    leader = next = (lastBidder + 3) % 4;
   }
 
   List<GameState.Card> hand(int seat) {
@@ -75,7 +75,7 @@ final class TrickEngine {
     hands.get(seat).remove(card);
     current.add(new Play(seat, card, source));
     if (current.size() < 4) {
-      next = (seat + 1) % 4;
+      next = (seat + 3) % 4;
       return;
     }
     String led = current.get(0).card().suit();

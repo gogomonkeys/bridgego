@@ -61,7 +61,7 @@ describe("portrait public cards and persistent spatial ownership", () => {
     const html = renderToStaticMarkup(
       <PublicTrick plays={plays} roster={roster} ownSeat={0} />,
     );
-    expect(html).toContain('aria-label="森林裡名字非常長的小兔子出牌 ♥10"');
+    expect(html).toContain('aria-label="森林裡名字非常長的小兔子出牌 ♥10，本回合首引"');
     expect(html).toContain('aria-label="逾時自動出牌"');
     expect(html).not.toContain("public-card-caption");
     expect(html).not.toContain("public-card-player");
@@ -100,4 +100,35 @@ describe("caption-free public cards", () => {
       },
     );
   }
+});
+
+
+describe("persistent first-play marker", () => {
+  for (const ownSeat of [0, 1, 2, 3]) {
+    for (const leader of [0, 1, 2, 3]) {
+      it.each([0, 1, 2, 3, 4])(`marks the actual leader ${leader} from viewpoint ${ownSeat} with %s cards`, (count) => {
+        const ordered: Play[] = Array.from({ length: count }, (_, i) => ({
+          seat: (leader + i * 3) % 4,
+          card: { suit: i === 0 ? "HEART" : "CLUB", rank: 10 },
+          source: "TIMEOUT",
+        }));
+        const html = renderToStaticMarkup(<PublicTrick plays={ordered} roster={playedRoom().game!.roster} ownSeat={ownSeat} winnerSeat={count === 4 ? leader : undefined} />);
+        expect(html.match(/class="public-lead-badge"/g) ?? []).toHaveLength(count ? 1 : 0);
+        expect(html.match(/，本回合首引/g) ?? []).toHaveLength(count ? 1 : 0);
+        if (count) {
+          const slot = html.split(`data-seat="${leader}"`)[1].split('class="public-card-slot')[0];
+          expect(slot).toContain('class="public-lead-badge"');
+          expect(slot).toContain('aria-label="逾時自動出牌"');
+          expect(slot).toContain('class="public-card-position"');
+          if (count === 4) expect(slot).toContain('aria-label="獲勝牌"');
+        }
+      });
+    }
+  }
+  it("rebuilds from restored snapshots and clears for a new empty trick", () => {
+    const props = { roster: playedRoom().game!.roster, ownSeat: 0 };
+    const restored = renderToStaticMarkup(<PublicTrick {...props} plays={plays} />);
+    expect(restored.match(/class="public-lead-badge"/g)).toHaveLength(1);
+    expect(renderToStaticMarkup(<PublicTrick {...props} plays={[]} />)).not.toContain('class="public-lead-badge"');
+  });
 });

@@ -31,6 +31,7 @@ export default function PublicTrick({
         const play = plays.find((item) => item.seat === seat);
         const label = playerLabel(roster, seat);
         const won = winnerSeat === seat;
+        const led = play !== undefined && plays[0]?.seat === seat;
         const effect = effects.find((item) => item.seat === seat);
         return (
           <div
@@ -40,8 +41,8 @@ export default function PublicTrick({
           >
             {play ? (
               <div
-                aria-label={`${label}出牌 ${symbols[play.card.suit]}${rankLabel(play.card.rank)}`}
-                className={`played-card portrait-card ${won ? "winning-card" : ""} ${play.card.suit === "HEART" || play.card.suit === "DIAMOND" ? "red" : ""}`}
+                aria-label={`${label}出牌 ${symbols[play.card.suit]}${rankLabel(play.card.rank)}${led ? "，本回合首引" : ""}`}
+                className={`played-card portrait-card ${won ? "winning-card" : ""} ${led ? "lead-card" : ""} ${play.card.suit === "HEART" || play.card.suit === "DIAMOND" ? "red" : ""}`}
               >
                 <strong className="public-card-index">
                   <span className="played-rank">
@@ -67,6 +68,11 @@ export default function PublicTrick({
                 className="public-card-empty"
                 aria-label={`${label}尚未出牌`}
               />
+            )}
+            {led && (
+              <span className="public-lead-badge" aria-hidden="true">
+                首引
+              </span>
             )}
             {play && effect && (
               <span
