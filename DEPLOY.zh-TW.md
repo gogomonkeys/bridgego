@@ -1,10 +1,10 @@
-# V0.7.0：PWA 與 Render 免費測試部署準備
+# BridgeGo：本機建置與 Render Beta 部署
 
-## 這份交付做到哪裡
+## 線上試玩與文件範圍
 
-提供單一服務的 Docker 建置設定、正式版前端打包進 Java JAR、PWA 與兩桌測試限制。**不是已經上線，也沒有登入／變更你的 Render 帳號或建立遠端儲存庫。** Docker 映像尚需在有 Docker 的環境實際建置；本機 JAR 驗證不能取代 Render HTTPS、手機安裝與八人同時遊玩的驗收。
+目前試玩入口為 **https://bridgego.onrender.com**；一般玩家請看 [快速開始](README.md)，不需要自行部署。
 
-帳號與服務由你持有。下一步需要你在自己的帳號授權原始碼儲存庫連接；不要在聊天貼密碼、API 金鑰或登入驗證碼。遇到信用卡、升級或付款要求，先停止，不接受付費方案。
+本專案可將前端打包進 Java JAR，以單一 Docker 服務執行。下方是本機建置及自行部署的操作指南，不是已通過所有裝置／負載驗收的保證。公開 Beta 使用記憶體保存牌局，重啟會清空資料。
 
 ## 架構與限制
 
@@ -43,9 +43,9 @@ java -jar backend/target/bridgego-server.jar
 
 開啟 `http://localhost:8080`。localhost 可測試 Service Worker，但不等於真實手機 HTTPS 安裝驗收。不同埠的本機頁面不在預設 WebSocket 白名單內。
 
-若已安裝 Docker，可在根目錄執行 `docker build -t bridgego-beta:0.7.0 .`。正式映像啟用 `prod`，必須設定 `PUBLIC_ORIGIN` 才能啟動，不會以萬用來源降級。
+若已安裝 Docker，可在根目錄執行 `docker build -t bridgego-beta:0.11.0 .`。正式映像啟用 `prod`，必須設定 `PUBLIC_ORIGIN` 才能啟動，不會以萬用來源降級。
 
-## 之後在自己的 Render 帳號操作
+## 自行建立 Render 服務（已有試玩服務者不需重做）
 
 1. 先確認測試原始碼與儲存庫分享範圍；只有你同意後才建立／上傳儲存庫，不連接原正式網站的資料庫或帳號。
 2. 用 Render 新增 Web Service，連接該儲存庫，專案根目錄包含 `Dockerfile`。選 **Docker、Free、Singapore**。`render.yaml` 可作設定範本，並非已執行部署；若儲存庫外層還有資料夾，調整 root directory 至 `bridge-successor`。
