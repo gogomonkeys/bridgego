@@ -132,7 +132,7 @@ describe("v0.5 static presentation, not browser interactions", () => {
   it("isolates DEAL_RESULT from private hand and table while showing acknowledgments", () => {
     const room = gameRoom("DEAL_RESULT");
     room.game!.completedDealResults = [completedDeal()];
-    room.game!.teamTotals = { NS: 7, EW: 0 };
+    room.game!.teamTotals = { NS: 5, EW: 0 };
     room.game!.operationTimer = {
       kind: "DEAL_RESULT",
       turnSeat: null,
@@ -145,7 +145,7 @@ describe("v0.5 static presentation, not browser interactions", () => {
     expect(html).toContain('aria-label="本局結算"');
     expect(html).not.toContain('data-testid="own-hand"');
     expect(html).not.toContain('aria-label="四人牌桌"');
-    expect(html).toContain("目前累計：南北 7 分");
+    expect(html).toContain("目前累計：南北 5 分");
     expect(html).toContain("12 <small>秒</small>");
     expect(html).toContain("四人確認或 90 秒期限到");
     expect(html).toContain("下一局特權倒數尚未開始");
@@ -207,7 +207,7 @@ describe("v0.5 static presentation, not browser interactions", () => {
   it("distinguishes no-contest from scored draw and retains completed score", () => {
     const room = gameRoom("MATCH_RESULT");
     room.game!.completedDealResults = [completedDeal()];
-    room.game!.teamTotals = { NS: 7, EW: 0 };
+    room.game!.teamTotals = { NS: 5, EW: 0 };
     room.game!.matchResult = {
       outcome: "NO_CONTEST",
       winnerTeamId: null,
@@ -215,7 +215,7 @@ describe("v0.5 static presentation, not browser interactions", () => {
       failedTeamIds: ["NS", "EW"],
     };
     expect(render(room)).toContain("本場無勝負");
-    expect(render(room)).toContain("南北 7 分");
+    expect(render(room)).toContain("南北 5 分");
     room.game!.matchResult = {
       outcome: "SCORED",
       winnerTeamId: null,

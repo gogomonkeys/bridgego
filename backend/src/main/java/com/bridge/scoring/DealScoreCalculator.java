@@ -31,7 +31,7 @@ public final class DealScoreCalculator {
   /**
    * Calculates both teams' scores without changing state or consulting external data. Privilege is
    * independently available to each team in every deal. The defending team wins iff the attacking
-   * team fails its target; defending ordinary score is always zero.
+   * team fails its target; defending ordinary score is one on a win and zero on a loss.
    *
    * @throws IllegalArgumentException if level is outside 1..7 or attackingTricks outside 0..13
    */
@@ -51,14 +51,14 @@ public final class DealScoreCalculator {
             attackWon,
             attackingPrivilege,
             attackWon ? level : 0,
-            attackingTricks == target ? level + 1 : 0,
-            attackWon ? 0 : -level,
+            attackingTricks == target ? 2 : 0,
+            attackWon ? 0 : attackingTricks - target,
             privilegeAdjustment(attackingPrivilege, attackWon));
     TeamScore defence =
         new TeamScore(
             !attackWon,
             defendingPrivilege,
-            0,
+            attackWon ? 0 : 1,
             0,
             0,
             privilegeAdjustment(defendingPrivilege, !attackWon));
@@ -66,6 +66,6 @@ public final class DealScoreCalculator {
   }
 
   private static int privilegeAdjustment(boolean used, boolean won) {
-    return used ? (won ? 2 : -1) : 0;
+    return used ? (won ? 1 : -1) : 0;
   }
 }

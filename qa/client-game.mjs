@@ -78,9 +78,9 @@ if (!isMainThread) {
     if (wins.NS !== result.tricksByTeam.NS || wins.EW !== result.tricksByTeam.EW) return false;
     const attack = result.contract.teamId, defence = attack === 'NS' ? 'EW' : 'NS';
     const level = result.contract.level, tricks = wins[attack], won = tricks >= level + 6;
-    const ordinary = !won ? -level : tricks === level + 6 ? 2 * level + 1 : level;
+    const ordinary = !won ? tricks - (level + 6) : tricks === level + 6 ? level + 2 : level;
     return result.privilegeUsed.NS === true && result.privilegeUsed.EW === true
-      && result.scores[attack].total === ordinary + (won ? 2 : -1)
+      && result.scores[attack].total === ordinary + (won ? 1 : -1)
       && result.scores[defence].total === (won ? -1 : 2);
   }
 

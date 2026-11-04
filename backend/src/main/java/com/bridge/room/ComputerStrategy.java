@@ -15,11 +15,15 @@ final class ComputerStrategy {
     return tied.get(random.nextInt(tied.size()));
   }
 
-  static GameState.LegalCall call(int seat, String target, GameState.Bid highest) {
+  static GameState.LegalCall call(int seat, String target, List<GameState.Card> hand, GameState.Bid highest) {
     if (highest != null && highest.seat() % 2 == seat % 2)
       return new GameState.LegalCall("PASS", null, null);
     int current = highest == null ? -1 : (highest.level() - 1) * 5 + GameState.STRAINS.indexOf(highest.strain());
-    for (int level = 1; level <= 2; level++)
+    long suitLength = hand.stream().filter(c -> c.suit().equals(target)).count();
+    boolean twoAces = hand.stream().filter(c -> c.rank() == 14).count() >= 2;
+    int maximumLevel = twoAces && suitLength >= 6 ? 4 : twoAces && suitLength >= 5 ? 3
+        : GameState.highCardPoints(hand) >= 8 ? 2 : 1;
+    for (int level = 1; level <= maximumLevel; level++)
       if ((level - 1) * 5 + GameState.STRAINS.indexOf(target) > current)
         return new GameState.LegalCall("BID", level, target);
     return new GameState.LegalCall("PASS", null, null);

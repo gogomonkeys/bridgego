@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "valid_input_cases": 392,
+  "invalid_boundary_input_cases": 400,
+  "total_distinct_input_cases": 792,
+  "additional_checks_within_valid_cases": ["all result components", "trick conservation", "exclusive winners", "independent privileges", "sequential replay", "interleaved calls", "reverse replay", "concurrent determinism"],
+  "production_source_sha256": "e20babb62251badcb23038be9e1b81939f0e78d0dee0ae3b9b425efd78884e54",
+  "java_runtime": "17.0.21",
+  "production_edits": false,
+  "network_or_external_services": false
+}

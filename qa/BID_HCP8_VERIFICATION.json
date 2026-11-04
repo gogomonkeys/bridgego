@@ -1,0 +1,20 @@
+{
+  "base": "deployed v0.10.0",
+  "deployed": false,
+  "packagedSource": true,
+  "status": "Local candidate verified; 8 HCP threshold for level 2, below 8 maximum level 1. Publication requires authorization.",
+  "jarSha256": "ccdc874c946e944f30bf985e35ed5cf9ac85845a38dee03a9406bb1a0ccaf744",
+  "checks": {
+    "backend": 644,
+    "frontend": 425,
+    "bidMatrixDecisions": 99264,
+    "bidIntegrationScenarios": 576,
+    "pwa": 21,
+    "betaNetwork": 30,
+    "takeoverNetwork": 34,
+    "embeddedFrontendFiles": 18,
+    "scoringRegression": 404
+  },
+  "historicalCheckpoint": true,
+  "supersededBy": "NEW_SCORING_VERIFICATION.md"
+}

@@ -32,6 +32,17 @@ class PlannedDealsTest {
       var s = f.view(0);
       assertEquals(deal, s.game().completedDeals());
       assertEquals(13, s.game().completedDealResults().get(deal - 1).completedTricks().size());
+      var result = s.game().completedDealResults().get(deal - 1);
+      String attack = result.contract().teamId();
+      String defence = attack.equals("NS") ? "EW" : "NS";
+      int level = result.contract().level();
+      int tricks = result.tricksByTeam().get(attack);
+      boolean won = tricks >= 6 + level;
+      int ordinary = won ? (tricks == 6 + level ? level + 2 : level) : tricks - (6 + level);
+      int attackAdjustment = result.privilegeUsed().get(attack) ? (won ? 1 : -1) : 0;
+      int defenceAdjustment = result.privilegeUsed().get(defence) ? (won ? -1 : 1) : 0;
+      assertEquals(ordinary + attackAdjustment, result.scores().get(attack).total());
+      assertEquals((won ? 0 : 1) + defenceAdjustment, result.scores().get(defence).total());
       for (String team : new String[]{"NS", "EW"}) {
         int sum = s.game().completedDealResults().stream().mapToInt(r -> r.scores().get(team).total()).sum();
         assertEquals(sum, s.game().teamTotals().get(team));
@@ -53,6 +64,8 @@ class PlannedDealsTest {
     var waiting = f.service.rematch(f.room, f.players[0], last.game().gameId(), PlayFlowTest.action(), last.revision()).room();
     assertEquals(count, waiting.plannedDeals());
     assertEquals(count, waiting.lastMatch().completedDealResults().size());
+    assertEquals(last.game().completedDealResults(), waiting.lastMatch().completedDealResults());
+    assertEquals(last.game().teamTotals(), waiting.lastMatch().teamTotals());
     for (int i = 0; i < 4; i++) f.service.ready(f.room, f.players[i], true);
     f.start();
     assertEquals(count, f.view(0).game().plannedDeals()); assertEquals(1, f.view(0).game().dealIndex());

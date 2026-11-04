@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "checks": [
+    "sw.js uses fixed 1980 archive timestamp",
+    "index.html uses fixed 1980 archive timestamp",
+    "manifest.webmanifest uses fixed 1980 archive timestamp",
+    "baseline serves current worker bytes",
+    "baseline exposes fixed 1980 validator",
+    "baseline reproduces 304 with no new body",
+    "/ old validator 0: fresh exact body/no date validator",
+    "/ old validator 1: fresh exact body/no date validator",
+    "/ old validator 2: fresh exact body/no date validator",
+    "/index.html old validator 0: fresh exact body/no date validator",
+    "/index.html old validator 1: fresh exact body/no date validator",
+    "/index.html old validator 2: fresh exact body/no date validator",
+    "/sw.js old validator 0: fresh exact body/no date validator",
+    "/sw.js old validator 1: fresh exact body/no date validator",
+    "/sw.js old validator 2: fresh exact body/no date validator",
+    "/manifest.webmanifest old validator 0: fresh exact body/no date validator",
+    "/manifest.webmanifest old validator 1: fresh exact body/no date validator",
+    "/manifest.webmanifest old validator 2: fresh exact body/no date validator",
+    "HEAD cannot falsely validate old worker",
+    "private API stays unauthorized/no-store",
+    "health remains ready/no-store"
+  ],
+  "count": 21,
+  "jar_sha256": "572c6dd4438934bbdf97071267cd277e0f3ec593b41b1fcada8d66db1e10d4b5",
+  "scope": "loopback packaged JAR only; no real-device PWA claim"
+}

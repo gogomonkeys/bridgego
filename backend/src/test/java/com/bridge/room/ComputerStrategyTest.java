@@ -171,12 +171,12 @@ class ComputerStrategyTest {
   }
   @Test void minimumLegalLevelUpToTwoAndPartnersPassAllSeats() {
     for (int seat = 0; seat < 4; seat++) {
-      assertEquals(new GameState.LegalCall("BID", 1, "HEART"), ComputerStrategy.call(seat, "HEART", null));
-      assertEquals(new GameState.LegalCall("BID", 1, "HEART"), ComputerStrategy.call(seat, "HEART", new GameState.Bid((seat+1)%4,1,"CLUB")));
-      assertEquals(new GameState.LegalCall("BID", 2, "HEART"), ComputerStrategy.call(seat, "HEART", new GameState.Bid((seat+1)%4,1,"SPADE")));
-      assertEquals("PASS", ComputerStrategy.call(seat,"HEART",new GameState.Bid((seat+1)%4,2,"SPADE")).type());
-      assertEquals("PASS", ComputerStrategy.call(seat,"SPADE",new GameState.Bid((seat+2)%4,1,"CLUB")).type());
-      assertEquals("PASS", ComputerStrategy.call(seat,"SPADE",new GameState.Bid((seat+1)%4,7,"NO_TRUMP")).type());
+      assertEquals(new GameState.LegalCall("BID", 1, "HEART"), ComputerStrategy.call(seat,"HEART",ComputerBidCeilingTest.hand("HEART", 4, 2), null));
+      assertEquals(new GameState.LegalCall("BID", 1, "HEART"), ComputerStrategy.call(seat,"HEART",ComputerBidCeilingTest.hand("HEART", 4, 2), new GameState.Bid((seat+1)%4,1,"CLUB")));
+      assertEquals(new GameState.LegalCall("BID", 2, "HEART"), ComputerStrategy.call(seat,"HEART",ComputerBidCeilingTest.hand("HEART", 4, 2), new GameState.Bid((seat+1)%4,1,"SPADE")));
+      assertEquals("PASS", ComputerStrategy.call(seat,"HEART",ComputerBidCeilingTest.hand("HEART", 4, 2),new GameState.Bid((seat+1)%4,2,"SPADE")).type());
+      assertEquals("PASS", ComputerStrategy.call(seat,"SPADE",ComputerBidCeilingTest.hand("SPADE", 4, 2),new GameState.Bid((seat+2)%4,1,"CLUB")).type());
+      assertEquals("PASS", ComputerStrategy.call(seat,"SPADE",ComputerBidCeilingTest.hand("SPADE", 4, 2),new GameState.Bid((seat+1)%4,7,"NO_TRUMP")).type());
     }
   }
 }

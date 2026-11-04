@@ -143,10 +143,10 @@ export function completedDeal(): import("./model").DealResult {
         won: true,
         privilegeUsed: true,
         base: 2,
-        exactTargetBonus: 3,
+        exactTargetBonus: 2,
         penalty: 0,
-        privilegeAdjustment: 2,
-        total: 7,
+        privilegeAdjustment: 1,
+        total: 5,
       },
       EW: {
         won: false,

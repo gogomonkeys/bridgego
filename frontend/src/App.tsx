@@ -21,7 +21,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.10.0", disconnects: diagnostics },
+    { version: "0.11.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -102,7 +102,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.10.0</span>
+              <span className="eyebrow">v0.11.0</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"
@@ -224,12 +224,20 @@ export default function App() {
             </p>
             <h3>特權與叫牌</h3>
             <p>
-              特權徽章旁會直接標示我方及對方「已使用／未使用」。點擊問號可查看提示。同隊任一人使用即成立，兩人都不用才確定不使用；兩隊完成決定後一起公開。特權會影響結算，請以結算中的「特權調整」查看本局加減分。
+              特權徽章旁會直接標示我方及對方「已使用／未使用」。點擊問號可查看提示。同隊任一人使用即成立，兩人都不用才確定不使用；兩隊完成決定後一起公開。兩隊各自決定是否使用特權；使用的隊伍本局獲勝額外 +1 分，落敗 -1 分，不影響另一隊的特權調整。
             </p>
             <p>
               叫牌必須高於前價，同階依 ♣ → ♦ → ♥ → ♠ → NT
               排序；不設加倍或再加倍。
             </p>
+            <h3>本局計分</h3>
+            <p>
+              定約 L 階的目標為 6 + L 墩。定約方剛好達標得 L + 2
+              分，超過目標得 L 分；未達標按實際少拿的墩數扣分，每少一墩扣 1
+              分，不設扣分上限。防守方只在定約失敗時得 1 分，定約成功時得 0 分。
+              特權加減分另外計算，不互相抵銷。
+            </p>
+            <p>歷史結算保留當時已記錄的分數，不以新規則重新計算。</p>
             <h3>操作倒數由後端判定</h3>
             <p>
               特權階段每人 20 秒，未選者逾時視為不使用；每次輪到叫牌有 20

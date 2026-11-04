@@ -26,14 +26,14 @@ public final class ScoringOracleReview {
     int threshold = level + 6;
     int ordinary;
     boolean attackerWins;
-    if (tricks < threshold) { ordinary = -level; attackerWins = false; }
-    else if (tricks == threshold) { ordinary = 2 * level + 1; attackerWins = true; }
+    if (tricks < threshold) { ordinary = tricks - threshold; attackerWins = false; }
+    else if (tricks == threshold) { ordinary = level + 2; attackerWins = true; }
     else { ordinary = level; attackerWins = true; }
-    int attackerPrivilegeDelta = ap ? (attackerWins ? 2 : -1) : 0;
-    int defenderPrivilegeDelta = dp ? (attackerWins ? -1 : 2) : 0;
+    int attackerPrivilegeDelta = ap ? (attackerWins ? 1 : -1) : 0;
+    int defenderPrivilegeDelta = dp ? (attackerWins ? -1 : 1) : 0;
 
     require(actual.attack().total() == ordinary + attackerPrivilegeDelta, "attacking total", input);
-    require(actual.defence().total() == defenderPrivilegeDelta, "defending total", input);
+    require(actual.defence().total() == (attackerWins ? 0 : 1) + defenderPrivilegeDelta, "defending total", input);
     require(actual.contractLevel() == level && actual.attackingTarget() == threshold, "contract metadata", input);
     require(actual.attackingTricks() == tricks && actual.defendingTricks() + tricks == 13, "trick conservation", input);
     require(actual.attack().won() == attackerWins && actual.defence().won() != attackerWins, "exclusive winner", input);
@@ -41,11 +41,11 @@ public final class ScoringOracleReview {
 
     // Components must explain the totals; exact bonus is ADDITIVE, not a substitute for base.
     require(actual.attack().base() == (attackerWins ? level : 0), "base component", input);
-    require(actual.attack().exactTargetBonus() == (tricks == threshold ? level + 1 : 0), "additive exact bonus", input);
-    require(actual.attack().penalty() == (attackerWins ? 0 : -level), "fixed failure penalty", input);
+    require(actual.attack().exactTargetBonus() == (tricks == threshold ? 2 : 0), "additive exact bonus", input);
+    require(actual.attack().penalty() == (attackerWins ? 0 : tricks - threshold), "uncapped shortfall penalty", input);
     require(actual.attack().privilegeAdjustment() == attackerPrivilegeDelta, "attacker privilege component", input);
-    require(actual.defence().base() == 0 && actual.defence().exactTargetBonus() == 0 && actual.defence().penalty() == 0,
-        "defender ordinary components must all be zero", input);
+    require(actual.defence().base() == (attackerWins ? 0 : 1) && actual.defence().exactTargetBonus() == 0 && actual.defence().penalty() == 0,
+        "defender ordinary reward only on win", input);
     require(actual.defence().privilegeAdjustment() == defenderPrivilegeDelta, "defender privilege component", input);
     require(actual.attack().total() == actual.attack().base() + actual.attack().exactTargetBonus()
         + actual.attack().penalty() + actual.attack().privilegeAdjustment(), "component sum", input);

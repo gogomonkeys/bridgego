@@ -379,8 +379,8 @@ export default function GamePanel({
                       label="特權效果說明"
                     >
                       <span>
-                        使用特權：本局獲勝額外 +2 分，落敗扣 1
-                        分。詳細計分見本局結算。
+                        使用特權：本局獲勝額外 +1 分，落敗扣 1
+                        分。兩隊各自計算，未使用者不加減。詳細計分見本局結算。
                       </span>
                     </IconTip>
                   </div>
@@ -563,7 +563,7 @@ export default function GamePanel({
         >
           <summary>更多</summary>
           <div className="match-more-panel">
-            <small>v0.10.0 · 狀態版本 {room.revision}</small>
+            <small>v0.11.0 · 狀態版本 {room.revision}</small>
             <button
               className="secondary"
               disabled={busy}

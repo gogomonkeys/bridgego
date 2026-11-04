@@ -290,8 +290,10 @@ class PlayFlowTest {
           cards.add(new GameState.Card(GameState.STRAINS.get(seat), rank));
         g.hands.put(seat, List.copyOf(cards));
       }
-      for (int seat = 0; seat < 4; seat++) g.choose(seat, false);
-      int level = deal == 1 ? 2 : 1;
+      // All suits are isolated, so the left-hand defender takes every trick.
+      // Both teams opt in only on deal 2: NS -7 +2 -7, EW +1 -14 +1.
+      for (int seat = 0; seat < (deal == 1 ? 2 : 4); seat++) g.choose(seat, deal == 1);
+      int level = deal == 1 ? 7 : 1;
       g.call(deal, "BID", level, "NO_TRUMP");
       for (int i = 1; i < 4; i++) g.call((deal + i) % 4, "PASS", null, null);
       for (int i = 0; i < 52; i++) {
@@ -307,7 +309,7 @@ class PlayFlowTest {
     var s = g.view(0, false);
     assertEquals("MATCH_RESULT", g.phase);
     assertNull(s.matchResult().winnerTeamId());
-    assertEquals(Map.of("NS", -2, "EW", -2), s.teamTotals());
+    assertEquals(Map.of("NS", -12, "EW", -12), s.teamTotals());
     assertEquals(3, s.completedDeals());
     clock.now.addAndGet(100_000);
     assertFalse(g.expireOperation());

@@ -1,0 +1,66 @@
+[
+  {
+    "case": "room publishes selected deal count",
+    "status": "PASS"
+  },
+  {
+    "case": "four Pass redeals same first deal and retains auction history",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 starts play at last bidder right",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 has fifty-two unique private cards",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 stale play cannot advance trick",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 final four cards visible before settlement",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 settles and advances exactly once",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 conserves thirteen tricks and fifty-two plays",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 score breakdown and trick history match oracle",
+    "status": "PASS"
+  },
+  {
+    "case": "deal 1 cumulative custom score matches independent oracle",
+    "status": "PASS"
+  },
+  {
+    "case": "all selected-deal WS histories expose only own remaining private hand",
+    "status": "PASS"
+  },
+  {
+    "case": "final deal retains terminal match and clears operation timer",
+    "status": "PASS"
+  },
+  {
+    "case": "scored match winner follows independent cumulative totals",
+    "status": "PASS"
+  },
+  {
+    "case": "all-offline completed match retains immutable result and memberships",
+    "status": "PASS"
+  },
+  {
+    "case": "terminal reconnect restores unchanged final result",
+    "status": "PASS"
+  },
+  {
+    "case": "late explicit leaves cannot rewrite scored match result",
+    "status": "PASS"
+  }
+]

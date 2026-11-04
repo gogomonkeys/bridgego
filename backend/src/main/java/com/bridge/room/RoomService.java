@@ -507,7 +507,7 @@ public class RoomService {
       }
       String target = r.computerTargets.computeIfAbsent(seat,
           ignored -> ComputerStrategy.longestSuit(g.hands.get(seat), random));
-      GameState.LegalCall call = ComputerStrategy.call(seat, target, g.highest);
+      GameState.LegalCall call = ComputerStrategy.call(seat, target, g.hands.get(seat), g.highest);
       g.call(seat, call.type(), call.level(), call.strain(), source);
     } else if (g.phase.equals("PLAYING")) {
       var play = g.view(null, false).play();

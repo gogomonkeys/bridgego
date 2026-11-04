@@ -113,10 +113,14 @@ export function DealBreakdown({
       <p>
         定約 {result.contract.level} {symbols[result.contract.strain]} ·{" "}
         {teamNames[result.contract.teamId]} ·{" "}
-        {playerLabel(roster, result.contract.holderSeat)}叫到
+        {playerLabel(roster, result.contract.holderSeat)}叫到 · 目標{" "}
+        {6 + result.contract.level} 墩
       </p>
+      <p>以下為本局已記錄的結算分數。</p>
       <div className="score-cards">
         {(["NS", "EW"] as const).map((team) => {
+          // Settlement values are authoritative, including archived pre-rule-change deals.
+          // Never recompute a saved score from the current scoring rules.
           const score = result.scores[team];
           return (
             <section
@@ -134,15 +138,19 @@ export function DealBreakdown({
               </p>
               <dl>
                 <div>
-                  <dt>基本分</dt>
+                  <dt>
+                    {team === result.contract.teamId
+                      ? "定約基本分"
+                      : "防守獎勵"}
+                  </dt>
                   <dd>{score.base}</dd>
                 </div>
                 <div>
-                  <dt>剛好達標</dt>
+                  <dt>剛好達標加分</dt>
                   <dd>{score.exactTargetBonus}</dd>
                 </div>
                 <div>
-                  <dt>失約扣分</dt>
+                  <dt>未達標扣分</dt>
                   <dd>{score.penalty}</dd>
                 </div>
                 <div>
@@ -202,8 +210,8 @@ export function MatchSummary({
         </p>
       )}
       <p>
-        已完成 {game.completedDeals} / {game.plannedDeals} 局 · 南北 {game.teamTotals.NS} 分 ·
-        東西 {game.teamTotals.EW} 分
+        已完成 {game.completedDeals} / {game.plannedDeals} 局 · 南北{" "}
+        {game.teamTotals.NS} 分 · 東西 {game.teamTotals.EW} 分
       </p>
       <p>已完成的分數保留；未完成的局不計分。之後離開或斷線不改變此結果。</p>
     </section>
@@ -249,6 +257,7 @@ export function PreviousMatchSummary({ match }: { match: MatchArchive }) {
             : "平手"}
         {result.outcome === "FORFEIT" && <small> · 棄權判定</small>}
       </strong>
+      <p>保留當時已記錄的分數，不以新規則重算。</p>
       <div className="previous-totals">
         <span>
           南北 <b>{match.teamTotals.NS}</b> 分
