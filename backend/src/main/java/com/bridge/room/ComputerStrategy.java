@@ -41,7 +41,9 @@ final class ComputerStrategy {
     for (TrickEngine.Play candidate : table)
       if (TrickEngine.beats(candidate.card(), winner.card(), lead, trump)) winner = candidate;
     // Legal follow-suit obligations take precedence over conserving a partner's winning trick.
-    if (table.size() == 3 && winner.seat() % 2 == seat % 2) {
+    boolean partnerWinning = winner.seat() % 2 == seat % 2;
+    if (partnerWinning && (table.size() == 3
+        || (table.size() == 2 && cannotBeOvertaken(winner.card(), hand, table, lead, trump)))) {
       if (!following.isEmpty()) return minimum(following, random);
       return discard(hand, trump, random);
     }
@@ -55,6 +57,21 @@ final class ComputerStrategy {
     Optional<GameState.Card> cut = hand.stream().filter(c -> c.suit().equals(trump) && c.rank() > tableTrump).min(rank);
     if (cut.isPresent()) return cut.get();
     return discard(hand, trump, random);
+  }
+
+  private static boolean cannotBeOvertaken(GameState.Card winner, List<GameState.Card> hand,
+      List<TrickEngine.Play> table, String lead, String trump) {
+    // Only our hand and this public trick are known. Treat every other card as a
+    // possible fourth-player card, including trumps when the lead is a side suit.
+    Set<GameState.Card> known = new HashSet<>(hand);
+    table.stream().map(TrickEngine.Play::card).forEach(known::add);
+    for (String suit : GameState.STRAINS.subList(0, 4)) {
+      for (int rank = 2; rank <= 14; rank++) {
+        GameState.Card candidate = new GameState.Card(suit, rank);
+        if (!known.contains(candidate) && TrickEngine.beats(candidate, winner, lead, trump)) return false;
+      }
+    }
+    return true;
   }
 
   private static GameState.Card discard(List<GameState.Card> hand, String trump, RandomGenerator random) {

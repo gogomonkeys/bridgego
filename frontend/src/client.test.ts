@@ -121,6 +121,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("central real-client lifecycle (mock transport, not integration)", () => {
+  it.each([undefined, 1, 3, 5] as const)("sends the selected deal count (%s) when creating a room", async (count) => {
+    const { client, getClientState } = await setup(false);
+    fetchMock.mockResolvedValue(json({ ...room(), plannedDeals: count ?? 3 }));
+    await client.create(count);
+    const request = fetchMock.mock.calls.find(([path, options]) => path === "/api/rooms" && options?.method === "POST");
+    expect(JSON.parse(request![1].body)).toEqual({ plannedDeals: count ?? 3 });
+    expect(getClientState().room?.plannedDeals).toBe(count ?? 3);
+  });
+
   it("restores stable guest on refresh and subscribes without a token in URL", async () => {
     const { getClientState } = await setup();
     const socket = MockSocket.instances[0];

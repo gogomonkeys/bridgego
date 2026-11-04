@@ -6845,41 +6845,71 @@ body {
   font-weight: 500;
 }
 
-/* Private redeal decision shares the existing compact action dock. */
-.redeal-actions {
+/* One private panel: points/help above a full-width status or action row. */
+.table-action-dock .redeal-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #d8c5a4;
+  border-radius: 16px;
+  background: #fffaf1;
+}
+.redeal-heading {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 .redeal-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
   margin: 0;
-  font-size: 13px;
-  flex: 1 1 110px;
+  min-width: 0;
+  color: #59442e;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.redeal-summary strong {
+  color: #006c60;
+  font-size: 18px;
+}
+.redeal-private {
+  color: #786c59;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.redeal-heading > .icon-tip {
+  flex: 0 0 auto;
+}
+.redeal-heading .icon-tip-trigger {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
 }
 .redeal-actions .choice-buttons {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  flex: 1 1 220px;
+  margin: 0;
 }
 .redeal-actions .choice-buttons button {
-  flex: 1;
+  min-width: 0;
   min-height: 44px;
 }
 .redeal-actions .selection-confirmed {
   margin: 0;
-  flex: 1;
-}
-@media (max-width: 730px) {
-  .redeal-actions {
-    gap: 5px 8px;
-  }
-  .redeal-summary {
-    font-size: 12px;
-  }
-  .redeal-actions .choice-buttons {
-    flex-basis: 100%;
-  }
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #edf2e4;
+  color: #536743;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 .redeal-count {
   color: #675b43;
@@ -6893,4 +6923,32 @@ body {
     grid-row: 3;
     font-size: 9px;
   }
+}
+
+/* Room-wide deal count is fixed at creation and retained on rematch. */
+.deal-count-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.2rem;
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border, #b7c9b6);
+  border-radius: 12px;
+}
+.deal-count-choice legend { padding: 0 0.35rem; }
+.deal-count-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+.deal-count-choice input {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  accent-color: #527e68;
+  flex: 0 0 auto;
 }

@@ -15,9 +15,9 @@ def action(g,i,kind,extra=None,revision=None,action_id=None):
     if status==200:
         assert private_valid(response['room'],g['users'][i]),'command response leaked or misattributed private view'
     return status,response,body,path
-async def setup(label):
+async def setup(label, planned_deals=None):
     users=[session(label+str(i)) for i in range(4)]
-    _,r=api('POST','/api/rooms',users[0]['token'],{});path='/api/rooms/'+r['roomId'];clients=[]
+    _,r=api('POST','/api/rooms',users[0]['token'],{} if planned_deals is None else {'plannedDeals':planned_deals});path='/api/rooms/'+r['roomId'];clients=[]
     for i,u in enumerate(users):
         if i:assert api('POST',path+'/join',u['token'],{})[0]==200
         clients.append(await Client(u,r['roomId']).connect())
@@ -36,7 +36,7 @@ def cards(value):
     return found
 def private_valid(r,user):
     you=r.get('you');hand=you and you.get('ownHand')
-    allowed={'roomId','revision','phase','capacity','allReady','hostPlayerId','canStart','players','game','you','canRematch','lastMatch','allHumansReconnectDeadline'}
+    allowed={'roomId','revision','phase','capacity','plannedDeals','allReady','hostPlayerId','canStart','players','game','you','canRematch','lastMatch','allHumansReconnectDeadline'}
     if set(r)!=allowed or not you or you['playerId']!=user['playerId']:return False
     if r['game'] and set(r['game'])!={'gameId','dealId','plannedDeals','dealIndex','completedDeals','dealerSeat','redealCount','lastRedealReason','paused','abortReason','redeal','privilege','auction','teamTotals','completedDealResults','operationTimer','roster','play','pendingForfeit','matchResult','forfeitEvents','resultAcknowledgedSeats','auctionRounds'}:return False
     if r['game'] and set(r['game']['privilege'])!={'status','yourChoice','yourChoiceSource','usedByTeam','canChoose'}:return False

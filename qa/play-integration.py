@@ -5,6 +5,8 @@ from integration import api,Client
 from play_oracle import winner,legal_cards,score,card_key
 spec=importlib.util.spec_from_file_location('game_setup',Path(__file__).with_name('game-integration.py'))
 game=importlib.util.module_from_spec(spec);spec.loader.exec_module(game)
+PLANNED_DEALS=int(os.environ.get('BRIDGE_PLANNED_DEALS','3'))
+assert PLANNED_DEALS in (1,3,5)
 results=[]
 def check(name,ok):
     results.append({'case':name,'status':'PASS' if ok else 'FAIL'});print(results[-1],flush=True);assert ok,name
@@ -38,14 +40,15 @@ async def deal_to_play(g,deal_number):
         r=view(g,seat)
         if r['game']['privilege']['canChoose']:assert command(g,seat,'privilege',{'use':use})[0]==200
     r=view(g);assert r['phase']=='BIDDING';first=r['game']['auction']['nextSeat']
-    strain=('CLUB','NO_TRUMP','SPADE')[deal_number-1]
+    strain=('CLUB','NO_TRUMP','SPADE')[(deal_number-1)%3]
     assert command(g,first,'calls',{'type':'BID','level':1,'strain':strain})[0]==200
     for _ in range(3):
         r=view(g);assert command(g,r['game']['auction']['nextSeat'],'calls',{'type':'PASS'})[0]==200
     r=view(g);check('deal '+str(deal_number)+' starts play at last bidder right',r['phase']=='PLAYING' and r['game']['play']['nextSeat']==(first+3)%4)
     return r,strain,use_ns,use_ew
 async def main():
-    g=await game.setup('three-deal');
+    g=await game.setup('selected-deals', PLANNED_DEALS);
+    check('room publishes selected deal count',view(g)['plannedDeals']==PLANNED_DEALS)
     try:
         assert command(g,0,'start')[0]==200
         # Preserve the separate four-Pass redeal path before playing three scored deals.
@@ -57,7 +60,7 @@ async def main():
         r=view(g)
         check('four Pass redeals same first deal and retains auction history',r['game']['dealId']!=all_pass_deal and r['game']['dealIndex']==1 and r['game']['completedDeals']==0 and r['game']['auctionRounds'][0]['status']=='ALL_PASS' and len(r['game']['auctionRounds'][0]['calls'])==4)
         cumulative={'NS':0,'EW':0};initial_hands={}
-        for deal_number in range(1,4):
+        for deal_number in range(1,PLANNED_DEALS+1):
             start,strain,use_ns,use_ew=await deal_to_play(g,deal_number)
             deal_id=start['game']['dealId'];contract=start['game']['auction']['result'];hands={i:view(g,i)['you']['ownHand'][:] for i in range(4)}
             initial_hands[deal_id]={i:h[:] for i,h in hands.items()}
@@ -97,7 +100,7 @@ async def main():
                     assert completed['winnerSeat']==won and after['game']['play']['nextSeat']==won
                     assert all(t['cardsVisible'] is False and t['plays']==[] for t in after['game']['play']['completedTricks'])
                 else:
-                    check('deal '+str(deal_number)+' settles and advances exactly once',len(after['game']['completedDealResults'])==deal_number and after['game']['completedDeals']==deal_number and after['phase']==('MATCH_RESULT' if deal_number==3 else 'DEAL_RESULT'))
+                    check('deal '+str(deal_number)+' settles and advances exactly once',len(after['game']['completedDealResults'])==deal_number and after['game']['completedDeals']==deal_number and after['phase']==('MATCH_RESULT' if deal_number==PLANNED_DEALS else 'DEAL_RESULT'))
             check('deal '+str(deal_number)+' conserves thirteen tricks and fifty-two plays',sum(counts.values())==13 and all(not h for h in hands.values()) and len({(c['suit'],c['rank']) for c in played})==52)
             # Independently verify every immutable settlement component, not just aggregate totals.
             attack_team=contract['teamId'];defence_team='EW' if attack_team=='NS' else 'NS';priv={'NS':use_ns,'EW':use_ew}
@@ -106,7 +109,7 @@ async def main():
             check('deal '+str(deal_number)+' score breakdown and trick history match oracle',settled['dealId']==deal_id and settled['tricksByTeam']==counts and settled['scores'][attack_team]==expected['attack'] and settled['scores'][defence_team]==expected['defence'] and len(settled['completedTricks'])==13 and all(t['cardsVisible'] and len(t['plays'])==4 for t in settled['completedTricks']))
             cumulative[attack_team]+=expected['attack']['total'];cumulative[defence_team]+=expected['defence']['total']
             check('deal '+str(deal_number)+' cumulative custom score matches independent oracle',view(g)['game']['teamTotals']==cumulative)
-            if deal_number<3:
+            if deal_number<PLANNED_DEALS:
                 check('settlement blocks new hands until confirmation',view(g)['game']['dealId']==deal_id and view(g)['game']['operationTimer']['kind']=='DEAL_RESULT' and all(view(g,i)['you']['ownHand']==[] for i in range(4)))
                 for i in range(4):assert command(g,i,'acknowledge-result')[0]==200
                 revision=view(g)['revision'];old_command={**body,'actionId':str(uuid.uuid4()),'expectedRevision':revision}
@@ -133,10 +136,10 @@ async def main():
                         if move['seat']==seat:own.remove(move['card'])
                 assert sorted(snap['you']['ownHand'],key=card_key)==sorted(own,key=card_key),'WS exposed nonremaining private hand'
                 assert game.private_valid(snap,c.u),'unexpected private card projection'
-        check('all three-deal WS histories expose only own remaining private hand',True)
-        final=view(g);check('third deal retains terminal match and clears operation timer',final['phase']=='MATCH_RESULT' and final['game']['operationTimer'] is None and final['game']['matchResult'] is not None)
+        check('all selected-deal WS histories expose only own remaining private hand',True)
+        final=view(g);check('final deal retains terminal match and clears operation timer',final['phase']=='MATCH_RESULT' and final['game']['operationTimer'] is None and final['game']['matchResult'] is not None)
         expected_winner=None if cumulative['NS']==cumulative['EW'] else max(cumulative,key=cumulative.get)
-        check('scored match winner follows independent cumulative totals',final['game']['matchResult']=={'outcome':'SCORED','winnerTeamId':expected_winner,'reason':'THREE_DEALS_COMPLETE','failedTeamIds':[]})
+        check('scored match winner follows independent cumulative totals',final['game']['matchResult']=={'outcome':'SCORED','winnerTeamId':expected_winner,'reason':'THREE_DEALS_COMPLETE' if PLANNED_DEALS==3 else 'PLANNED_DEALS_COMPLETE','failedTeamIds':[]})
         for c in g['clients']:await c.close()
         await asyncio.sleep(.3)
         check('all-offline completed match retains immutable result and memberships',all(view(g,i)['game']['matchResult']==final['game']['matchResult'] for i in range(4)))

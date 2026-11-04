@@ -149,6 +149,7 @@ final class GameState {
   private TrickEngine tricks;
   private int dealerSeat;
   private int dealIndex = 1;
+  private final int plannedDeals;
   private List<PlayerInfo> roster = List.of();
   private final List<DealResult> results = new ArrayList<>();
   private final Map<String, Integer> totals = new HashMap<>(Map.of("NS", 0, "EW", 0));
@@ -243,6 +244,13 @@ final class GameState {
   }
 
   GameState(SecureRandom random, java.util.function.LongSupplier ticker) {
+    this(random, ticker, 3);
+  }
+
+  GameState(SecureRandom random, java.util.function.LongSupplier ticker, int plannedDeals) {
+    if (plannedDeals != 1 && plannedDeals != 3 && plannedDeals != 5)
+      throw new IllegalArgumentException("plannedDeals must be 1, 3 or 5");
+    this.plannedDeals = plannedDeals;
     this.random = random;
     this.ticker = ticker;
     deal();
@@ -571,13 +579,13 @@ final class GameState {
             tricks.completedTricks(),
             auctionRounds().stream().filter(round -> round.dealIndex() == dealIndex).toList()));
     scores.forEach((team, value) -> totals.put(team, totals.get(team) + value.total()));
-    if (results.size() == 3) {
+    if (results.size() == plannedDeals) {
       int comparison = Integer.compare(totals.get("NS"), totals.get("EW"));
       matchResult =
           new MatchResult(
               "SCORED",
               comparison == 0 ? null : comparison > 0 ? "NS" : "EW",
-              "THREE_DEALS_COMPLETE",
+              plannedDeals == 3 ? "THREE_DEALS_COMPLETE" : "PLANNED_DEALS_COMPLETE",
               List.of());
     }
   }
@@ -639,7 +647,7 @@ final class GameState {
     return new View(
         id,
         dealId,
-        3,
+        plannedDeals,
         dealIndex,
         results.size(),
         dealerSeat,

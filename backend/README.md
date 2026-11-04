@@ -1,4 +1,4 @@
-# BridgeGo v0.6.3 — local three-deal bridge variant
+# BridgeGo v0.6.3 — local selectable-deal bridge variant
 
 Independent Java/Spring successor; no original accounts, DB, credentials or external backend. Guest sessions use opaque bearer tokens. All state is in memory and lost on restart. Default listener is `127.0.0.1:8080`; frontend Vite proxy is loopback only. This is a locally tested prototype, not a public production deployment.
 
@@ -20,7 +20,7 @@ This version was built and runtime-tested with full Temurin JDK 17.0.21+9 and th
 - Last bidder's left-hand player leads, then trick winner leads. Must follow led suit when held; otherwise any card. Highest trump wins, otherwise highest led-suit card; Ace high, NT no trump.
 - Privilege phase and each bid/play turn have server-owned20-second budgets. Missing privilege votes default no, bid timeout Pass, play timeout lowest legal rank (suit tie CLUB/DIAMOND/HEART/SPADE). Manual/timeout provenance is visible safely; privilege provenance only to its owner.
 -13 tricks produce one transparent score breakdown using confirmed custom scoring. Exact target6+level earns baselevel plus bonuslevel+1; overtrick success baselevel only; failure-level. Defence ordinaryscore0. Each used privilege adds+2 on teamwin/-1 on loss.
-- After completed deals 1/2, hold DEAL_RESULT for up to 20 seconds without dealing new cards. All four authenticated participants may acknowledge to continue early; timeout advances once. Only then create the next deal and its fresh privilege timer. Active disconnect pauses this result budget with the existing ten-second reconnect/forfeit rule. After three completed deals retain MATCH_RESULT; higher total wins, equal totals draw.
+- After each non-final completed deal, hold DEAL_RESULT for up to 90 seconds without dealing new cards. All four authenticated participants may acknowledge to continue early; timeout advances once. Only then create the next deal and its fresh privilege timer. Active disconnect pauses this result budget with the existing ten-second reconnect/forfeit rule. After the selected 1, 3 or 5 completed deals retain MATCH_RESULT; higher total wins, equal totals draw.
 - Initial dealer0, rotates clockwise after completeddeal; all-pass keeps dealer. These are disclosed implementation defaults. A terminal room can be explicitly returned to WAITING by its online host using “再玩一場”; no automatic reset.
 
 ## History projection and review gates (v0.6)
@@ -61,3 +61,5 @@ Backend clean package and 528 unit tests passed. Independent runtime validation 
 
 ## Historical v0.5.1 installation patch
 The frontend dependency lock graph was repaired after a clean-install failure. Game/transport/layout implementation is unchanged; only application release labels and artifact version changed. Fresh patch evidence is 528 backend tests, 35 network smoke checks and a clean staging frontend install with 94 tests/checks. Prior 303-check/600-second results above describe v0.5 functional evidence, not a freshly repeated v0.5.1 full soak. Final-ZIP clean-install acceptance is reported with delivery. See TEST_RESULTS.md and ../qa/V0_5_1_INSTALL_RECOVERY.md.
+
+Room creation accepts optional `plannedDeals` (integer 1, 3 or 5; omitted/null defaults to 3). It is immutable for the room and retained on rematch. Public room summaries, room snapshots and game snapshots carry this count. Invalid values return `INVALID_PLANNED_DEALS`. The default three-deal completion reason stays `THREE_DEALS_COMPLETE`; 1/5 use `PLANNED_DEALS_COMPLETE`.

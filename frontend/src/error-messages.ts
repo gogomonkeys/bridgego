@@ -35,6 +35,7 @@ export const errorMessages: Record<string, string> = {
   INVALID_SESSION: "訪客身分已失效，請重新建立。",
   STALE_GAME: "這場遊戲已變更，請重新同步。",
   STALE_DEAL: "已重新發牌，請依新手牌重新選擇。",
+  INVALID_PLANNED_DEALS: "請選擇 1、3 或 5 局。",
   INVALID_READY: "準備狀態格式不正確，請重新操作。",
   INVALID_REDEAL: "倒牌選擇格式不正確，請重新操作。",
   REDEAL_NOT_ELIGIBLE: "你的手牌不符合倒牌條件，請保留手牌。",

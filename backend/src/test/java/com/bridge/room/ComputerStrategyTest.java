@@ -92,6 +92,76 @@ class ComputerStrategyTest {
         List.of(c("HEART",2),c("SPADE",2),c("DIAMOND",9)),table,"NO_TRUMP",random));
     assertEquals(Set.of(c("HEART",2),c("SPADE",2)),seen);
   }
+  List<TrickEngine.Play> thirdPlayerTable(int seat, String suit, int partnerRank, int opponentRank) {
+    return List.of(new TrickEngine.Play((seat+2)%4,c(suit,partnerRank),"BOT"),
+        new TrickEngine.Play((seat+1)%4,c(suit,opponentRank),"BOT"));
+  }
+  @Test void thirdPartnerTrumpKingPreservesAceAndFollowsSmallestForEverySeat() {
+    for (int seat = 0; seat < 4; seat++) {
+      assertEquals(c("DIAMOND",3), ComputerStrategy.play(seat,
+          List.of(c("DIAMOND",14),c("DIAMOND",7),c("DIAMOND",3),c("CLUB",2)),
+          thirdPlayerTable(seat,"DIAMOND",13,8),"DIAMOND",new Random(1)));
+    }
+  }
+  @Test void thirdPartnerNoTrumpKingIsSafeWhenAceIsInOwnHand() {
+    for (String trump : Arrays.asList("NO_TRUMP", null)) {
+      assertEquals(c("DIAMOND",3), ComputerStrategy.play(0,
+          List.of(c("DIAMOND",14),c("DIAMOND",3)),
+          thirdPlayerTable(0,"DIAMOND",13,8),trump,new Random(1)));
+    }
+  }
+  @Test void thirdPartnerQueenIsSafeOnlyWhenEveryHigherCardIsKnown() {
+    var table = thirdPlayerTable(0,"DIAMOND",12,8);
+    assertEquals(c("DIAMOND",3), ComputerStrategy.play(0,
+        List.of(c("DIAMOND",14),c("DIAMOND",13),c("DIAMOND",3)),table,"DIAMOND",new Random(1)));
+    // The unseen king might be in fourth hand: keep the existing high-card play.
+    assertEquals(c("DIAMOND",14), ComputerStrategy.play(0,
+        List.of(c("DIAMOND",14),c("DIAMOND",3)),table,"DIAMOND",new Random(1)));
+  }
+  @Test void thirdPartnerSideSuitKingIsNotGuaranteedAgainstUnseenTrumps() {
+    assertEquals(c("DIAMOND",14), ComputerStrategy.play(0,
+        List.of(c("DIAMOND",14),c("DIAMOND",3),c("HEART",14)),
+        thirdPlayerTable(0,"DIAMOND",13,8),"HEART",new Random(1)));
+  }
+  @Test void thirdOpponentWinningStillPlaysHigh() {
+    assertEquals(c("DIAMOND",14), ComputerStrategy.play(0,
+        List.of(c("DIAMOND",14),c("DIAMOND",3)),
+        thirdPlayerTable(0,"DIAMOND",12,13),"DIAMOND",new Random(1)));
+  }
+  @Test void thirdPartnerSafeDoesNotAllowDiscardWhenAceIsOnlyFollowingCard() {
+    assertEquals(c("DIAMOND",14), ComputerStrategy.play(0,
+        List.of(c("DIAMOND",14),c("CLUB",2)),
+        thirdPlayerTable(0,"DIAMOND",13,8),"DIAMOND",new Random(1)));
+  }
+  @Test void thirdPartnerAceVoidDiscardsUnlessSideSuitCanBeRuffed() {
+    var table = thirdPlayerTable(0,"DIAMOND",14,8);
+    var hand = List.of(c("HEART",5),c("CLUB",9));
+    assertEquals(c("HEART",5), ComputerStrategy.play(0,hand,table,"NO_TRUMP",new Random(1)));
+    assertEquals(c("HEART",5), ComputerStrategy.play(0,hand,table,"DIAMOND",new Random(1)));
+    // No guarantee in a side suit: the ordinary cutting strategy still applies.
+    assertEquals(c("HEART",5), ComputerStrategy.play(0,hand,table,"HEART",new Random(1)));
+  }
+  @Test void strategyRemainsLegalThroughSeededCompleteDeals() {
+    var random = new Random(912);
+    for (String trump : GameState.STRAINS) {
+      for (int deal = 0; deal < 20; deal++) {
+        List<GameState.Card> deck = new ArrayList<>();
+        for (String suit : GameState.STRAINS.subList(0,4))
+          for (int rank = 2; rank <= 14; rank++) deck.add(c(suit,rank));
+        Collections.shuffle(deck,random);
+        Map<Integer,List<GameState.Card>> hands = new HashMap<>();
+        for (int seat = 0; seat < 4; seat++) hands.put(seat,List.copyOf(deck.subList(seat*13,(seat+1)*13)));
+        var engine = new TrickEngine(hands,deal%4,trump);
+        while (!engine.finished()) {
+          int seat = engine.nextSeat();
+          var card = ComputerStrategy.play(seat,engine.hand(seat),engine.currentTrick(),trump,random);
+          assertTrue(engine.legalCards(seat).contains(card));
+          engine.play(seat,card,"BOT");
+        }
+        assertEquals(13,engine.completedTricks().size());
+      }
+    }
+  }
   @Test void longestSuitOnlyAndTiesRandom() {
     var hand = List.of(c("CLUB", 2), c("CLUB", 8), c("SPADE", 4), c("SPADE", 5), c("HEART", 14));
     Set<String> seen = new HashSet<>();

@@ -238,6 +238,21 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "INVALID_PLANNED_DEALS",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java",
+        "backend/src/main/java/com/bridge/room/RoomController.java"
+      ],
+      "exampleMessage": "plannedDeals must be 1, 3 or 5",
+      "category": "validation",
+      "meaning": "建房局數不是整數1、3或5",
+      "handling": "選擇1、3或5局再建立房間；省略或null使用3局",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "INVALID_PRIVILEGE",
       "httpStatuses": [
         400

@@ -16,7 +16,7 @@ HTTP已取得原訪客token並加入房間後，開啟WebSocket立即送一次�
 {"type":"snapshot","room":{}}
 ```
 
-room為完整且個人化的RoomSnapshot；上例空物件只表示封包外層。別將某位訂閱者的快照廣播給其他玩家。Live四張牌是公開資料，已收走的牌面須等本局實際結算才公開；完整紅線見CONTRACT。
+room為完整且個人化的RoomSnapshot，含房間固定 `plannedDeals:1|3|5`（預設3），開局後 game.plannedDeals 相同，game.dealIndex／completedDeals 表示目前／已完成局數；上例空物件只表示封包外層。別將某位訂閱者的快照廣播給其他玩家。Live四張牌是公開資料，已收走的牌面須等本局實際結算才公開；完整紅線見CONTRACT。
 
 訂閱後唯一支援的應用JSON請求是：
 

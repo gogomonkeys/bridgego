@@ -61,7 +61,7 @@ if(["deal-result","match-result"].includes(scenario)){
  room.game!.dealId=result.dealId;
  room.game!.play={nextSeat:null,leaderSeat:0,trickNumber:13,currentTrick:[],completedTricks:result.completedTricks,tricksByTeam:result.tricksByTeam};
 }
-if(scenario==="redeal"){room.game!.redeal={yourPoints:4,eligible:true,yourChoice:null,canChoose:true};room.game!.redealCount=12;room.game!.lastRedealReason="HAND_REDEAL";room.game!.operationTimer={kind:"REDEAL_DECISION",turnSeat:null,remainingMs:20000,paused:false};}
+if(scenario==="redeal"){room.game!.redeal=params.get("redealstate")==="loading"?undefined:{yourPoints:params.get("redealstate")==="ineligible"?11:4,eligible:params.get("redealstate")!=="ineligible",yourChoice:params.get("redealstate")==="kept"?false:params.get("redealstate")==="requested"?true:null,canChoose:!["ineligible","kept","requested","unavailable"].includes(params.get("redealstate")??"")};room.game!.redealCount=12;room.game!.lastRedealReason="HAND_REDEAL";room.game!.operationTimer={kind:"REDEAL_DECISION",turnSeat:null,remainingMs:20000,paused:false};}
 // Real server post-privilege phases always expose both team choices.
 if(room.phase!=="PRIVILEGE_DECISION"&&room.phase!=="REDEAL_DECISION"){room.game!.privilege={...room.game!.privilege,status:"REVEALED",canChoose:false,usedByTeam:{NS:true,EW:false}};}
 if(params.has("chosen")&&room.phase==="PRIVILEGE_DECISION"){room.game!.privilege.yourChoice=true;room.game!.privilege.canChoose=false;}

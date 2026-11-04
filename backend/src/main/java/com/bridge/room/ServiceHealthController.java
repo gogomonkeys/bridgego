@@ -13,7 +13,7 @@ public class ServiceHealthController {
   private final String version;
 
   public ServiceHealthController(RoomService service,
-      @Value("${bridge.app-version:0.9.1}") String version) {
+      @Value("${bridge.app-version:0.10.0}") String version) {
     this.service = service;
     this.version = version;
   }

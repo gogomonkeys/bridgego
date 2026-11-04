@@ -266,7 +266,7 @@
       "post": {
         "operationId": "createRoom",
         "summary": "建立房間",
-        "description": "最多兩桌；建立者成為房主。HTTP建房後須在5秒內WS訂閱；不等於遊戲中的10秒重連期限。",
+        "description": "最多兩桌；建立者成為房主。HTTP建房後須在5秒內WS訂閱；不等於遊戲中的10秒重連期限。 可選plannedDeals=1、3、5；省略body、欄位或null預設3。其他值或型別回400 INVALID_PLANNED_DEALS。房內設定固定，再玩一場沿用。",
         "tags": [
           "rooms"
         ],
@@ -346,6 +346,38 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "plannedDeals": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      3,
+                      5
+                    ],
+                    "default": 3,
+                    "nullable": true
+                  }
                 }
               }
             }
@@ -1130,7 +1162,7 @@
     "/api/rooms/{id}/start": {
       "post": {
         "operationId": "startGame",
-        "summary": "開始三局競賽",
+        "summary": "開始指定局數競賽",
         "description": "房主；四席皆準備且在線（BOT視為伺服器控制席位）。",
         "tags": [
           "rooms"
@@ -2553,6 +2585,15 @@
           },
           "joinable": {
             "type": "boolean"
+          },
+          "plannedDeals": {
+            "type": "integer",
+            "enum": [
+              1,
+              3,
+              5
+            ],
+            "default": 3
           }
         }
       },
@@ -2724,6 +2765,15 @@
               "ALL_PASS"
             ],
             "description": "Latest reason within current dealIndex, reset for next scored deal. Count includes both hand redeals and all-Pass redeals; no triggering player or points."
+          },
+          "plannedDeals": {
+            "type": "integer",
+            "enum": [
+              1,
+              3,
+              5
+            ],
+            "default": 3
           }
         }
       },
@@ -2804,6 +2854,15 @@
             "format": "int64",
             "nullable": true,
             "description": "Display-only epoch milliseconds for the 10-second all-human-offline grace. Server monotonic clock is authoritative. Null when not applicable."
+          },
+          "plannedDeals": {
+            "type": "integer",
+            "enum": [
+              1,
+              3,
+              5
+            ],
+            "default": 3
           }
         }
       },
@@ -3032,7 +3091,8 @@
               "RECONNECT_TIMEOUT",
               "BOTH_TEAMS_FAILED",
               "NO_HUMANS_CONNECTED",
-              "NO_HUMANS_REMAIN"
+              "NO_HUMANS_REMAIN",
+              "PLANNED_DEALS_COMPLETE"
             ]
           },
           "failedTeamIds": {

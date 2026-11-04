@@ -22,6 +22,43 @@ describe("private redeal choices", () => {
     expect(html).toContain("僅你可見");
     expect(html).not.toContain("disabled");
   });
+  it("groups private points and help above the full-width waiting status", () => {
+    const html = render({
+      ...eligible,
+      yourPoints: 11,
+      eligible: false,
+      canChoose: false,
+    });
+    expect(html).toMatch(
+      /class="redeal-heading">.*class="redeal-summary">.*class="redeal-private">僅你可見/,
+    );
+    expect(html).toMatch(
+      /倒牌規則說明.*<\/div><p class="selection-confirmed" role="status">/,
+    );
+    expect(html).toContain("你的手牌不符合倒牌條件，等候確認。");
+    expect(html).not.toContain("choice-buttons");
+  });
+  it.each([
+    [true, "已選倒牌，等候重發。"],
+    [false, "已保留手牌，等候其他玩家。"],
+  ] as const)("keeps submitted choice %s in the status row", (choice, status) => {
+    const html = render({ ...eligible, yourChoice: choice, canChoose: false });
+    expect(html).toContain(`<p class="selection-confirmed" role="status">${status}</p>`);
+    expect(html).toContain("redeal-heading");
+    expect(html).not.toContain("choice-buttons");
+  });
+  it("keeps a single status row while loading or without control", () => {
+    const loading = renderToStaticMarkup(
+      <RedealControls decision={undefined} locked={false} />,
+    );
+    expect(loading).toContain("正在取得你的倒牌資格");
+    expect(loading).not.toContain("僅你可見");
+    for (const html of [loading, render({ ...eligible, canChoose: false })]) {
+      expect(html.match(/role="status"/g)).toHaveLength(1);
+      expect(html).not.toContain("choice-buttons");
+      expect(html).toContain('aria-label="倒牌規則說明"');
+    }
+  });
   it("trusts private server eligibility for five points rather than inferring other hands", () => {
     expect(render({ ...eligible, yourPoints: 5 })).toContain("choice-buttons");
     expect(

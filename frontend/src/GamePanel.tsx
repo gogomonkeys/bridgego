@@ -151,7 +151,7 @@ export default function GamePanel({
       <header className="match-heading">
         <div>
           <h2>
-            第 {game.dealIndex} / 3 局{" "}
+            第 {game.dealIndex} / {game.plannedDeals} 局{" "}
             <span className="phase-tag">{phaseLabel}</span>
           </h2>
         </div>
@@ -191,7 +191,7 @@ export default function GamePanel({
           </div>
         ))}
         <span className="scoreboard-caption" aria-hidden="true">
-          累計總分 · 已結算 {game.completedDeals} / 3 局
+          累計總分 · 已結算 {game.completedDeals} / {game.plannedDeals} 局
         </span>
       </section>
       {game.paused && !terminal && !pending && (
@@ -563,7 +563,7 @@ export default function GamePanel({
         >
           <summary>更多</summary>
           <div className="match-more-panel">
-            <small>v0.9.1 · 狀態版本 {room.revision}</small>
+            <small>v0.10.0 · 狀態版本 {room.revision}</small>
             <button
               className="secondary"
               disabled={busy}

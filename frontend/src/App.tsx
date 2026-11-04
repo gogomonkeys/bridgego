@@ -14,13 +14,14 @@ export default function App() {
   const [nameComposing, setNameComposing] = useState(false);
   const nickname = nicknameValidation(name);
   const [code, setCode] = useState("");
+  const [plannedDeals, setPlannedDeals] = useState<1 | 3 | 5>(3);
   const [page, setPage] = useState<"room" | "help">("room");
   const [copied, setCopied] = useState(false);
   const [diagnosticCopy, setDiagnosticCopy] = useState("");
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.9.1", disconnects: diagnostics },
+    { version: "0.10.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -101,7 +102,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.9.1</span>
+              <span className="eyebrow">v0.10.0</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"
@@ -200,14 +201,14 @@ export default function App() {
                 秒內無人回來則結束。主動退出會放棄席位，由電腦接手；最後真人退出即結束，未完成局不計分。
               </li>
             </ol>
-            <h3>三局競賽與局間確認</h3>
+            <h3>局數設定與局間確認</h3>
             <p>
-              每局看完自己的 13
+              建立房間時可選 1、3 或 5 局，預設 3 局；同房再玩一場沿用原設定。每局看完自己的 13
               張牌後，先確認是否倒牌，再選特權。雙方確定後一起公開，再依左向輪流叫牌。四人開頭全
               Pass
               會重發，不算完成一局。跟牌必須跟首引花色；每回合四張牌出齊後會短暫顯示回合勝者；每局
-              13 回合後結算；前兩局最多等 90
-              秒，四人確認可提前開始下一局，第三局保留整場結果。
+              13 回合後結算；非最後一局最多等 90
+              秒，四人確認可提前開始下一局，完成設定局數後保留整場結果。
             </p>
             <p>
               四人各出一張牌是一個回合，贏得這四張牌算拿下一墩；每局共有 13
@@ -360,6 +361,7 @@ export default function App() {
                   <span className="eyebrow">WAITING ROOM</span>
                   <h3>{state.room.players.length} / 4 位玩家</h3>
                   <p>你在下方，隊友在對面。</p>
+                  <p>本場 {state.room.plannedDeals ?? 3} 局 · 尚未開局</p>
                   <p>全部準備後，由房主手動開局。</p>
                 </div>
               </div>
@@ -460,7 +462,7 @@ export default function App() {
               <div className="forest-lobby-sign">
                 <span>THE LANTERN GROVE</span>
                 <h2>燈亮了，朋友也到齊了。</h2>
-                <p>選一張桌，開始今晚的三局牌。</p>
+                <p>選一張桌，開始今晚的牌局。</p>
               </div>
               <div className="lobby-friends" aria-hidden="true">
                 {[0, 1, 2, 3].map((seat) => (
@@ -472,10 +474,25 @@ export default function App() {
               <span className="eyebrow">LET’S GET TOGETHER</span>
               <h2>你好，{state.session.displayName}</h2>
               <p>開一個新房間，或加入朋友的邀請。</p>
+              <fieldset className="deal-count-choice" disabled={state.busy}>
+                <legend>本場局數</legend>
+                {[1, 3, 5].map((count) => (
+                  <label key={count}>
+                    <input
+                      type="radio"
+                      name="planned-deals"
+                      value={count}
+                      checked={plannedDeals === count}
+                      onChange={() => setPlannedDeals(count as 1 | 3 | 5)}
+                    />
+                    {count} 局{count === 3 ? "（預設）" : ""}
+                  </label>
+                ))}
+              </fieldset>
               <button
                 className="primary create-room"
                 disabled={state.busy}
-                onClick={() => void client.create()}
+                onClick={() => void client.create(plannedDeals)}
               >
                 ＋ 建立四人房間
               </button>
@@ -532,7 +549,7 @@ export default function App() {
                       <div>
                         <strong>{room.roomId}</strong>
                         <small>
-                          {room.playerCount} / 4 位玩家 ·{" "}
+                          {room.playerCount} / 4 位玩家 · {room.plannedDeals ?? 3} 局 ·{" "}
                           {room.state === "FINISHED"
                             ? "已結束"
                             : room.state === "ACTIVE"

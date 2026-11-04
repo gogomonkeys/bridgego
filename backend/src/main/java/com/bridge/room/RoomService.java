@@ -38,6 +38,7 @@ public class RoomService {
       long revision,
       String phase,
       int capacity,
+      int plannedDeals,
       boolean allReady,
       List<PlayerView> players,
       String hostPlayerId,
@@ -63,7 +64,7 @@ public class RoomService {
   private record AcceptedAction(String signature, long revision) {}
 
   public record Summary(
-      String roomId, int playerCount, int capacity, String state, String phase, boolean joinable) {}
+      String roomId, int playerCount, int capacity, String state, String phase, boolean joinable, int plannedDeals) {}
 
   public static class Failure extends RuntimeException {
     public final int status;
@@ -105,6 +106,7 @@ public class RoomService {
 
   static class Room {
     String id;
+    final int plannedDeals;
     long revision;
     String hostPlayerId;
     GameState game;
@@ -120,8 +122,9 @@ public class RoomService {
     final Map<String, AcceptedAction> actions = new HashMap<>();
     Map<String, Member> members = new LinkedHashMap<>();
 
-    Room(String id) {
+    Room(String id, int plannedDeals) {
       this.id = id;
+      this.plannedDeals = plannedDeals;
     }
   }
 
@@ -207,17 +210,24 @@ public class RoomService {
                     4,
                     r.game == null ? "WAITING" : r.game.active() ? "ACTIVE" : "FINISHED",
                     r.game == null ? "WAITING" : r.game.phase,
-                    r.game == null && r.members.size() < 4))
+                    r.game == null && r.members.size() < 4, r.plannedDeals))
         .toList();
   }
 
   public synchronized Snapshot create(Identity id) {
+    return create(id, null);
+  }
+
+  public synchronized Snapshot create(Identity id, Integer plannedDeals) {
+    int count = plannedDeals == null ? 3 : plannedDeals;
+    if (count != 1 && count != 3 && count != 5)
+      throw fail(400, "INVALID_PLANNED_DEALS", "plannedDeals must be 1, 3 or 5");
     requireRunning();
     expireInitialSubscriptions();
     ensureFree(id);
     if (rooms.values().stream().filter(r -> r.closedAtTick == null).count() >= limits.maxRooms())
       throw fail(409, "ROOM_LIMIT_REACHED", "The beta table limit has been reached");
-    Room room = new Room(UUID.randomUUID().toString());
+    Room room = new Room(UUID.randomUUID().toString(), count);
     room.hostPlayerId = id.playerId();
     rooms.put(room.id, room);
     return add(room, id);
@@ -694,6 +704,7 @@ public class RoomService {
         r.revision,
         r.game == null ? "WAITING" : r.game.phase,
         4,
+        r.plannedDeals,
         players.size() == 4 && players.stream().allMatch(p -> p.ready() && p.connected()),
         players,
         r.hostPlayerId,
@@ -790,7 +801,7 @@ public class RoomService {
     if (r.members.size() != 4
         || r.members.values().stream().anyMatch(m -> !m.ready || !m.present()))
       throw fail(409, "START_NOT_READY", "Four ready and connected players are required");
-    r.game = new GameState(random, ticker);
+    r.game = new GameState(random, ticker, r.plannedDeals);
     r.game.roster(
         r.members.values().stream()
             .sorted(Comparator.comparingInt(m -> m.seat))

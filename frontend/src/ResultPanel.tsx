@@ -173,6 +173,7 @@ export function MatchSummary({
   if (!result) return null;
   const reason = {
     THREE_DEALS_COMPLETE: "三局皆已完成",
+    PLANNED_DEALS_COMPLETE: `${game.plannedDeals} 局皆已完成`,
     MANUAL_EXIT: "有玩家主動退出",
     RECONNECT_TIMEOUT: "重連期限屆滿",
     NO_HUMANS_CONNECTED: "所有真人皆未在 10 秒內恢復連線",
@@ -187,7 +188,7 @@ export function MatchSummary({
           ? "本場無勝負"
           : result.winnerTeamId
             ? `${teamNames[result.winnerTeamId]}獲勝`
-            : "三局總分平手"}
+            : `${game.plannedDeals} 局總分平手`}
       </h3>
       <p>
         {reason}。
@@ -201,7 +202,7 @@ export function MatchSummary({
         </p>
       )}
       <p>
-        已完成 {game.completedDeals} / 3 局 · 南北 {game.teamTotals.NS} 分 ·
+        已完成 {game.completedDeals} / {game.plannedDeals} 局 · 南北 {game.teamTotals.NS} 分 ·
         東西 {game.teamTotals.EW} 分
       </p>
       <p>已完成的分數保留；未完成的局不計分。之後離開或斷線不改變此結果。</p>

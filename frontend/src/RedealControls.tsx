@@ -14,20 +14,25 @@ export default function RedealControls({
       className="phase-main-controls redeal-actions"
       aria-label="私人倒牌選擇"
     >
-      <p className="redeal-summary">
-        {decision?.yourPoints != null ? (
-          <>
-            你的牌點：<strong>{decision.yourPoints}</strong> 點 · 僅你可見
-          </>
-        ) : (
-          "正在取得你的倒牌資格"
-        )}
-      </p>
-      <IconTip icon="?" label="倒牌規則說明">
-        <span>
-          A＝4、K＝3、Q＝2、J＝1，其餘0。少於5點，或剛好5點且沒有A，可選倒牌；4點有A也符合。任一人倒牌即同局重發，不改總分。逾時保留。
-        </span>
-      </IconTip>
+      <div className="redeal-heading">
+        <p className="redeal-summary">
+          {decision?.yourPoints != null ? (
+            <>
+              <span>
+                你的牌點：<strong>{decision.yourPoints}</strong> 點
+              </span>
+              <span className="redeal-private">僅你可見</span>
+            </>
+          ) : (
+            "正在取得你的倒牌資格"
+          )}
+        </p>
+        <IconTip icon="?" label="倒牌規則說明">
+          <span>
+            A＝4、K＝3、Q＝2、J＝1，其餘0。少於5點，或剛好5點且沒有A，可選倒牌；4點有A也符合。任一人倒牌即同局重發，不改總分。逾時保留。
+          </span>
+        </IconTip>
+      </div>
       {decision?.eligible &&
       decision.yourChoice === null &&
       decision.canChoose ? (

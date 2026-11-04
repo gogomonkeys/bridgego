@@ -23,6 +23,7 @@ HTTP 狀態並不決定是否能重試。所有改寫請求都不得盲目自動
 | INVALID_JSON | 400 | HTTP JSON無法解析 | 排查序列化與Content-Type |
 | INVALID_MESSAGE | WS JSON | WS訊息不是合法subscribe/ping格式 | 修正協定；伺服器會嘗試發error後關閉1008 |
 | INVALID_NAME | 400 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
+| INVALID_PLANNED_DEALS | 400 | 建房局數不是整數1、3或5 | 選擇1、3或5局再建立房間；省略或null使用3局 |
 | INVALID_PRIVILEGE | 400 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
 | INVALID_READY | 400 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
 | INVALID_REDEAL | 400 | 倒牌選擇欄位不是布林值 | 檢查redeal為true或false；不能傳字串或省略 |

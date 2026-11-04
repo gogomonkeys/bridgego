@@ -222,7 +222,7 @@ describe("v0.5 static presentation, not browser interactions", () => {
       reason: "THREE_DEALS_COMPLETE",
       failedTeamIds: [],
     };
-    expect(render(room)).toContain("三局總分平手");
+    expect(render(room)).toContain("3 局總分平手");
   });
   it("forfeit winner comes from server, not current points", () => {
     const room = gameRoom("MATCH_RESULT");

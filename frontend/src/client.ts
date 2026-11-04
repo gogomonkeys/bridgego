@@ -758,7 +758,8 @@ export const client = {
       emit({ session });
       await refreshRooms();
     }),
-  create: () => run(async () => enter(await api<Room>("/rooms", "POST", {}))),
+  create: (plannedDeals: 1 | 3 | 5 = 3) =>
+    run(async () => enter(await api<Room>("/rooms", "POST", { plannedDeals }))),
   join: (id: string) =>
     run(async () =>
       enter(

@@ -18,6 +18,8 @@ public class RoomController {
 
   record ReadyRequest(Boolean ready) {}
 
+  record CreateRequest(com.fasterxml.jackson.databind.JsonNode plannedDeals) {}
+
   private RoomService.Identity identity(String auth) {
     if (auth == null || !auth.startsWith("Bearer "))
       throw RoomService.fail(401, "UNAUTHORIZED", "Bearer guest session required");
@@ -43,8 +45,14 @@ public class RoomController {
 
   @PostMapping("/rooms")
   public RoomService.Snapshot create(
-      @RequestHeader(value = "Authorization", required = false) String auth) {
-    return service.create(identity(auth));
+      @RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestBody(required = false) CreateRequest request) {
+    var who = identity(auth);
+    var count = request == null ? null : request.plannedDeals();
+    if (count != null && !count.isNull()
+        && (!count.isIntegralNumber() || !count.canConvertToInt()))
+      throw RoomService.fail(400, "INVALID_PLANNED_DEALS", "plannedDeals must be 1, 3 or 5");
+    return service.create(who, count == null || count.isNull() ? null : count.intValue());
   }
 
   @PostMapping("/rooms/{id}/join")

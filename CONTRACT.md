@@ -1,6 +1,6 @@
-# BridgeGo v0.9.1 contract — three-deal play and scoring
+# BridgeGo v0.10.0 contract — selectable 1/3/5-deal play and scoring
 
-Local independent guest-session app. Four seats with at least one human and optional server-controlled computer players, no dummy/double/redouble. Server-authoritative private dealing, privilege, auction, play, completed-deal scoring and fixed three-deal match. Existing native transport remains unchanged.
+Local independent guest-session app. Four seats with at least one human and optional server-controlled computer players, no dummy/double/redouble. Server-authoritative private dealing, privilege, auction, play, completed-deal scoring and selectable 1/3/5-deal match (default 3). Existing native transport remains unchanged.
 
 ## HTTP and command authority
 Existing session/room endpoints unchanged: POST /api/sessions {displayName}; GET /api/me; GET/POST /api/rooms; POST /api/rooms/{id}/join; GET /api/rooms/{id}; PUT /api/rooms/{id}/ready {ready}; POST /api/rooms/{id}/leave. Bearer token identity only. No spectators or replacement human game participants; active explicit leave may replace the seat with a permanent server bot.
@@ -33,15 +33,15 @@ type Trick = {number:number;leaderSeat:number;plays:Play[];winnerSeat:number;car
 type AuctionRound = {dealId:string;dealIndex:number;redealCount:number;dealerSeat:number;calls:Array<{seat:number;type:"PASS"|"BID";level:number|null;strain:Strain|null;source:Source}>;result:Contract|null;status:"IN_PROGRESS"|"ALL_PASS"|"CONTRACT"};
 type TeamScore = {won:boolean;privilegeUsed:boolean;base:number;exactTargetBonus:number;penalty:number;privilegeAdjustment:number;total:number};
 type DealResult = {dealId:string;dealIndex:number;dealerSeat:number;contract:Contract;privilegeUsed:Record<Team,boolean>;tricksByTeam:Record<Team,number>;scores:Record<Team,TeamScore>;completedTricks:Trick[];auctionRounds:AuctionRound[]};
-type MatchResult = {outcome:"SCORED"|"FORFEIT"|"NO_CONTEST";winnerTeamId:Team|null;reason:"THREE_DEALS_COMPLETE"|"MANUAL_EXIT"|"RECONNECT_TIMEOUT"|"BOTH_TEAMS_FAILED"|"NO_HUMANS_CONNECTED"|"NO_HUMANS_REMAIN";failedTeamIds:Team[]};
+type MatchResult = {outcome:"SCORED"|"FORFEIT"|"NO_CONTEST";winnerTeamId:Team|null;reason:"THREE_DEALS_COMPLETE"|"PLANNED_DEALS_COMPLETE"|"MANUAL_EXIT"|"RECONNECT_TIMEOUT"|"BOTH_TEAMS_FAILED"|"NO_HUMANS_CONNECTED"|"NO_HUMANS_REMAIN";failedTeamIds:Team[]};
 type MatchArchive = {gameId:string;roster:Array<{playerId:string;displayName:string;playerType:PlayerType;seat:number;teamId:Team}>;teamTotals:Record<Team,number>;completedDealResults:DealResult[];matchResult:MatchResult;forfeitEvents:Array<{playerId:string;seat:number;cause:"MANUAL_EXIT"|"RECONNECT_TIMEOUT"}>;auctionRounds:AuctionRound[]};
-type RoomSummary = {roomId:string;playerCount:number;capacity:4;state:"WAITING"|"ACTIVE"|"FINISHED";phase:Room["phase"];joinable:boolean};
+type RoomSummary = {roomId:string;playerCount:number;capacity:4;plannedDeals:1|3|5;state:"WAITING"|"ACTIVE"|"FINISHED";phase:Room["phase"];joinable:boolean};
 type Room = {
  roomId:string;revision:number;phase:"WAITING"|"REDEAL_DECISION"|"PRIVILEGE_DECISION"|"BIDDING"|"PLAYING"|"TRICK_RESULT"|"DEAL_RESULT"|"FORFEIT_PENDING"|"MATCH_RESULT"|"ABORTED";
- capacity:4;allHumansReconnectDeadline:number|null;allReady:boolean;hostPlayerId:string|null;canStart:boolean;canRematch:boolean;lastMatch:MatchArchive|null;
+ capacity:4;plannedDeals:1|3|5;allHumansReconnectDeadline:number|null;allReady:boolean;hostPlayerId:string|null;canStart:boolean;canRematch:boolean;lastMatch:MatchArchive|null;
  players:Array<{playerId:string;displayName:string;playerType:PlayerType;controlMode:ControlMode;seat:number;ready:boolean;connected:boolean;disconnectedAt:number|null;reconnectDeadline:number|null;initialSubscriptionDeadline:number|null;teamId:Team}>;
  game:null|{
-  gameId:string;dealId:string;plannedDeals:3;dealIndex:number;completedDeals:number;dealerSeat:number;redealCount:number;lastRedealReason:"HAND_REDEAL"|"ALL_PASS"|null;paused:boolean;abortReason:string|null;
+  gameId:string;dealId:string;plannedDeals:1|3|5;dealIndex:number;completedDeals:number;dealerSeat:number;redealCount:number;lastRedealReason:"HAND_REDEAL"|"ALL_PASS"|null;paused:boolean;abortReason:string|null;
   roster:Array<{playerId:string;displayName:string;playerType:PlayerType;seat:number;teamId:Team}>;
   operationTimer:null|{kind:"REDEAL_DECISION"|"PRIVILEGE"|"BID_TURN"|"PLAY_TURN"|"TRICK_RESULT"|"DEAL_RESULT";turnSeat:number|null;remainingMs:number;paused:boolean};
   redeal:{yourPoints:number|null;eligible:boolean;yourChoice:boolean|null;canChoose:boolean};
@@ -53,7 +53,7 @@ type Room = {
   teamTotals:Record<Team,number>;completedDealResults:DealResult[];
   pendingForfeit:null|{reason:"AWAITING_EXISTING_RECONNECT_GRACE";failedTeamIds:Team[];waitingSeats:number[]};
   forfeitEvents:Array<{playerId:string;seat:number;cause:"MANUAL_EXIT"|"RECONNECT_TIMEOUT"}>;
-  matchResult:null|{outcome:"SCORED"|"FORFEIT"|"NO_CONTEST";winnerTeamId:Team|null;reason:"THREE_DEALS_COMPLETE"|"MANUAL_EXIT"|"RECONNECT_TIMEOUT"|"BOTH_TEAMS_FAILED"|"NO_HUMANS_CONNECTED"|"NO_HUMANS_REMAIN";failedTeamIds:Team[]};
+  matchResult:null|{outcome:"SCORED"|"FORFEIT"|"NO_CONTEST";winnerTeamId:Team|null;reason:"THREE_DEALS_COMPLETE"|"PLANNED_DEALS_COMPLETE"|"MANUAL_EXIT"|"RECONNECT_TIMEOUT"|"BOTH_TEAMS_FAILED"|"NO_HUMANS_CONNECTED"|"NO_HUMANS_REMAIN";failedTeamIds:Team[]};
  };
  you:{playerId:string;seat:number;teamId:Team;ownHand:Card[];legalCards:Card[];canAcknowledgeResult:boolean;legalCalls:Array<{type:"PASS"|"BID";level:number|null;strain:Strain|null}>}|null;
 };
@@ -108,6 +108,7 @@ The existing synchronized sweep revalidates the current phase/turn and applies a
 - Auction: choose a longest held suit, random among ties, stable for the deal. Pass if partner currently holds the highest bid. Otherwise make the lowest legal bid in that suit up to level 2, or Pass. Do not bid no-trump.
 - Lead: randomly choose a held suit, then its highest card.
 - Follow-suit is always mandatory. On the fourth play, if partner currently wins, follow with the smallest lead-suit card. When void, prefer the smallest non-trump card; only if all remaining cards are trumps, play the smallest trump (which may overtake partner). No-trump makes all cards non-trumps.
+- On the third play, apply the same partner-preserving choice only if no card outside the bot's own hand and current public trick could beat partner. For example, partner's trump king is safe when the bot holds the ace, so follow with a smaller trump if available. An unseen higher card or possible side-suit ruff prevents this guarantee; retain the ordinary strategy in that case. Past tricks and other hands are not inspected. A sole matching ace must still be played to follow suit.
 - Otherwise, when following, play the smallest lead-suit card if even the largest cannot beat the actual current winning card; play the largest if it can win. The same trick comparator accounts for trump precedence, not raw cross-suit rank.
 - Otherwise, when void, play the smallest trump beating every current table trump, or the smallest held trump if none has been played. If unable to cut, prefer the smallest non-trump card; only when no non-trump remains, play the smallest trump. In no-trump contracts every card is a non-trump. All minimum-rank ties are random.
 
@@ -122,3 +123,9 @@ Eligible humans may choose once: redeal=false commits to continue; after all eli
 Each actual reshuffle increments redealCount; lastRedealReason is HAND_REDEAL or ALL_PASS. Both reset on the next scored dealIndex. Do not expose the initiating player or hand score. Hand redeals do not retain discarded empty auction-history rows. auctionRounds may contain one current IN_PROGRESS placeholder even before bidding, replaced rather than appended when that hand is redealt. Existing genuine all-Pass auction history remains preserved. The bounded latest reason/count describes hand redeals without an unbounded history of empty hands.
 
 The redeal HTTP command uses the same authenticated identity, actionId/signature, expectedRevision and gameId/dealId checks as other commands. An accepted true replay returns current room without another shuffle. Fresh old-deal commands fail stale checks; concurrent requests cannot reshuffle the same hand twice. INVALID_REDEAL is HTTP400; REDEAL_NOT_ELIGIBLE and CHOICE_LOCKED are HTTP409. CONTROL_TAKEN_OVER prevents a disconnected owner racing automated takeover. Private qualification must never be logged or added to public error payloads.
+
+## 自選競賽局數（本機未部署）
+
+`POST /api/rooms` 可送 `{ "plannedDeals": 1|3|5 }`；不送 body、空物件、缺省或 null 預設 3。非整數、字串及其他數字回 400 `INVALID_PLANNED_DEALS`，不建立房間。RoomSnapshot／RoomSummary 新增 `plannedDeals:1|3|5`。
+
+設定建立後固定，同房 rematch 沿用；GameSnapshot.plannedDeals 與房間相同。完成選定局數才總結算，每局仍 13 墩，計分、倒牌與 all-pass 重發不變。3 局完成 reason 保留 `THREE_DEALS_COMPLETE`；1／5 局使用 `PLANNED_DEALS_COMPLETE`。最後一墩仍先保留約 2 秒公開牌，非最後一局保留 90 秒／四人確認。

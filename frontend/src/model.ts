@@ -104,7 +104,7 @@ export interface DealResult {
 export interface Game {
   gameId: string;
   dealId: string;
-  plannedDeals: 3;
+  plannedDeals: 1 | 3 | 5;
   dealIndex: number;
   completedDeals: number;
   dealerSeat: number;
@@ -172,6 +172,7 @@ export interface Game {
     winnerTeamId: Team | null;
     reason:
       | "THREE_DEALS_COMPLETE"
+      | "PLANNED_DEALS_COMPLETE"
       | "MANUAL_EXIT"
       | "RECONNECT_TIMEOUT"
       | "BOTH_TEAMS_FAILED"
@@ -181,6 +182,7 @@ export interface Game {
   };
 }
 export interface Room {
+  plannedDeals?: 1 | 3 | 5;
   allHumansReconnectDeadline?: number | null;
   roomId: string;
   revision: number;
@@ -213,6 +215,7 @@ export interface MatchArchive {
   forfeitEvents: Game["forfeitEvents"];
 }
 export interface RoomSummary {
+  plannedDeals?: 1 | 3 | 5;
   state: "WAITING" | "ACTIVE" | "FINISHED";
   phase: Phase;
   joinable: boolean;
