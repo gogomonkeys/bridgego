@@ -2428,6 +2428,1080 @@
           }
         }
       }
+    },
+    "/api/auth/config": {
+      "get": {
+        "operationId": "getGoogleConfig",
+        "summary": "Google optional link configuration",
+        "description": "Read docs/PHASE1-GOOGLE-SHEETS.zh-TW.md. Google mutations require a trusted Origin and existing guest Bearer; linking/unlinking only outside rooms; no ID token persists.",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/api/auth/status": {
+      "get": {
+        "operationId": "getGoogleStatus",
+        "summary": "Current session Google link status",
+        "description": "Read docs/PHASE1-GOOGLE-SHEETS.zh-TW.md. Google mutations require a trusted Origin and existing guest Bearer; linking/unlinking only outside rooms; no ID token persists.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      }
+    },
+    "/api/auth/nonce": {
+      "post": {
+        "operationId": "createGoogleNonce",
+        "summary": "One-use session-bound Google challenge",
+        "description": "Read docs/PHASE1-GOOGLE-SHEETS.zh-TW.md. Google mutations require a trusted Origin and existing guest Bearer; linking/unlinking only outside rooms; no ID token persists.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleNonce"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleNonceRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google": {
+      "post": {
+        "operationId": "linkGoogle",
+        "summary": "Verify and link Google identity",
+        "description": "Read docs/PHASE1-GOOGLE-SHEETS.zh-TW.md. Google mutations require a trusted Origin and existing guest Bearer; linking/unlinking only outside rooms; no ID token persists.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLinkRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "unlinkGoogle",
+        "summary": "Unlink Google, retain guest session",
+        "description": "Read docs/PHASE1-GOOGLE-SHEETS.zh-TW.md. Google mutations require a trusted Origin and existing guest Bearer; linking/unlinking only outside rooms; no ID token persists.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/auth/cancel": {
+      "post": {
+        "operationId": "cancelGoogle",
+        "summary": "Cancel only matching challenge",
+        "description": "Read docs/PHASE1-GOOGLE-SHEETS.zh-TW.md. Google mutations require a trusted Origin and existing guest Bearer; linking/unlinking only outside rooms; no ID token persists.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCancelled"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleCancelRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rooms/{id}/games/{gameId}/persistence": {
+      "get": {
+        "operationId": "getMatchPersistence",
+        "summary": "Read final match saving status",
+        "description": "Only original participants, while the retained room archive is available. Best-effort persistence, not a durable outbox. No client score submission.",
+        "tags": [
+          "rooms"
+        ],
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersistenceStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/auth/google/verify": {
+      "post": {
+        "operationId": "verifyGoogleIdentityOnly",
+        "summary": "Verify caller Google subject without storage or account linking",
+        "description": "Consumes a purpose=verify nonce, explicit consent and trusted Origin. Returns verified issuer/subject to caller only; never writes identity records or links the session.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "guestBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleVerifiedIdentity"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleLinkRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3150,6 +4224,165 @@
           }
         },
         "description": "Personalized only: own HCP/eligibility/choice, never another seat. Outside REDEAL_DECISION points and choice are null and flags false. No actor list or aggregate private choices."
+      },
+      "GoogleConfig": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "verificationEnabled": {
+            "type": "boolean"
+          },
+          "collectionMode": {
+            "type": "string",
+            "enum": [
+              "restricted"
+            ]
+          },
+          "collectionReady": {
+            "type": "boolean"
+          },
+          "privacyContact": {
+            "type": "string"
+          },
+          "retention": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "clientId",
+          "verificationEnabled",
+          "collectionMode",
+          "collectionReady",
+          "privacyContact",
+          "retention"
+        ]
+      },
+      "GoogleStatus": {
+        "type": "object",
+        "properties": {
+          "signedIn": {
+            "type": "boolean",
+            "description": "Google linked to this guest session, not an assertion about Google website sign-in."
+          }
+        },
+        "required": [
+          "signedIn"
+        ]
+      },
+      "GoogleNonce": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string"
+          },
+          "expiresInSeconds": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nonce",
+          "expiresInSeconds"
+        ]
+      },
+      "GoogleLinkRequest": {
+        "type": "object",
+        "properties": {
+          "credential": {
+            "type": "string",
+            "maxLength": 12000,
+            "writeOnly": true
+          },
+          "consent": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "credential",
+          "consent"
+        ]
+      },
+      "GoogleCancelRequest": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nonce"
+        ]
+      },
+      "GoogleCancelled": {
+        "type": "object",
+        "properties": {
+          "cancelled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancelled"
+        ]
+      },
+      "PersistenceStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "DISABLED",
+              "PENDING",
+              "CONFIRMED",
+              "FAILED",
+              "CONFLICT",
+              "REJECTED",
+              "UNKNOWN"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "GoogleVerifiedIdentity": {
+        "type": "object",
+        "required": [
+          "issuer",
+          "subject",
+          "admittedTester"
+        ],
+        "properties": {
+          "issuer": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "admittedTester": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GoogleNonceRequest": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "link",
+              "verify"
+            ],
+            "default": "link"
+          }
+        }
       }
     }
   },

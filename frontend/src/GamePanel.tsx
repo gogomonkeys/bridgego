@@ -1,3 +1,4 @@
+import MatchPersistence from "./MatchPersistence";
 import { useEffect, useRef, useState } from "react";
 import { client } from "./client";
 import type { Room } from "./model";
@@ -243,6 +244,11 @@ export default function GamePanel({
       {terminal && (
         <section className="panel outcome-screen">
           <MatchSummary game={game} />
+          <MatchPersistence
+            key={game.gameId}
+            roomId={room.roomId}
+            gameId={game.gameId}
+          />
           <ForfeitAttribution game={game} />
           {room.phase === "ABORTED" && (
             <p>本場遊戲已中止，未完成的局不計分。</p>
@@ -563,7 +569,7 @@ export default function GamePanel({
         >
           <summary>更多</summary>
           <div className="match-more-panel">
-            <small>v0.11.0 · 狀態版本 {room.revision}</small>
+            <small>v0.12.0 · 狀態版本 {room.revision}</small>
             <button
               className="secondary"
               disabled={busy}

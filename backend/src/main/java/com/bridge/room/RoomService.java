@@ -111,6 +111,8 @@ public class RoomService {
     String hostPlayerId;
     GameState game;
     GameState.MatchArchive lastMatch;
+    MatchPersistence persistence;
+    MatchPersistence lastPersistence;
     Long allOfflineSince;
     Long allHumansReconnectDeadline;
     Long allHumansReconnectDue;
@@ -127,6 +129,20 @@ public class RoomService {
       this.plannedDeals = plannedDeals;
     }
   }
+
+  private final Map<String, String> accountsByPlayer = new HashMap<>();
+  private final Set<String> admittedTesters = new HashSet<>();
+  private com.bridge.persistence.StatsStore statsStore;
+  private boolean quarterRetentionEnabled;
+
+  @Autowired
+  public synchronized void quarterRetentionEnabled(
+      @org.springframework.beans.factory.annotation.Value("${BRIDGE_QUARTER_POLICY_VERIFIED:false}") boolean enabled) {
+    quarterRetentionEnabled = enabled;
+  }
+
+  @Autowired
+  public synchronized void statsStore(com.bridge.persistence.StatsStore store) { this.statsStore = store; }
 
   private final Map<String, Identity> sessions = new HashMap<>();
   private final Map<String, Long> sessionLastSeen = new HashMap<>();
@@ -191,6 +207,52 @@ public class RoomService {
     if (id == null) throw fail(401, "UNAUTHORIZED", "Guest session is missing or expired");
     sessionLastSeen.put(token, ticker.getAsLong());
     return id;
+  }
+
+  // Google linking changes attribution for future matches only. Guest credentials and seats
+  // are deliberately NOT replaced. No remote network call is allowed inside these hooks.
+  public synchronized void requireOutsideRoom(Identity who) {
+    Identity current = authenticate(who.token());
+    if (!current.equals(who)) throw fail(401, "UNAUTHORIZED", "Session changed");
+    if (membership.containsKey(who.playerId()))
+      throw fail(409, "AUTH_IN_ROOM", "Leave the room before changing Google identity");
+  }
+
+  public synchronized void linkAccountOutsideRoom(Identity who, String accountId) {
+    linkAccountOutsideRoom(who, accountId, false);
+  }
+
+  public synchronized void linkAccountOutsideRoom(Identity who, String accountId, boolean admittedTester) {
+    requireOutsideRoom(who);
+    UUID.fromString(accountId);
+    String old = accountsByPlayer.get(who.playerId());
+    if (old != null && !old.equals(accountId))
+      throw fail(409, "ACCOUNT_ALREADY_LINKED", "Unlink the current account first");
+    accountsByPlayer.put(who.playerId(), accountId);
+    if (admittedTester) admittedTesters.add(who.playerId());
+    else admittedTesters.remove(who.playerId());
+  }
+
+  public synchronized void unlinkAccountOutsideRoom(Identity who) {
+    requireOutsideRoom(who);
+    accountsByPlayer.remove(who.playerId());
+    admittedTesters.remove(who.playerId());
+  }
+
+  public synchronized String accountId(Identity who) {
+    if (!authenticate(who.token()).equals(who)) throw fail(401, "UNAUTHORIZED", "Session changed");
+    return accountsByPlayer.get(who.playerId());
+  }
+
+  public synchronized String persistenceStatus(String roomId, String gameId, Identity who) {
+    authenticate(who.token());
+    Room r = room(roomId);
+    if (r.lastMatch == null || !r.lastMatch.gameId().equals(gameId))
+      throw fail(404, "NO_LAST_MATCH", "Completed match is no longer available");
+    if (!archiveParticipant(r, who))
+      throw fail(403, "NOT_PARTICIPANT", "Only original participants may read save status");
+    if (r.lastPersistence == null || !r.lastPersistence.matchId().equals(gameId)) return "DISABLED";
+    return r.lastPersistence.status(statsStore);
   }
 
   public synchronized Me me(Identity id) {
@@ -520,6 +582,12 @@ public class RoomService {
 
   private void cleanupIdle(long now) {
     for (Room r : new ArrayList<>(rooms.values())) {
+      if (quarterRetentionEnabled && r.game != null && r.game.terminal()
+          && r.lastPersistence != null && r.lastPersistence.expiredAtTaiwanQuarter(clock.instant())) {
+        for (Member m : r.members.values()) membership.remove(m.identity.playerId(), r.id);
+        r.members.clear(); rooms.remove(r.id); // terminate only completed archives, never active play
+        continue;
+      }
       if (r.closedAtTick != null) {
         if (now - r.closedAtTick >= limits.finishedRoomIdleMs()) {
           for (Member m : r.members.values()) membership.remove(m.identity.playerId(), r.id);
@@ -543,6 +611,8 @@ public class RoomService {
       if (membership.containsKey(entry.getValue().playerId())) {
         sessionLastSeen.put(token, now);
       } else if (now - sessionLastSeen.getOrDefault(token, now) >= limits.sessionIdleMs()) {
+        accountsByPlayer.remove(entry.getValue().playerId());
+        admittedTesters.remove(entry.getValue().playerId());
         sessions.remove(token);
         sessionLastSeen.remove(token);
       }
@@ -644,9 +714,14 @@ public class RoomService {
   // Publish immutable full snapshots while the transition lock is held, so room revisions
   // identify committed state. The transport filters subscribers by room and current membership.
   private Snapshot changed(Room r) {
+    if (r.persistence != null) r.persistence.observe(r.members.values());
     if (r.game != null && r.game.terminal()) {
       // Refresh the safe projection when the final two-second display unlocks review.
       r.lastMatch = r.game.archive();
+      if (r.persistence != null) {
+        r.persistence.finish(r.lastMatch, clock.instant(), statsStore);
+        r.lastPersistence = r.persistence;
+      }
       electTerminalHost(r);
     }
     r.revision++;
@@ -669,6 +744,8 @@ public class RoomService {
   private boolean archiveParticipant(Room r, Identity viewer) {
     return viewer != null
         && r.lastMatch != null
+        && !(quarterRetentionEnabled && r.lastPersistence != null
+            && r.lastPersistence.expiredAtTaiwanQuarter(clock.instant()))
         && r.lastMatch.roster().stream().anyMatch(p -> p.playerId().equals(viewer.playerId()));
   }
 
@@ -802,6 +879,10 @@ public class RoomService {
         || r.members.values().stream().anyMatch(m -> !m.ready || !m.present()))
       throw fail(409, "START_NOT_READY", "Four ready and connected players are required");
     r.game = new GameState(random, ticker, r.plannedDeals);
+    r.persistence = new MatchPersistence(r.game.id, r.plannedDeals, clock.instant(),
+        r.members.values(), accountsByPlayer, r.members.values().stream()
+            .filter(m -> !m.computer).allMatch(m -> accountsByPlayer.containsKey(m.identity.playerId())
+                && admittedTesters.contains(m.identity.playerId())));
     r.game.roster(
         r.members.values().stream()
             .sorted(Comparator.comparingInt(m -> m.seat))

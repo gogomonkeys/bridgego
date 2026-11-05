@@ -15,7 +15,7 @@ DOCS = ROOT / 'docs/api'
 
 def routes():
     found = set()
-    for name, prefix in [('RoomController.java', '/api'), ('ServiceHealthController.java', '')]:
+    for name, prefix in [('RoomController.java', '/api'), ('ServiceHealthController.java', ''), ('GoogleAuthController.java', '/api/auth')]:
         for method, path in re.findall(r'@(Get|Post|Put|Delete|Patch)Mapping\("([^"]+)"\)', (JAVA / name).read_text()):
             found.add((method.lower(), prefix + path))
     return found
@@ -74,7 +74,7 @@ def main():
         for op in methods.values():
             names = {p['name'] for p in op.get('parameters', []) if p['in'] == 'path' and p['required']}
             assert names == set(re.findall(r'\{(\w+)\}', path)), f'Path parameter drift {path}'
-            if path.startswith('/api/') and path != '/api/sessions': assert op['security'] == [{'guestBearer': []}]
+            if path.startswith('/api/') and path not in {'/api/sessions', '/api/auth/config'}: assert op['security'] == [{'guestBearer': []}]
             else: assert op['security'] == []
             assert '200' in op['responses']
     listed = {e['code'] for e in catalog['applicationErrors']}

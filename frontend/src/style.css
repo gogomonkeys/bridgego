@@ -6952,3 +6952,16 @@ body {
   accent-color: #527e68;
   flex: 0 0 auto;
 }
+
+.google-account {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(89, 103, 72, 0.25);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.45);
+}
+.google-account h3 { margin-top: 0; }
+.google-account p, .match-persistence p { overflow-wrap: anywhere; }
+.google-signin-button { max-width: 100%; overflow-x: auto; }
+.google-account button { white-space: normal; }
+.match-persistence { margin: 0.75rem 0; padding: 0.75rem; border: 1px solid rgba(89, 103, 72, 0.25); border-radius: 12px; }

@@ -1,5 +1,21 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  TESTER_NOT_ADMITTED:
+    "此 Google 帳號尚未獲核准參與資料收集，不會建立帳號對應；可繼續當訪客。",
+
+  AUTH_PURPOSE_MISMATCH:
+    "驗證與連結用途不符，請重新選擇操作；不會自動建立連結。",
+  INVALID_AUTH_PURPOSE: "請重新選擇僅驗證或帳號連結。",
+  ACCOUNT_ALREADY_LINKED: "目前已連結 Google，請先解除連結再選擇其他帳號。",
+  AUTH_CANCELLED: "已取消 Google 連結操作，訪客身分不變。",
+  AUTH_CAPACITY: "帳號服務忙碌，請稍後重試；仍可使用訪客遊玩。",
+  AUTH_IN_ROOM: "請先離開房間，再連結或解除 Google 帳號。",
+  AUTH_NONCE_EXPIRED: "登入驗證已過期，請重新開始。",
+  CONSENT_REQUIRED: "請先同意連結 Google 帳號。",
+  GOOGLE_AUTH_DISABLED: "Google 登入尚未啟用；仍可使用訪客遊玩。",
+  IDENTITY_STORAGE_UNAVAILABLE: "帳號保存服務暫時無法使用；仍可使用訪客遊玩。",
+  INVALID_GOOGLE_CREDENTIAL: "Google 驗證未成功，請重新開始；訪客身分不變。",
+  ORIGIN_NOT_ALLOWED: "此網站來源不允許帳號操作，請使用正式遊戲網址。",
   CONTROL_TAKEN_OVER: "目前由電腦代打，請恢復連線後接回控制。",
   SERVER_RESTARTED:
     "服務已重新啟動，原牌局與訪客身分已結束。請輸入名稱重新加入，開始新的遊戲。",

@@ -6,20 +6,31 @@ HTTP 狀態並不決定是否能重試。所有改寫請求都不得盲目自動
 
 | code | HTTP | 意義 | 客戶端／排查處置 |
 |---|---|---|---|
+| ACCOUNT_ALREADY_LINKED | 409 | 已連結其他 Google 身分 | 先解除目前連結，再重新連結；不可靜默合併帳號 |
 | ACTION_ID_REUSED | 409 | 同一actionId對應不同payload | 排查命令ID重用；不可修改原重試payload |
 | ALREADY_IN_ROOM | 409 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
+| AUTH_CANCELLED | 409 | 連結流程已取消或被新流程取代 | 忽略舊回呼；依使用者選擇重新開始 |
+| AUTH_CAPACITY | 429 | 登入請求容量已滿 | 稍後由使用者重試 |
+| AUTH_IN_ROOM | 409 | 房間中不可變更身分連結 | 離開房間後再操作；不影響目前牌局 |
+| AUTH_NONCE_EXPIRED | 401 | 一次性挑戰不存在或過期 | 重新啟動 Google 連結，勿重播舊憑證 |
+| AUTH_PURPOSE_MISMATCH | 400 | 挑戰用途不符 | 僅驗證的挑戰不能用來建立帳號連結 |
 | CHOICE_LOCKED | 409 | 本次選擇已鎖定（倒牌或特權） | 保留既有選擇，不重送不同內容 |
 | CONNECTION_LIMIT | 429 | 可用連線額度耗盡 | 關閉多餘分頁後核對原席位再重連 |
+| CONSENT_REQUIRED | 400 | 未同意身分連結與記錄用途 | 先讀告知文字並選擇是否同意 |
 | CONTROL_TAKEN_OVER | 409 | 原真人席位目前由電腦暫代，尚未恢復控制 | 以原訪客身分重新訂閱房間，取得最新快照後才操作；不要重送舊動作 |
 | GAME_IN_PROGRESS | 409 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
 | GAME_PAUSED | 409 | 有人斷線，既有遊戲暫停 | 等候伺服器恢復或裁定，不用客戶端倒數推進 |
+| GOOGLE_AUTH_DISABLED | 503 | Google 連結尚未設定 | 維持訪客遊玩；不要要求玩家提供憑證 |
 | HOST_OFFLINE | 409 | 房主連線未建立 | 恢復房主連線再操作 |
 | HOST_ONLY | 403 | 不是房主 | 僅提供有權限的操作 |
+| IDENTITY_STORAGE_UNAVAILABLE | 503 | 帳號對應儲存失敗 | 繼續以訪客遊玩；管理員檢查私有 Sheets 設定及限額 |
 | ILLEGAL_CALL | 409 | 叫價未超過目前最高或不合法 | 依legalCalls重新選擇 |
 | ILLEGAL_CARD | 409 | 牌不在手上或未遵守跟花規則 | 依legalCards重新選擇 |
 | INVALID_ACTION_ID | 400 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
+| INVALID_AUTH_PURPOSE | 400 | 登入挑戰用途無效 | 選擇連結或只驗證，不自行拼接用途 |
 | INVALID_CALL | 400 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
 | INVALID_CARD | 400 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
+| INVALID_GOOGLE_CREDENTIAL | 401 | Google 憑證驗證失敗 | 保留訪客身分，重新啟動連結流程 |
 | INVALID_JSON | 400 | HTTP JSON無法解析 | 排查序列化與Content-Type |
 | INVALID_MESSAGE | WS JSON | WS訊息不是合法subscribe/ping格式 | 修正協定；伺服器會嘗試發error後關閉1008 |
 | INVALID_NAME | 400 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
@@ -34,6 +45,7 @@ HTTP 狀態並不決定是否能重試。所有改寫請求都不得盲目自動
 | NOT_PARTICIPANT | 403 | 不是上一場的原參與者 | 停止讀取該紀錄 |
 | NOT_YOUR_TURN | 409 | 叫牌或出牌不是目前行動席位 | 等候最新快照，不自動重送 |
 | NO_LAST_MATCH | 404 | 沒有上一場結算 | 顯示空狀態 |
+| ORIGIN_NOT_ALLOWED | 403 | 請求來源不受信任 | 使用設定的網站來源，不放寬萬用來源 |
 | RATE_LIMITED | 429 | HTTP或WS流量超出上限 | HTTP依Retry-After等待；WS依當前成員狀態恢復，勿自動重送改寫命令 |
 | REDEAL_NOT_ELIGIBLE | 409 | 自己的手牌不符合倒牌資格 | 依最新私人快照eligible/canChoose決定操作；不得推測其他玩家資格 |
 | REQUEST_TOO_LARGE | 413 | 請求超過16KiB界線 | 排查payload，禁止原樣密集重試 |
@@ -47,6 +59,7 @@ HTTP 狀態並不決定是否能重試。所有改寫請求都不得盲目自動
 | STALE_GAME | 409 | gameId已不是目前場次 | 同步最新場次，丟棄舊場次未提交意圖 |
 | STALE_REVISION | 409 | 客戶端快照版本過期 | 重新同步，請玩家再次確認後送出新意圖 |
 | START_NOT_READY | 409 | 輸入或目前席位/流程不符合要求 | 檢查請求與最新快照；修正後由使用者重新操作，不自動重送 |
+| TESTER_NOT_ADMITTED | 403 | 不在封閉測試收集名單 | 繼續以訪客遊玩；驗證識別碼後由管理者明確批准，勿猜測信箱或名稱 |
 | UNAUTHORIZED | 401 | 訪客憑證缺少、失效或過期 | 重新建立身分；不要回填舊token |
 | WRONG_PHASE | 409 | 目前階段不允許此操作 | 同步後顯示該階段可用控制 |
 

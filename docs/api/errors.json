@@ -2,6 +2,20 @@
   "description": "Stable application errors. httpStatuses refer to HTTP responses; INVALID_MESSAGE is a WS JSON error, not an HTTP response. Message text is informative, never branch logic. Do not infer retry safety from status alone.",
   "applicationErrors": [
     {
+      "code": "ACCOUNT_ALREADY_LINKED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Unlink the current account first",
+      "category": "auth",
+      "meaning": "已連結其他 Google 身分",
+      "handling": "先解除目前連結，再重新連結；不可靜默合併帳號",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "ACTION_ID_REUSED",
       "httpStatuses": [
         409
@@ -30,6 +44,76 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "AUTH_CANCELLED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Google sign-in was cancelled",
+      "category": "auth",
+      "meaning": "連結流程已取消或被新流程取代",
+      "handling": "忽略舊回呼；依使用者選擇重新開始",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "AUTH_CAPACITY",
+      "httpStatuses": [
+        429
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Try signing in again later",
+      "category": "auth",
+      "meaning": "登入請求容量已滿",
+      "handling": "稍後由使用者重試",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "AUTH_IN_ROOM",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Leave the room before changing Google identity",
+      "category": "auth",
+      "meaning": "房間中不可變更身分連結",
+      "handling": "離開房間後再操作；不影響目前牌局",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "AUTH_NONCE_EXPIRED",
+      "httpStatuses": [
+        401
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Start Google sign-in again",
+      "category": "auth",
+      "meaning": "一次性挑戰不存在或過期",
+      "handling": "重新啟動 Google 連結，勿重播舊憑證",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "AUTH_PURPOSE_MISMATCH",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Start a new sign-in for this action",
+      "category": "auth",
+      "meaning": "挑戰用途不符",
+      "handling": "僅驗證的挑戰不能用來建立帳號連結",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "CHOICE_LOCKED",
       "httpStatuses": [
         409
@@ -55,6 +139,20 @@
       "category": "domain",
       "meaning": "可用連線額度耗盡",
       "handling": "關閉多餘分頁後核對原席位再重連",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "CONSENT_REQUIRED",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Consent is required to link Google and save future results",
+      "category": "auth",
+      "meaning": "未同意身分連結與記錄用途",
+      "handling": "先讀告知文字並選擇是否同意",
       "automaticMutationRetry": false
     },
     {
@@ -100,6 +198,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "GOOGLE_AUTH_DISABLED",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Google sign-in is not configured",
+      "category": "auth",
+      "meaning": "Google 連結尚未設定",
+      "handling": "維持訪客遊玩；不要要求玩家提供憑證",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "HOST_OFFLINE",
       "httpStatuses": [
         409
@@ -125,6 +237,20 @@
       "category": "domain",
       "meaning": "不是房主",
       "handling": "僅提供有權限的操作",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "IDENTITY_STORAGE_UNAVAILABLE",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Account storage is unavailable; continue as guest",
+      "category": "auth",
+      "meaning": "帳號對應儲存失敗",
+      "handling": "繼續以訪客遊玩；管理員檢查私有 Sheets 設定及限額",
       "automaticMutationRetry": false
     },
     {
@@ -170,6 +296,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "INVALID_AUTH_PURPOSE",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Unknown sign-in purpose",
+      "category": "auth",
+      "meaning": "登入挑戰用途無效",
+      "handling": "選擇連結或只驗證，不自行拼接用途",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "INVALID_CALL",
       "httpStatuses": [
         400
@@ -195,6 +335,20 @@
       "category": "validation",
       "meaning": "輸入或目前席位/流程不符合要求",
       "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_GOOGLE_CREDENTIAL",
+      "httpStatuses": [
+        401
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleJwtVerifier.java"
+      ],
+      "exampleMessage": "Google sign-in could not be verified",
+      "category": "auth",
+      "meaning": "Google 憑證驗證失敗",
+      "handling": "保留訪客身分，重新啟動連結流程",
       "automaticMutationRetry": false
     },
     {
@@ -395,6 +549,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "ORIGIN_NOT_ALLOWED",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "A trusted browser origin is required",
+      "category": "auth",
+      "meaning": "請求來源不受信任",
+      "handling": "使用設定的網站來源，不放寬萬用來源",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "RATE_LIMITED",
       "httpStatuses": [
         429
@@ -576,6 +744,20 @@
       "category": "domain",
       "meaning": "輸入或目前席位/流程不符合要求",
       "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TESTER_NOT_ADMITTED",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "This Google identity is not admitted for test collection",
+      "category": "auth",
+      "meaning": "不在封閉測試收集名單",
+      "handling": "繼續以訪客遊玩；驗證識別碼後由管理者明確批准，勿猜測信箱或名稱",
       "automaticMutationRetry": false
     },
     {

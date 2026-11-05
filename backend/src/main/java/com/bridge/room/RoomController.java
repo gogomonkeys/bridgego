@@ -191,6 +191,12 @@ public class RoomController {
     return service.lastMatch(id, identity(auth));
   }
 
+  @GetMapping("/rooms/{id}/games/{gameId}/persistence")
+  public Map<String, String> persistence(@PathVariable String id, @PathVariable String gameId,
+      @RequestHeader(value = "Authorization", required = false) String auth) {
+    return Map.of("status", service.persistenceStatus(id, gameId, identity(auth)));
+  }
+
   @PostMapping("/rooms/{id}/games/{gameId}/rematch")
   public RoomService.CommandResult rematch(
       @PathVariable String id,

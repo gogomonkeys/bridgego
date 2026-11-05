@@ -1,3 +1,4 @@
+import GoogleAccount from "./GoogleAccount";
 import PwaStatus from "./PwaStatus";
 import ScreenAwake from "./ScreenAwake";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -21,7 +22,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.11.0", disconnects: diagnostics },
+    { version: "0.12.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -102,7 +103,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.11.0</span>
+              <span className="eyebrow">v0.12.0</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"
@@ -482,6 +483,7 @@ export default function App() {
               <span className="eyebrow">LET’S GET TOGETHER</span>
               <h2>你好，{state.session.displayName}</h2>
               <p>開一個新房間，或加入朋友的邀請。</p>
+              <GoogleAccount key={state.session.token} token={state.session.token} />
               <fieldset className="deal-count-choice" disabled={state.busy}>
                 <legend>本場局數</legend>
                 {[1, 3, 5].map((count) => (
