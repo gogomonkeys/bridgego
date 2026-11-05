@@ -10,6 +10,8 @@ vi.mock("./client", () => ({
   getConnectionDiagnostics: () => ({}),
   useClient: () => mocks.state,
 }));
+// These assertions concern the lobby after its explicit entry choice.
+vi.mock("./entry-flow", () => ({ needsEntry: () => false }));
 import App from "./App";
 import GamePanel from "./GamePanel";
 import { MatchSummary } from "./ResultPanel";

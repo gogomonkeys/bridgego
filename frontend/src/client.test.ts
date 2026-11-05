@@ -121,6 +121,32 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("central real-client lifecycle (mock transport, not integration)", () => {
+  it("returns the exact created session after refresh even if another tab invalidates it", async () => {
+    const { client, getClientState } = await setup(false);
+    client.forget();
+    let refreshStarted!: () => void;
+    const started = new Promise<void>((resolve) => { refreshStarted = resolve; });
+    let finishRefresh!: (response: Response) => void;
+    const refresh = new Promise<Response>((resolve) => { finishRefresh = resolve; });
+    fetchMock.mockImplementation((path: string) => {
+      if (path === "/api/sessions") return Promise.resolve(json(identity));
+      if (path === "/api/rooms") { refreshStarted(); return refresh; }
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const creation = client.login("Alice");
+    await started;
+    expect(getClientState().session?.token).toBe(identity.token);
+    storageListener?.({ key: "bridgego.phase1.guest" });
+    finishRefresh(json([]));
+    expect(await creation).toEqual(identity);
+    expect(getClientState().session).toBeNull();
+  });
+  it("does not return a usable entry identity when guest creation fails", async () => {
+    const { client } = await setup(false);
+    client.forget();
+    expect(await client.login("")).toBeNull();
+  });
+
   it.each([undefined, 1, 3, 5] as const)("sends the selected deal count (%s) when creating a room", async (count) => {
     const { client, getClientState } = await setup(false);
     fetchMock.mockResolvedValue(json({ ...room(), plannedDeals: count ?? 3 }));

@@ -49,7 +49,7 @@ describe("five visible-character guest names", () => {
     }
   });
   it("keeps composition intact, guards submit, and does not impose UTF-16 maxlength", () => {
-    const source = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./WelcomeEntry.tsx", import.meta.url), "utf8");
     const input = source.slice(
       source.indexOf('id="guest-name"'),
       source.indexOf('placeholder="例如：小白"'),
@@ -57,6 +57,6 @@ describe("five visible-character guest names", () => {
     expect(input).toContain("onCompositionStart");
     expect(input).toContain("onCompositionEnd");
     expect(input).not.toContain("maxLength");
-    expect(source).toContain("if (!nameComposing && !nickname.error)");
+    expect(source).toContain("if (!session && (composing || nickname.error)) return;");
   });
 });

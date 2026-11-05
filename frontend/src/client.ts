@@ -747,17 +747,21 @@ export const client = {
       }
     });
   },
-  login: (displayName: string) =>
-    run(async () => {
+  login: async (displayName: string): Promise<Session | null> => {
+    let created: Session | null = null;
+    await run(async () => {
       const nickname = nicknameValidation(displayName);
       if (nickname.error) throw new Error(nickname.error);
       const session = await api<Session>("/sessions", "POST", {
         displayName: nickname.normalized,
       });
       localStorage.setItem(KEY, JSON.stringify(session));
+      created = session;
       emit({ session });
       await refreshRooms();
-    }),
+    });
+    return created;
+  },
   create: (plannedDeals: 1 | 3 | 5 = 3) =>
     run(async () => enter(await api<Room>("/rooms", "POST", { plannedDeals }))),
   join: (id: string) =>

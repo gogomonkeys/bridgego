@@ -1,4 +1,5 @@
-import GoogleAccount from "./GoogleAccount";
+import WelcomeEntry from "./WelcomeEntry";
+import { needsEntry } from "./entry-flow";
 import PwaStatus from "./PwaStatus";
 import ScreenAwake from "./ScreenAwake";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -7,13 +8,10 @@ import GamePanel from "./GamePanel";
 import TableSeats from "./TableSeats";
 import ComputerPlayers from "./ComputerPlayers";
 import AnimalAvatar from "./AnimalAvatar";
-import { nicknameValidation } from "./nickname";
 import { PreviousMatchSummary } from "./ResultPanel";
 export default function App() {
   const state = useClient();
-  const [name, setName] = useState("");
-  const [nameComposing, setNameComposing] = useState(false);
-  const nickname = nicknameValidation(name);
+  const [enteredToken, setEnteredToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [plannedDeals, setPlannedDeals] = useState<1 | 3 | 5>(3);
   const [page, setPage] = useState<"room" | "help">("room");
@@ -22,7 +20,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.12.0", disconnects: diagnostics },
+    { version: "0.12.1", disconnects: diagnostics },
     null,
     2,
   );
@@ -103,7 +101,7 @@ export default function App() {
         {(page === "help" || !state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.12.0</span>
+              <span className="eyebrow">v0.12.1</span>
               <h1>
                 {page === "help"
                   ? "安心入座，一起等候。"
@@ -204,7 +202,8 @@ export default function App() {
             </ol>
             <h3>局數設定與局間確認</h3>
             <p>
-              建立房間時可選 1、3 或 5 局，預設 3 局；同房再玩一場沿用原設定。每局看完自己的 13
+              建立房間時可選 1、3 或 5 局，預設 3
+              局；同房再玩一場沿用原設定。每局看完自己的 13
               張牌後，先確認是否倒牌，再選特權。雙方確定後一起公開，再依左向輪流叫牌。四人開頭全
               Pass
               會重發，不算完成一局。跟牌必須跟首引花色；每回合四張牌出齊後會短暫顯示回合勝者；每局
@@ -225,7 +224,8 @@ export default function App() {
             </p>
             <h3>特權與叫牌</h3>
             <p>
-              特權徽章旁會直接標示我方及對方「已使用／未使用」。點擊問號可查看提示。同隊任一人使用即成立，兩人都不用才確定不使用；兩隊完成決定後一起公開。兩隊各自決定是否使用特權；使用的隊伍本局獲勝額外 +1 分，落敗 -1 分，不影響另一隊的特權調整。
+              特權徽章旁會直接標示我方及對方「已使用／未使用」。點擊問號可查看提示。同隊任一人使用即成立，兩人都不用才確定不使用；兩隊完成決定後一起公開。兩隊各自決定是否使用特權；使用的隊伍本局獲勝額外
+              +1 分，落敗 -1 分，不影響另一隊的特權調整。
             </p>
             <p>
               叫牌必須高於前價，同階依 ♣ → ♦ → ♥ → ♠ → NT
@@ -233,8 +233,8 @@ export default function App() {
             </p>
             <h3>本局計分</h3>
             <p>
-              定約 L 階的目標為 6 + L 墩。定約方剛好達標得 L + 2
-              分，超過目標得 L 分；未達標按實際少拿的墩數扣分，每少一墩扣 1
+              定約 L 階的目標為 6 + L 墩。定約方剛好達標得 L + 2 分，超過目標得
+              L 分；未達標按實際少拿的墩數扣分，每少一墩扣 1
               分，不設扣分上限。防守方只在定約失敗時得 1 分，定約成功時得 0 分。
               特權加減分另外計算，不互相抵銷。
             </p>
@@ -274,61 +274,16 @@ export default function App() {
           <section className="panel">
             <h2>正在恢復訪客身分…</h2>
           </section>
-        ) : !state.session ? (
-          <div className="welcome-grid">
-            <section className="panel welcome">
-              <span className="eyebrow">WELCOME TO THE TABLE</span>
-              <h2>先認識一下你。</h2>
-              <p>用一個喜歡的名字，開始這次相聚。</p>
-              <form
-                onSubmit={(event) =>
-                  submit(event, () => {
-                    if (!nameComposing && !nickname.error)
-                      void client.login(name);
-                  })
-                }
-              >
-                <label htmlFor="guest-name">訪客名稱</label>
-                <input
-                  id="guest-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onCompositionStart={() => setNameComposing(true)}
-                  onCompositionEnd={(e) => {
-                    setName(e.currentTarget.value);
-                    setNameComposing(false);
-                  }}
-                  aria-describedby="guest-name-hint"
-                  aria-invalid={!nameComposing && !!name && !!nickname.error}
-                  required
-                  autoComplete="nickname"
-                  placeholder="例如：小白"
-                />
-                <small id="guest-name-hint" aria-live="polite">
-                  {nameComposing
-                    ? "正在輸入…"
-                    : `${nickname.count}／5 字${name && nickname.error ? ` · ${nickname.error}` : ""}`}
-                </small>
-                <button
-                  className="primary"
-                  disabled={state.busy || nameComposing || !!nickname.error}
-                >
-                  {state.busy ? "連線中…" : "以訪客身分進入 →"}
-                </button>
-              </form>
-            </section>
-            <div className="welcome-art forest-welcome" aria-hidden="true">
-              <div className="forest-sign">
-                <span>THE LANTERN GROVE</span>
-                <strong>森林裡，留一個位子給你。</strong>
-              </div>
-              <div className="welcome-friends">
-                {[0, 1, 2, 3].map((seat) => (
-                  <AnimalAvatar key={seat} seat={seat} large />
-                ))}
-              </div>
-            </div>
-          </div>
+        ) : needsEntry(
+            state.session?.token ?? null,
+            enteredToken,
+            Boolean(state.room),
+          ) ? (
+          <WelcomeEntry
+            session={state.session}
+            busy={state.busy}
+            onEnter={setEnteredToken}
+          />
         ) : state.room && state.room.phase !== "WAITING" ? (
           <GamePanel
             room={state.room}
@@ -394,7 +349,7 @@ export default function App() {
                 <PreviousMatchSummary match={state.room.lastMatch} />
               )}
               <span className="eyebrow">MAKE YOURSELF AT HOME</span>
-              <h2>你好，{state.session.displayName}</h2>
+              <h2>你好，{state.session!.displayName}</h2>
               <p>
                 把房間代碼分享給朋友。
                 <br />
@@ -402,7 +357,7 @@ export default function App() {
               </p>
               <ComputerPlayers
                 room={state.room}
-                playerId={state.session.playerId}
+                playerId={state.session!.playerId}
                 disabled={
                   state.busy ||
                   state.status !== "online" ||
@@ -437,7 +392,7 @@ export default function App() {
               >
                 {me?.ready ? "取消準備" : "我準備好了 ✓"}
               </button>
-              {state.room.hostPlayerId === state.session.playerId && (
+              {state.room.hostPlayerId === state.session!.playerId && (
                 <button
                   className="primary start-game"
                   disabled={
@@ -481,9 +436,8 @@ export default function App() {
             </section>
             <section className="panel">
               <span className="eyebrow">LET’S GET TOGETHER</span>
-              <h2>你好，{state.session.displayName}</h2>
+              <h2>你好，{state.session!.displayName}</h2>
               <p>開一個新房間，或加入朋友的邀請。</p>
-              <GoogleAccount key={state.session.token} token={state.session.token} />
               <fieldset className="deal-count-choice" disabled={state.busy}>
                 <legend>本場局數</legend>
                 {[1, 3, 5].map((count) => (
@@ -559,7 +513,8 @@ export default function App() {
                       <div>
                         <strong>{room.roomId}</strong>
                         <small>
-                          {room.playerCount} / 4 位玩家 · {room.plannedDeals ?? 3} 局 ·{" "}
+                          {room.playerCount} / 4 位玩家 ·{" "}
+                          {room.plannedDeals ?? 3} 局 ·{" "}
                           {room.state === "FINISHED"
                             ? "已結束"
                             : room.state === "ACTIVE"
