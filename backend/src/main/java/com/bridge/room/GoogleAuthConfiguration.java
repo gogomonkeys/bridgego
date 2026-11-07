@@ -19,7 +19,13 @@ public class GoogleAuthConfiguration {
       @Value("${BRIDGE_PRIVACY_CONTACT:}") String privacyContact,
       @Value("${BRIDGE_PRIVACY_RETENTION:}") String retention,
       @Value("${BRIDGE_ERASURE_WORKFLOW_VERIFIED:false}") boolean erasureVerified,
-      @Value("${BRIDGE_QUARTER_POLICY_VERIFIED:false}") boolean quarterVerified) {
+      @Value("${BRIDGE_QUARTER_POLICY_VERIFIED:false}") boolean quarterVerified,
+      @Value("${BRIDGE_TEST_DATASET_ID:}") String dataset,
+      @Value("${BRIDGE_EXPERIMENT_EXPIRES_AT:}") String expiresAt) {
+    if ("single_tester_experiment".equals(mode)) {
+      if (erasureVerified || quarterVerified) throw new IllegalStateException("Experiment is not production readiness");
+      return CollectionPolicy.experiment(json, identities, privacyContact, retention, dataset, expiresAt, Clock.systemUTC());
+    }
     return CollectionPolicy.parse(json, mode, identities, privacyContact, retention)
         .requireVerifiedErasureWorkflow(erasureVerified).requireVerifiedQuarterPolicy(quarterVerified);
   }
@@ -28,6 +34,6 @@ public class GoogleAuthConfiguration {
       @Value("${PUBLIC_ORIGIN:}") String publicOrigin, Environment env) {
     boolean production = java.util.Arrays.asList(env.getActiveProfiles()).contains("prod");
     return new GoogleAuthService(rooms, stores.getIfAvailable(), verifier, clientId,
-        Set.of(AllowedOrigins.forProfile(production, publicOrigin)), Clock.systemUTC(), policy);
+        Set.of(AllowedOrigins.forProfile(production || policy.experiment(), publicOrigin)), Clock.systemUTC(), policy);
   }
 }

@@ -45,9 +45,9 @@ public final class GoogleJwtVerifier implements GoogleCredentialVerifier {
           || (claims.has("azp") && !audience.equals(claims.get("azp").asText())))
         throw new IllegalArgumentException();
       long now = clock.instant().getEpochSecond();
-      if (!claims.path("exp").isIntegralNumber() || claims.get("exp").asLong() <= now
-          || !claims.path("iat").isIntegralNumber() || claims.get("iat").asLong() > now + 60
-          || (claims.has("nbf") && (!claims.get("nbf").isIntegralNumber() || claims.get("nbf").asLong() > now)))
+      if (!integerTimestamp(claims.path("exp")) || claims.get("exp").asLong() <= now
+          || !integerTimestamp(claims.path("iat")) || claims.get("iat").asLong() > now + 60
+          || (claims.has("nbf") && (!integerTimestamp(claims.get("nbf")) || claims.get("nbf").asLong() > now)))
         throw new IllegalArgumentException();
       if (!claims.path("nonce").isTextual() || !MessageDigest.isEqual(
           nonce.getBytes(StandardCharsets.UTF_8), claims.get("nonce").asText().getBytes(StandardCharsets.UTF_8)))
@@ -60,6 +60,10 @@ public final class GoogleJwtVerifier implements GoogleCredentialVerifier {
       // Deliberately omit upstream exception text: it may contain the credential or claims.
       throw RoomService.fail(401, "INVALID_GOOGLE_CREDENTIAL", "Google sign-in could not be verified");
     }
+  }
+
+  private static boolean integerTimestamp(JsonNode value) {
+    return value.isIntegralNumber() && value.canConvertToLong();
   }
 
   static final class GoogleKeys implements Keys {

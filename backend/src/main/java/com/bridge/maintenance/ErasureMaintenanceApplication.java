@@ -37,6 +37,18 @@ public class ErasureMaintenanceApplication {
     String sheet=env.getRequiredProperty("BRIDGE_TEST_SPREADSHEET_ID");
     if(sheet.isBlank() || sheet.equals(env.getProperty("BRIDGE_SHEETS_SPREADSHEET_ID", "")))
       throw new IllegalArgumentException("A separate test dataset is required");
+    if ("single_tester_experiment".equals(env.getProperty("BRIDGE_COLLECTION_MODE"))) {
+      if (Boolean.parseBoolean(env.getProperty("BRIDGE_ERASURE_WORKFLOW_VERIFIED","false"))
+          || Boolean.parseBoolean(env.getProperty("BRIDGE_QUARTER_POLICY_VERIFIED","false")))
+        throw new IllegalStateException("Experiment does not establish production readiness");
+      var policy = com.bridge.room.CollectionPolicy.experiment(new ObjectMapper(),
+          env.getRequiredProperty("BRIDGE_TEST_GOOGLE_IDENTITIES"),env.getRequiredProperty("BRIDGE_PRIVACY_CONTACT"),
+          env.getRequiredProperty("BRIDGE_PRIVACY_RETENTION"),env.getRequiredProperty("BRIDGE_TEST_DATASET_ID"),
+          env.getRequiredProperty("BRIDGE_EXPERIMENT_EXPIRES_AT"),Clock.systemUTC());
+      var p=policy.experimentPrincipal();
+      var settings = new ExperimentStorage.Settings(sheet,policy.experimentDataset(),p.issuer(),p.subject(),policy.experimentExpiresAt());
+      return new GoogleExperimentGateway(new GoogleSheetsGateway(sheet,env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")),settings,Clock.systemUTC()).asMaintenanceGateway();
+    }
     return new TestDatasetGateway(new GoogleSheetsGateway(sheet,
         env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")), env.getRequiredProperty("BRIDGE_TEST_DATASET_ID"));
   }

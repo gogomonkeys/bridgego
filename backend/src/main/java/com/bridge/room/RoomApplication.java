@@ -15,6 +15,11 @@ public class RoomApplication {
       app.setAdditionalProfiles("erasure-maintenance");
       app.setDefaultProperties(java.util.Map.of("spring.web.resources.add-mappings", "false"));
       app.run(args);
+    } else if (mode.equals("experiment-bootstrap")) {
+      var app = new SpringApplication(com.bridge.maintenance.ExperimentBootstrapApplication.class);
+      app.setAdditionalProfiles("experiment-bootstrap");
+      app.setDefaultProperties(java.util.Map.of("spring.web.resources.add-mappings", "false"));
+      app.run(args);
     } else throw new IllegalArgumentException("Unknown runtime mode");
   }
 }

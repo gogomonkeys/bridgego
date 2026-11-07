@@ -1,0 +1,22 @@
+package com.bridge.room;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.*;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+class ExperimentAdmissionTest {
+  static final Instant NOW=Instant.parse("2026-11-07T08:00:00Z");
+  static final String DATASET="91a3e5a0-9102-43d5-b483-fe7c7f7614dc";
+  static final String ID="[{\"issuer\":\"https://accounts.google.com\",\"subject\":\"synthetic-test\"}]";
+  static class Mutable extends Clock { Instant now=NOW;public ZoneId getZone(){return ZoneOffset.UTC;}public Clock withZone(ZoneId z){return this;}public Instant instant(){return now;} }
+  CollectionPolicy policy(Clock c){return CollectionPolicy.experiment(new ObjectMapper(),ID,"contact","test, not guaranteed erasure",DATASET,NOW.plusSeconds(3600).toString(),c);}
+  @Test void experimentNeverClaimsProductionReadiness(){var c=new Mutable();var p=policy(c);assertTrue(p.experimentActive(c));assertFalse(p.ready());assertFalse(p.requireVerifiedErasureWorkflow(true).requireVerifiedQuarterPolicy(true).ready());assertEquals(DATASET,p.experimentDataset());assertEquals("synthetic-test",p.experimentPrincipal().subject());}
+  @Test void requiresExactlyOneIdentityAndNonemptyPrivacy(){var j=new ObjectMapper();var c=new Mutable();for(String ids:List.of("[]",ID.substring(0,ID.length()-1)+",{\"issuer\":\"https://accounts.google.com\",\"subject\":\"other\"}]"))assertThrows(IllegalStateException.class,()->CollectionPolicy.experiment(j,ids,"contact","retention",DATASET,NOW.plusSeconds(3600).toString(),c));assertThrows(IllegalStateException.class,()->CollectionPolicy.experiment(j,ID,"","retention",DATASET,NOW.plusSeconds(3600).toString(),c));}
+  @Test void expiresExactlyAndCannotGrantNextQuarterOrMoreThanDay(){var c=new Mutable();var p=policy(c);c.now=NOW.plusSeconds(3600);assertFalse(p.experimentActive(c));assertThrows(IllegalStateException.class,()->CollectionPolicy.experiment(new ObjectMapper(),ID,"c","r",DATASET,NOW.plusSeconds(90000).toString(),new Mutable()));c.now=Instant.parse("2026-12-31T15:59:59Z");assertThrows(IllegalStateException.class,()->CollectionPolicy.experiment(new ObjectMapper(),ID,"c","r",DATASET,"2026-12-31T16:00:01Z",c));}
+  @Test void realLinkMaySucceedWithoutFakingReadinessButOtherIdentityNeverStored(){var c=new Mutable();var rooms=new RoomService();var who=rooms.createSession("Guest");int[] writes={0};IdentityStore store=new IdentityStore(){public boolean enabled(){return true;}public String findOrCreateAccount(String i,String s){writes[0]++;return UUID.randomUUID().toString();}};
+    var auth=new GoogleAuthService(rooms,store,(token,a,n)->new GoogleCredentialVerifier.Principal("https://accounts.google.com","synthetic-test"),"client",Set.of("https://test.example"),c,policy(c));
+    assertTrue(auth.config().enabled());assertTrue(auth.config().experimentReady());assertFalse(auth.config().collectionReady());assertEquals("single_tester_experiment",auth.config().collectionMode());auth.nonce(who,"https://test.example");assertTrue(auth.login(who,"https://test.example","fake",true).signedIn());assertEquals(1,writes[0]);
+    var other=rooms.createSession("Other");var denied=new GoogleAuthService(rooms,store,(token,a,n)->new GoogleCredentialVerifier.Principal("https://accounts.google.com","not-tester"),"client",Set.of("https://test.example"),c,policy(c));denied.nonce(other,"https://test.example");assertThrows(RoomService.Failure.class,()->denied.login(other,"https://test.example","fake",true));assertEquals(1,writes[0]);}
+  @Test void expiryAfterStoragePreventsAttachmentAndUncertainMappingIsNotUndone(){var c=new Mutable();var rooms=new RoomService();var who=rooms.createSession("Guest");IdentityStore store=new IdentityStore(){public boolean enabled(){return true;}public String findOrCreateAccount(String i,String s){c.now=NOW.plusSeconds(60);return UUID.randomUUID().toString();}};
+    var auth=new GoogleAuthService(rooms,store,(t,a,n)->new GoogleCredentialVerifier.Principal("https://accounts.google.com","synthetic-test"),"client",Set.of("https://test.example"),c,CollectionPolicy.experiment(new ObjectMapper(),ID,"contact","test",DATASET,NOW.plusSeconds(60).toString(),c));auth.nonce(who,"https://test.example");var e=assertThrows(RoomService.Failure.class,()->auth.login(who,"https://test.example","fake",true));assertEquals("EXPERIMENT_EXPIRED",e.code);assertNull(rooms.accountId(who));assertFalse(auth.config().enabled());}
+}

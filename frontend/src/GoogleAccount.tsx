@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import PrivacyNotice, { privacyReady } from "./PrivacyNotice";
+import {
+  canLinkAccount,
+  experimentNotice,
+  isSingleTesterExperiment,
+} from "./entry-account";
+export { canLinkAccount } from "./entry-account";
 import { getClientState } from "./client";
+import { useExperimentClock } from "./use-experiment-clock";
 import {
   accountRequest,
   createLoginAttempt,
@@ -14,6 +20,10 @@ import {
 
 export default function GoogleAccount({ token }: { token: string }) {
   const [config, setConfig] = useState<AuthConfig | null>(null);
+  const experimentNow = useExperimentClock(config);
+  const experiment = isSingleTesterExperiment(config);
+  const experimentMessage = experimentNotice(config, experimentNow);
+  const canLink = canLinkAccount(config, experimentNow);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<LoginPhase>("idle");
   const [message, setMessage] = useState("");
@@ -29,17 +39,29 @@ export default function GoogleAccount({ token }: { token: string }) {
     let live = true;
     mounted.current = true;
     const controller = createLoginAttempt({
-      nonce: (purpose) => accountRequest("/auth/nonce", "POST", { purpose }),
+      nonce: (purpose) =>
+        accountRequest("/auth/nonce", "POST", { purpose }, token),
       verify: (credential) =>
-        accountRequest("/auth/google/verify", "POST", {
-          credential,
-          consent: true,
-        }),
+        accountRequest(
+          "/auth/google/verify",
+          "POST",
+          {
+            credential,
+            consent: true,
+          },
+          token,
+        ),
       verified: setVerified,
       load: loadGoogleIdentity,
       link: (credential) =>
-        accountRequest("/auth/google", "POST", { credential, consent: true }),
-      cancel: (nonce) => accountRequest("/auth/cancel", "POST", { nonce }),
+        accountRequest(
+          "/auth/google",
+          "POST",
+          { credential, consent: true },
+          token,
+        ),
+      cancel: (nonce) =>
+        accountRequest("/auth/cancel", "POST", { nonce }, token),
       eligible: () =>
         !getClientState().room && getClientState().session?.token === token,
       update: (next, text, linked) => {
@@ -51,13 +73,19 @@ export default function GoogleAccount({ token }: { token: string }) {
     });
     attempt.current = controller;
     void Promise.all([
-      accountRequest<AuthConfig>("/auth/config"),
-      accountRequest<AuthStatus>("/auth/status"),
+      accountRequest<AuthConfig>("/auth/config", "GET", undefined, token),
+      accountRequest<AuthStatus>("/auth/status", "GET", undefined, token),
     ])
       .then(([settings, status]) => {
         if (live) {
           setConfig(settings);
-          setSignedIn(status.signedIn);
+          setSignedIn(
+            status.signedIn === true
+              ? true
+              : status.signedIn === false
+                ? false
+                : null,
+          );
         }
       })
       .catch(() => {
@@ -70,6 +98,14 @@ export default function GoogleAccount({ token }: { token: string }) {
       attempt.current = null;
     };
   }, [token]);
+  useEffect(() => {
+    if (
+      purpose === "link" &&
+      !canLink &&
+      (phase === "loading" || phase === "ready")
+    )
+      attempt.current?.cancel();
+  }, [canLink, phase, purpose]);
   const refreshOrLogout = async (logout: boolean) => {
     if (checkingFlight.current || phase !== "idle" || getClientState().room)
       return;
@@ -80,6 +116,7 @@ export default function GoogleAccount({ token }: { token: string }) {
         logout ? "/auth/logout" : "/auth/status",
         logout ? "POST" : "GET",
         logout ? {} : undefined,
+        token,
       );
       if (
         !mounted.current ||
@@ -87,6 +124,14 @@ export default function GoogleAccount({ token }: { token: string }) {
         getClientState().room
       )
         return;
+      if (
+        typeof result.signedIn !== "boolean" ||
+        (logout && result.signedIn !== false)
+      ) {
+        setSignedIn(null);
+        setMessage("尚無法確認帳號狀態，請重新確認；未確認解除連結。");
+        return;
+      }
       setSignedIn(result.signedIn);
       setMessage(
         logout
@@ -94,7 +139,12 @@ export default function GoogleAccount({ token }: { token: string }) {
           : "帳號狀態已更新。",
       );
     } catch {
-      if (mounted.current) setMessage("尚無法確認帳號狀態；訪客仍可繼續遊玩。");
+      if (
+        mounted.current &&
+        getClientState().session?.token === token &&
+        !getClientState().room
+      )
+        setMessage("尚無法確認帳號狀態；請重新確認後再選擇遊玩身分。");
     } finally {
       checkingFlight.current = false;
       if (mounted.current) setChecking(false);
@@ -104,21 +154,25 @@ export default function GoogleAccount({ token }: { token: string }) {
     <section className="google-account" aria-label="選用 Google 登入">
       <h3>
         {signedIn
-          ? canLinkAccount(config)
-            ? "已連結 Google（封閉測試）"
-            : "已連結 Google（收集尚未開放）"
+          ? experiment
+            ? "已連結 Google（單人一場實驗）"
+            : canLink
+              ? "已連結 Google（封閉測試）"
+              : "已連結 Google（收集尚未開放）"
           : "訪客也能完整遊玩"}
       </h3>
       <p>
         Google
         登入為選用，只能在房間外操作。不會更換目前的訪客名稱或身分，也不會將先前訪客場次補登至帳號。
       </p>
-      <PrivacyNotice
-        privacy={{
-          contact: config?.privacyContact,
-          retention: config?.retention,
-        }}
-      />
+      {experimentMessage && (
+        <p className="fine" role="status">
+          {experimentMessage}
+        </p>
+      )}
+      <p className="fine">
+        保存採盡力而為。<a href="#help">使用說明：資料保存與刪除</a>
+      </p>
       {signedIn ? (
         <>
           <p className="fine">
@@ -163,10 +217,12 @@ export default function GoogleAccount({ token }: { token: string }) {
               >
                 同意僅驗證身分，不保存帳號對應
               </button>
-              {canLinkAccount(config) ? (
+              {canLink ? (
                 <>
                   <p>
-                    已獲核准的測試者可選擇下方連結，表示同意上述資料範圍、保存期限與刪除處理方式。伺服器會檢查測試資格；未核准者不建立帳號對應。
+                    {experiment
+                      ? "僅指定帳號可參與。連結表示同意將你的 Google 識別碼、遊戲帳號及最多一場戰績存入私人試算表；刪除仍待驗收，版本歷史或副本可能保留。取消或失敗也可能用掉名額。"
+                      : "已獲核准的測試者可選擇下方連結，表示同意上述資料範圍、保存期限與刪除處理方式。伺服器會檢查測試資格；未核准者不建立帳號對應。"}
                   </p>
                   <button
                     className="secondary"
@@ -183,7 +239,9 @@ export default function GoogleAccount({ token }: { token: string }) {
                         );
                     }}
                   >
-                    同意測試資料收集並連結 Google
+                    {experiment
+                      ? "同意單人一場實驗並登入"
+                      : "同意測試資料收集並連結 Google"}
                   </button>
                 </>
               ) : (
@@ -270,19 +328,5 @@ export default function GoogleAccount({ token }: { token: string }) {
         重新確認帳號狀態
       </button>
     </section>
-  );
-}
-
-export function canLinkAccount(config: AuthConfig | null): boolean {
-  return Boolean(
-    config?.enabled &&
-    config.verificationEnabled &&
-    config.clientId &&
-    config.collectionMode === "restricted" &&
-    config.collectionReady &&
-    privacyReady({
-      contact: config.privacyContact,
-      retention: config.retention,
-    }),
   );
 }

@@ -3,14 +3,23 @@ import { client, getClientState } from "./client";
 import type { Session } from "./model";
 import { nicknameValidation } from "./nickname";
 import AnimalAvatar from "./AnimalAvatar";
-import PrivacyNotice from "./PrivacyNotice";
+import { useExperimentClock } from "./use-experiment-clock";
 import { canCompleteEntry, prepareEntryChoice } from "./entry-flow";
+import {
+  canEnterAfterAccountLink,
+  entryAccountPurpose,
+  experimentNotice,
+  isSingleTesterExperiment,
+} from "./entry-account";
 import {
   accountRequest,
   createLoginAttempt,
   loadGoogleIdentity,
+  readAuthConfig,
   type AuthConfig,
+  type AuthStatus,
   type LoginPhase,
+  type LoginPurpose,
   type VerifiedIdentity,
 } from "./google-login";
 
@@ -21,7 +30,7 @@ export default function WelcomeEntry({
 }: {
   session: Session | null;
   busy: boolean;
-  onEnter: (token: string) => void;
+  onEnter: (token: string, experiment?: boolean) => void;
 }) {
   const [name, setName] = useState("");
   const [composing, setComposing] = useState(false);
@@ -29,111 +38,150 @@ export default function WelcomeEntry({
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [configFailed, setConfigFailed] = useState(false);
   const [phase, setPhase] = useState<LoginPhase>("idle");
+  const [purpose, setPurpose] = useState<LoginPurpose>("verify");
   const [message, setMessage] = useState("");
   const [verified, setVerified] = useState<VerifiedIdentity | null>(null);
-  const [requestedToken, setRequestedToken] = useState<string | null>(null);
+  const [requested, setRequested] = useState<{
+    token: string;
+    purpose: LoginPurpose;
+  } | null>(null);
   const [preparing, setPreparing] = useState(false);
+  const [linkAttempted, setLinkAttempted] = useState(false);
   const button = useRef<HTMLDivElement>(null);
   const controller = useRef<ReturnType<typeof createLoginAttempt> | null>(null);
   const live = useRef(true);
+  const enter = useRef(onEnter);
+  enter.current = onEnter;
   const choiceFlight = useRef(false);
-  const pendingVerification = useRef<string | null>(null);
+  const pending = useRef<{ token: string; purpose: LoginPurpose } | null>(null);
   const token = session?.token;
+  const experimentNow = useExperimentClock(config);
+  const availablePurpose = entryAccountPurpose(config, experimentNow);
+  const experiment = isSingleTesterExperiment(config);
+  const experimentRef = useRef(experiment);
+  experimentRef.current = experiment;
+  const experimentMessage = experimentNotice(config, experimentNow);
   useEffect(() => {
     live.current = true;
-    return () => {
-      live.current = false;
-    };
-  }, []);
-  useEffect(() => {
-    if (pendingVerification.current !== token)
-      pendingVerification.current = null;
-    setRequestedToken((requested) => (requested === token ? requested : null));
-    setConfig(null);
-    setConfigFailed(false);
-    setVerified(null);
-    setPhase("idle");
-    setMessage("");
-    if (!token) return;
     let current = true;
-    const attempt = createLoginAttempt({
-      nonce: (purpose) => accountRequest("/auth/nonce", "POST", { purpose }),
-      verify: (credential) =>
-        accountRequest("/auth/google/verify", "POST", {
-          credential,
-          consent: true,
-        }),
-      // This entry deliberately exposes verification only, never account linking.
-      link: async () => {
-        throw new Error("Entry does not link accounts");
-      },
-      verified: setVerified,
-      load: loadGoogleIdentity,
-      cancel: (nonce) => accountRequest("/auth/cancel", "POST", { nonce }),
-      eligible: () =>
-        canCompleteEntry(
-          token,
-          getClientState().session?.token,
-          Boolean(getClientState().room),
-        ),
-      update: (next, text) => {
-        setPhase(next);
-        setMessage(text ?? "");
-        if (next === "idle") button.current?.replaceChildren();
-      },
-    });
-    controller.current = attempt;
-    void accountRequest<AuthConfig>("/auth/config")
+    void readAuthConfig()
       .then((value) => {
         if (current) setConfig(value);
       })
       .catch(() => {
-        if (current) {
-          setConfigFailed(true);
-          setMessage("Google 驗證暫時無法使用，仍可當訪客遊玩。");
-          pendingVerification.current = null;
-          setRequestedToken(null);
-        }
+        if (current) setConfigFailed(true);
       });
     return () => {
       current = false;
+      live.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (pending.current?.token !== token) pending.current = null;
+    setRequested((request) => (request?.token === token ? request : null));
+    setVerified(null);
+    setPhase("idle");
+    setMessage("");
+    setLinkAttempted(false);
+    if (!token) return;
+    const eligible = () =>
+      live.current &&
+      canCompleteEntry(
+        token,
+        getClientState().session?.token,
+        Boolean(getClientState().room),
+      );
+    const attempt = createLoginAttempt({
+      nonce: (purpose) =>
+        accountRequest("/auth/nonce", "POST", { purpose }, token),
+      verify: (credential) =>
+        accountRequest(
+          "/auth/google/verify",
+          "POST",
+          { credential, consent: true },
+          token,
+        ),
+      link: (credential) =>
+        accountRequest(
+          "/auth/google",
+          "POST",
+          { credential, consent: true },
+          token,
+        ),
+      verified: setVerified,
+      load: loadGoogleIdentity,
+      cancel: (nonce) =>
+        accountRequest("/auth/cancel", "POST", { nonce }, token),
+      eligible,
+      update: (next, text, signedIn) => {
+        if (!eligible()) return;
+        setPhase(next);
+        setMessage(text ?? "");
+        if (next === "idle") button.current?.replaceChildren();
+        if (
+          canEnterAfterAccountLink(
+            signedIn,
+            token,
+            getClientState().session?.token,
+            Boolean(getClientState().room),
+            live.current,
+          )
+        ) {
+          enter.current(token, experimentRef.current);
+        }
+      },
+    });
+    controller.current = attempt;
+    return () => {
       attempt.dispose();
       controller.current = null;
     };
   }, [token]);
   useEffect(() => {
-    if (!requestedToken || requestedToken !== token) return;
-    if (configFailed) {
-      pendingVerification.current = null;
-      setRequestedToken(null);
-      setMessage("Google 驗證暫時無法使用，仍可當訪客遊玩。");
+    if (!requested || requested.token !== token || !pending.current) return;
+    pending.current = null;
+    setRequested(null);
+    // Never change the purpose the user consented to, even if config changes.
+    if (!config || availablePurpose !== requested.purpose) {
+      setMessage("Google 服務設定已變更，請重新選擇；仍可當訪客遊玩。");
       return;
     }
-    if (!config) return;
-    // Consume this deliberate click once, including under StrictMode re-runs.
-    if (!pendingVerification.current) return;
-    pendingVerification.current = null;
-    setRequestedToken(null);
-    if (!config.verificationEnabled || !config.clientId) {
-      setMessage("Google 驗證尚未開放，仍可當訪客遊玩。");
-      return;
-    }
+    setPurpose(requested.purpose);
+    setLinkAttempted(requested.purpose === "link");
     if (button.current)
-      void controller.current?.start(config.clientId, button.current, "verify");
-  }, [config, configFailed, requestedToken, token]);
-  const choose = async (choice: "verify" | "guest") => {
+      void controller.current?.start(
+        config.clientId,
+        button.current,
+        requested.purpose,
+      );
+  }, [config, availablePurpose, requested, token]);
+  useEffect(() => {
+    // An open Google prompt must not silently remain a linking offer after expiry.
+    // Submission cannot be retracted here; the server checks the same deadline.
+    if (
+      purpose === "link" &&
+      availablePurpose !== "link" &&
+      (phase === "loading" || phase === "ready")
+    )
+      controller.current?.cancel();
+  }, [availablePurpose, phase, purpose]);
+  const choose = async (choice: "account" | "guest") => {
     if (
       choiceFlight.current ||
       busy ||
-      (choice === "verify" && (phase !== "idle" || pendingVerification.current))
+      phase === "submitting" ||
+      (choice === "account" &&
+        (!availablePurpose || phase !== "idle" || pending.current))
     )
       return;
     if (!session && (composing || nickname.error)) return;
+    const chosenPurpose = availablePurpose;
     choiceFlight.current = true;
     setPreparing(true);
     const previousToken = getClientState().session?.token;
+    let expectedToken = previousToken;
     try {
-      const expectedToken = await prepareEntryChoice({
+      const preparedToken = await prepareEntryChoice({
         previousToken,
         createSession: () => client.login(name),
         current: () => ({
@@ -142,18 +190,82 @@ export default function WelcomeEntry({
         }),
         isMounted: () => live.current,
       });
-      if (!expectedToken) return;
+      if (!preparedToken) return;
+      expectedToken = preparedToken;
       if (choice === "guest") {
-        pendingVerification.current = null;
-        setRequestedToken(null);
-        controller.current?.dispose();
-        onEnter(expectedToken);
-      } else {
+        pending.current = null;
+        setRequested(null);
+        controller.current?.cancel();
+        // A restored session may still be linked. Never label it a guest until
+        // the server confirms unlinking; logout does not delete saved records.
+        if (previousToken) {
+          const status = await accountRequest<AuthStatus>(
+            "/auth/logout",
+            "POST",
+            {},
+            expectedToken,
+          );
+          if (status.signedIn !== false)
+            throw new Error("Guest status not confirmed");
+        }
+        if (
+          live.current &&
+          canCompleteEntry(
+            expectedToken,
+            getClientState().session?.token,
+            Boolean(getClientState().room),
+          )
+        ) {
+          controller.current?.dispose();
+          enter.current(expectedToken);
+        }
+      } else if (chosenPurpose) {
         setVerified(null);
         setMessage("");
-        pendingVerification.current = expectedToken;
-        setRequestedToken(expectedToken);
+        pending.current = { token: expectedToken, purpose: chosenPurpose };
+        setRequested(pending.current);
       }
+    } catch {
+      if (live.current && getClientState().session?.token === expectedToken) {
+        setMessage("尚無法確認身分狀態，請重試；目前仍停留在入口。");
+      }
+    } finally {
+      choiceFlight.current = false;
+      if (live.current) setPreparing(false);
+    }
+  };
+  const checkStatus = async () => {
+    if (
+      !token ||
+      !linkAttempted ||
+      busy ||
+      choiceFlight.current ||
+      phase !== "idle"
+    )
+      return;
+    choiceFlight.current = true;
+    setPreparing(true);
+    try {
+      const result = await accountRequest<AuthStatus>(
+        "/auth/status",
+        "GET",
+        undefined,
+        token,
+      );
+      if (
+        !live.current ||
+        !canCompleteEntry(
+          token,
+          getClientState().session?.token,
+          Boolean(getClientState().room),
+        )
+      )
+        return;
+      if (result.signedIn === true) enter.current(token, experimentRef.current);
+      else setMessage("尚未確認帳號連結成功，可重新嘗試或當訪客遊玩。");
+    } catch {
+      if (live.current && getClientState().session?.token === token)
+        setMessage("尚無法確認登入結果，請稍後重試；目前仍停留在入口。");
     } finally {
       choiceFlight.current = false;
       if (live.current) setPreparing(false);
@@ -173,7 +285,7 @@ export default function WelcomeEntry({
       >
         <span className="eyebrow">WELCOME TO THE TABLE</span>
         <h2>{session ? `你好，${session.displayName}` : "先認識一下你。"}</h2>
-        <p>驗證或當訪客，都能一起玩。</p>
+        <p>選用 Google 帳號，或直接當訪客遊玩。</p>
         {!session && (
           <form onSubmit={submit}>
             <label htmlFor="guest-name">遊戲暱稱</label>
@@ -204,19 +316,44 @@ export default function WelcomeEntry({
         )}
         {verified ? (
           <p className="entry-verified" role="status">
-            ✓ Google 驗證成功
+            ✓ Google 驗證成功（僅驗證）
           </p>
         ) : (
           <button
             className="primary"
-            disabled={disabled || phase !== "idle" || Boolean(requestedToken)}
-            onClick={() => void choose("verify")}
+            disabled={
+              disabled ||
+              !availablePurpose ||
+              phase !== "idle" ||
+              Boolean(requested)
+            }
+            onClick={() => void choose("account")}
           >
-            Google 驗證
+            {availablePurpose === "link"
+              ? experiment
+                ? "Google 登入（單人一場實驗）"
+                : "使用 Google 登入"
+              : availablePurpose === "verify"
+                ? "Google 驗證（測試）"
+                : config || configFailed
+                  ? "Google 登入尚未開放"
+                  : "正在確認 Google 服務…"}
           </button>
         )}
-        <p className="fine">
-          選用驗證會連線至 Google；目前僅驗證身分，不建立帳號連結或保存對局。
+        {experimentMessage && (
+          <p className="fine" role="status">
+            {experimentMessage}
+          </p>
+        )}
+        <p className="fine entry-consent">
+          {availablePurpose === "link"
+            ? experiment
+              ? "登入表示同意將你的 Google 識別碼、遊戲帳號及最多一場戰績存入私人試算表；刪除仍在測試，歷史副本可能保留。重新登入會解除原連結。"
+              : "登入表示同意 Google 驗證、帳號連結及核准測試場次保存；重新登入會解除原連結。"
+            : availablePurpose === "verify"
+              ? "按下驗證表示同意連線至 Google；目前僅驗證身分，不建立帳號連結或保存對局。"
+              : "Google 為選用服務，不影響訪客遊玩。"}{" "}
+          <a href="#help">使用說明：資料保存與刪除</a>
         </p>
         <div ref={button} className="google-signin-button" />
         {phase !== "idle" && (
@@ -225,7 +362,9 @@ export default function WelcomeEntry({
               {phase === "loading"
                 ? "正在載入 Google…"
                 : phase === "submitting"
-                  ? "正在驗證…"
+                  ? purpose === "link"
+                    ? "正在確認帳號連結…"
+                    : "正在驗證…"
                   : "請選擇 Google 帳號。"}
             </p>
             <button
@@ -233,7 +372,7 @@ export default function WelcomeEntry({
               disabled={phase === "submitting"}
               onClick={() => controller.current?.cancel()}
             >
-              取消驗證
+              {purpose === "link" ? "取消登入" : "取消驗證"}
             </button>
           </>
         )}
@@ -242,27 +381,44 @@ export default function WelcomeEntry({
           disabled={disabled || phase === "submitting"}
           onClick={() => void choose("guest")}
         >
-          {verified ? "繼續進入大廳" : "以訪客身分遊玩"}
+          以訪客身分遊玩
         </button>
+        {linkAttempted && phase === "idle" && message && (
+          <button
+            className="text-button"
+            disabled={disabled}
+            onClick={() => void checkStatus()}
+          >
+            重新確認登入狀態
+          </button>
+        )}
         {message && !verified && <p role="status">{message}</p>}
         {verified && (
           <details className="entry-details">
             <summary>查看測試識別碼</summary>
             <p>
-              尚未建立帳號連結。識別碼只顯示在此頁；如需申請測試資格，可自行交給你確認的管理者。
+              這次驗證不建立帳號連結。識別碼只顯示在此頁；如需申請測試資格，可自行交給你確認的管理者。
             </p>
             <label htmlFor="entry-subject">Google 帳號識別碼（subject）</label>
             <input id="entry-subject" readOnly value={verified.subject} />
             <button
               className="text-button"
               onClick={() => {
+                const expectedToken = token;
                 void navigator.clipboard
                   .writeText(verified.subject)
                   .then(() => {
-                    if (live.current) setMessage("已複製，尚未傳送給任何人。");
+                    if (
+                      live.current &&
+                      getClientState().session?.token === expectedToken
+                    )
+                      setMessage("已複製，尚未傳送給任何人。");
                   })
                   .catch(() => {
-                    if (live.current)
+                    if (
+                      live.current &&
+                      getClientState().session?.token === expectedToken
+                    )
                       setMessage("請自行選取並複製上方識別碼。");
                   });
               }}
@@ -274,26 +430,6 @@ export default function WelcomeEntry({
             ) : null}
           </details>
         )}
-        <details className="entry-details">
-          <summary>隱私與資料使用說明</summary>
-          <p>
-            點選 Google 驗證表示同意載入 Google
-            元件，並將登入憑證交由本遊戲伺服器驗證。此流程不建立或保存帳號對應，也不保存對局、Google
-            名稱、信箱、頭像或登入憑證。驗證結果與自己的帳號識別碼只在此頁暫時顯示，不會自動分享。
-          </p>
-          <p>
-            訪客可完整遊玩。驗證不代表完整帳號登入，不能跨裝置取回牌局；繼續進入大廳仍使用原訪客身分。
-          </p>
-          <details>
-            <summary>封閉測試保存與刪除政策</summary>
-            <PrivacyNotice
-              privacy={{
-                contact: config?.privacyContact,
-                retention: config?.retention,
-              }}
-            />
-          </details>
-        </details>
       </section>
       <div className="welcome-art forest-welcome" aria-hidden="true">
         <div className="forest-sign">

@@ -1,5 +1,10 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  EXPERIMENT_EXPIRED: "單人一場實驗已到期，請停止保存測試；仍可當訪客遊玩。",
+  EXPERIMENT_UNAVAILABLE:
+    "本次實驗名額已用或狀態不明，請先聯絡管理者；不要重新登入或換房重試保存。",
+  EXPERIMENT_MATCH_LIMIT:
+    "本次實驗最多保存一場牌局，已無新的保存名額；請先核對原場次結果。",
   TESTER_NOT_ADMITTED:
     "此 Google 帳號尚未獲核准參與資料收集，不會建立帳號對應；可繼續當訪客。",
 

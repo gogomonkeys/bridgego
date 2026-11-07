@@ -3,6 +3,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import java.time.Clock;
 import java.util.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -48,6 +49,40 @@ class GoogleAuthControllerTest {
         .andExpect(status().isOk()).andExpect(content().json(
             "{\"issuer\":\"https://accounts.google.com\",\"subject\":\"subject\",\"admittedTester\":true}",true));
     Assertions.assertNull(rooms.accountId(guest));
+  }
+
+  @Test void acceptedLinkChallengeUnlinksBeforeFailureAndStatusStaysGuest() throws Exception {
+    String bearer="Bearer "+guest.token();
+    rooms.linkAccountOutsideRoom(guest,UUID.randomUUID().toString(),true);
+    mvc.perform(post("/api/auth/nonce").header("Authorization",bearer).header("Origin","https://bridge.example"))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/auth/status").header("Authorization",bearer))
+        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false}",true));
+    mvc.perform(post("/api/auth/google").header("Authorization",bearer).header("Origin","https://bridge.example")
+        .contentType(MediaType.APPLICATION_JSON).content("{\"credential\":\"signed-token\",\"consent\":false}"))
+        .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CONSENT_REQUIRED"));
+    mvc.perform(get("/api/auth/status").header("Authorization",bearer))
+        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false}",true));
+    Assertions.assertEquals(guest,rooms.authenticate(guest.token()));
+  }
+
+  @Test void seatedCancellationIsAllowedWithoutChangingCurrentLinkedAccount() throws Exception {
+    String bearer="Bearer "+guest.token(), account=UUID.randomUUID().toString();
+    rooms.linkAccountOutsideRoom(guest,account,true);
+    var nonceResponse=mvc.perform(post("/api/auth/nonce").header("Authorization",bearer)
+        .header("Origin","https://bridge.example").contentType(MediaType.APPLICATION_JSON).content("{\"purpose\":\"verify\"}"))
+        .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+    String nonce=new ObjectMapper().readTree(nonceResponse).path("nonce").asText();
+    String room=rooms.create(guest,1).roomId();
+    mvc.perform(post("/api/auth/cancel").header("Authorization",bearer).header("Origin","https://bridge.example")
+        .contentType(MediaType.APPLICATION_JSON).content("{\"nonce\":\""+nonce+"\"}"))
+        .andExpect(status().isOk()).andExpect(content().json("{\"cancelled\":true}",true));
+    Assertions.assertEquals(account,rooms.accountId(guest));
+    rooms.leave(room,guest);
+    mvc.perform(post("/api/auth/google/verify").header("Authorization",bearer).header("Origin","https://bridge.example")
+        .contentType(MediaType.APPLICATION_JSON).content("{\"credential\":\"signed-token\",\"consent\":true}"))
+        .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("AUTH_NONCE_EXPIRED"));
+    Assertions.assertEquals(account,rooms.accountId(guest));
   }
 
 }

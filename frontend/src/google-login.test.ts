@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLoginAttempt, type GoogleIdentity } from "./google-login";
+import { errorMessages } from "./error-messages";
+import {
+  AccountRequestError,
+  createLoginAttempt,
+  type GoogleIdentity,
+} from "./google-login";
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {
@@ -41,6 +46,45 @@ function setup() {
 }
 afterEach(() => vi.restoreAllMocks());
 describe("optional consent-scoped Google attempts", () => {
+  it.each([
+    "EXPERIMENT_EXPIRED",
+    "EXPERIMENT_UNAVAILABLE",
+    "EXPERIMENT_MATCH_LIMIT",
+    "TESTER_NOT_ADMITTED",
+  ])("does not retry or claim a link after %s", async (code) => {
+    const s = setup();
+    s.deps.link.mockRejectedValue(new AccountRequestError(errorMessages[code]));
+    await s.controller.start("configured", s.element, "link");
+    s.credential();
+    await Promise.resolve();
+    expect(s.deps.link).toHaveBeenCalledTimes(1);
+    expect(s.deps.verify).not.toHaveBeenCalled();
+    expect(s.deps.update).toHaveBeenLastCalledWith(
+      "idle",
+      errorMessages[code],
+      undefined,
+    );
+    expect(s.deps.update).not.toHaveBeenCalledWith(
+      "idle",
+      expect.anything(),
+      true,
+    );
+  });
+  it("reports a rejected nonce without loading Google or automatically retrying", async () => {
+    const s = setup();
+    s.deps.nonce.mockRejectedValue(
+      new AccountRequestError("限定測試已結束；請勿重試保存。"),
+    );
+    await s.controller.start("configured", s.element, "link");
+    expect(s.deps.nonce).toHaveBeenCalledTimes(1);
+    expect(s.deps.load).not.toHaveBeenCalled();
+    expect(s.deps.link).not.toHaveBeenCalled();
+    expect(s.deps.update).toHaveBeenLastCalledWith(
+      "idle",
+      "限定測試已結束；請勿重試保存。",
+      undefined,
+    );
+  });
   it("verification-only never invokes linking or reports a saved mapping", async () => {
     const s = setup();
     await s.controller.start("configured", s.element, "verify");
@@ -57,9 +101,43 @@ describe("optional consent-scoped Google attempts", () => {
     );
     expect(s.deps.update).toHaveBeenLastCalledWith(
       "idle",
-      expect.stringContaining("尚未建立帳號連結"),
-      false,
+      expect.stringContaining("這次驗證不建立"),
+      undefined,
     );
+  });
+  it("false or malformed linking status never claims account linkage", async () => {
+    for (const status of [false, undefined, "true", 1]) {
+      const s = setup();
+      s.deps.link.mockResolvedValue({ signedIn: status } as {
+        signedIn: boolean;
+      });
+      await s.controller.start("configured", s.element, "link");
+      s.credential();
+      await Promise.resolve();
+      expect(s.deps.update).toHaveBeenLastCalledWith(
+        "idle",
+        expect.stringContaining("尚未確認"),
+        false,
+      );
+    }
+  });
+  it("accepted link nonce clears previous linkage before the Google prompt", async () => {
+    const s = setup();
+    await s.controller.start("configured", s.element, "link");
+    expect(s.deps.update).toHaveBeenCalledWith("loading", undefined, false);
+  });
+  it("unmount during submission cancels only its nonce and suppresses late result", async () => {
+    const s = setup();
+    const pending = deferred<{ signedIn: boolean }>();
+    s.deps.link.mockReturnValue(pending.promise);
+    await s.controller.start("configured", s.element, "link");
+    s.credential();
+    s.controller.dispose();
+    expect(s.deps.cancel).toHaveBeenCalledWith("nonce");
+    s.deps.update.mockClear();
+    pending.resolve({ signedIn: true });
+    await Promise.resolve();
+    expect(s.deps.update).not.toHaveBeenCalled();
   });
   it("normal linking never silently falls back to verification discovery", async () => {
     const s = setup();

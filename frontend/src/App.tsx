@@ -1,3 +1,4 @@
+import DataPrivacyHelp from "./DataPrivacyHelp";
 import WelcomeEntry from "./WelcomeEntry";
 import { needsEntry } from "./entry-flow";
 import PwaStatus from "./PwaStatus";
@@ -14,7 +15,21 @@ export default function App() {
   const [enteredToken, setEnteredToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [plannedDeals, setPlannedDeals] = useState<1 | 3 | 5>(3);
-  const [page, setPage] = useState<"room" | "help">("room");
+  const [page, setPage] = useState<"room" | "help">(() =>
+    typeof window !== "undefined" && window.location?.hash === "#help"
+      ? "help"
+      : "room",
+  );
+  const navigate = (next: "room" | "help") => {
+    setPage(next);
+    window.location.hash = next === "help" ? "help" : "room";
+  };
+  useEffect(() => {
+    const changed = () =>
+      setPage(window.location.hash === "#help" ? "help" : "room");
+    window.addEventListener("hashchange", changed);
+    return () => window.removeEventListener("hashchange", changed);
+  }, []);
   const [copied, setCopied] = useState(false);
   const [diagnosticCopy, setDiagnosticCopy] = useState("");
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
@@ -44,7 +59,7 @@ export default function App() {
           className="brand"
           onClick={(e) => {
             e.preventDefault();
-            setPage("room");
+            navigate("room");
           }}
           aria-label="BridgeGo 首頁"
         >
@@ -58,7 +73,7 @@ export default function App() {
           {page !== "room" && (
             <button
               className="return-navigation"
-              onClick={() => setPage("room")}
+              onClick={() => navigate("room")}
             >
               {state.room && state.room.phase !== "WAITING"
                 ? "返回牌桌"
@@ -67,7 +82,7 @@ export default function App() {
           )}
           <button
             className={page === "help" ? "nav-active" : ""}
-            onClick={() => setPage("help")}
+            onClick={() => navigate("help")}
           >
             使用說明
           </button>
@@ -181,7 +196,9 @@ export default function App() {
         {page === "help" ? (
           <section className="panel help">
             <span className="eyebrow">HOW IT WORKS</span>
-            <h2>等候室小指南</h2>
+            <h2>使用說明</h2>
+            <DataPrivacyHelp />
+            <h3>等候室小指南</h3>
             <ol>
               <li>輸入訪客名稱，建立房間或使用房間代碼加入。</li>
               <li>
@@ -264,7 +281,7 @@ export default function App() {
             <p>
               訪客與房間資料會在伺服器重新啟動後清除。請勿輸入密碼或私人資料。
             </p>
-            <button className="primary" onClick={() => setPage("room")}>
+            <button className="primary" onClick={() => navigate("room")}>
               {state.room && state.room.phase !== "WAITING"
                 ? "返回牌桌"
                 : "回到等候室"}
@@ -282,7 +299,10 @@ export default function App() {
           <WelcomeEntry
             session={state.session}
             busy={state.busy}
-            onEnter={setEnteredToken}
+            onEnter={(token, experiment) => {
+              if (experiment) setPlannedDeals(1);
+              setEnteredToken(token);
+            }}
           />
         ) : state.room && state.room.phase !== "WAITING" ? (
           <GamePanel
@@ -294,7 +314,7 @@ export default function App() {
             pendingAction={state.pendingAction}
             snapshotReceivedAt={state.snapshotReceivedAt}
             connectionEpoch={state.connectionEpoch}
-            onHelp={() => setPage("help")}
+            onHelp={() => navigate("help")}
           />
         ) : state.room ? (
           <div className="room-layout">

@@ -134,6 +134,10 @@ public class RoomService {
   private final Set<String> admittedTesters = new HashSet<>();
   private com.bridge.persistence.StatsStore statsStore;
   private boolean quarterRetentionEnabled;
+  private CollectionPolicy experimentPolicy = CollectionPolicy.restrictedEmpty();
+  private boolean experimentMatchStarted;
+  @Autowired
+  public synchronized void experimentPolicy(CollectionPolicy policy) { this.experimentPolicy = Objects.requireNonNull(policy); }
 
   @Autowired
   public synchronized void quarterRetentionEnabled(
@@ -211,9 +215,13 @@ public class RoomService {
 
   // Google linking changes attribution for future matches only. Guest credentials and seats
   // are deliberately NOT replaced. No remote network call is allowed inside these hooks.
-  public synchronized void requireOutsideRoom(Identity who) {
+  synchronized void requireCurrentSession(Identity who) {
     Identity current = authenticate(who.token());
     if (!current.equals(who)) throw fail(401, "UNAUTHORIZED", "Session changed");
+  }
+
+  public synchronized void requireOutsideRoom(Identity who) {
+    requireCurrentSession(who);
     if (membership.containsKey(who.playerId()))
       throw fail(409, "AUTH_IN_ROOM", "Leave the room before changing Google identity");
   }
@@ -240,7 +248,7 @@ public class RoomService {
   }
 
   public synchronized String accountId(Identity who) {
-    if (!authenticate(who.token()).equals(who)) throw fail(401, "UNAUTHORIZED", "Session changed");
+    requireCurrentSession(who);
     return accountsByPlayer.get(who.playerId());
   }
 
@@ -878,6 +886,17 @@ public class RoomService {
     if (r.members.size() != 4
         || r.members.values().stream().anyMatch(m -> !m.ready || !m.present()))
       throw fail(409, "START_NOT_READY", "Four ready and connected players are required");
+    if (experimentPolicy.experiment()) {
+      var humans = r.members.values().stream().filter(m -> !m.computer).toList();
+      boolean linked = humans.stream().anyMatch(m -> accountsByPlayer.containsKey(m.identity.playerId()));
+      if (linked) {
+        if (!experimentPolicy.experimentActive(clock)) throw fail(403, "EXPERIMENT_EXPIRED", "Experiment expired");
+        if (r.plannedDeals != 1 || humans.size() != 1 || !admittedTesters.contains(humans.get(0).identity.playerId()))
+          throw fail(403, "EXPERIMENT_UNAVAILABLE", "One admitted tester, three bots and one deal are required");
+        if (experimentMatchStarted) throw fail(409, "EXPERIMENT_MATCH_LIMIT", "The experiment match slot is already consumed");
+        experimentMatchStarted = true; // a failed/abandoned start never restores admission
+      }
+    }
     r.game = new GameState(random, ticker, r.plannedDeals);
     r.persistence = new MatchPersistence(r.game.id, r.plannedDeals, clock.instant(),
         r.members.values(), accountsByPlayer, r.members.values().stream()

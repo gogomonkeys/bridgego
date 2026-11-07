@@ -102,6 +102,39 @@ class GoogleAuthServiceTest {
     auth.nonce(guest,ORIGIN);store.during=()->rooms.create(guest,1);
     assertThrows(RoomService.Failure.class,()->auth.login(guest,ORIGIN,"credential",true));assertNull(rooms.accountId(guest));
   }
+  @Test void cancellationWhileSeatedSurvivesLeaveBeforeStorageReturns() throws Exception {
+    var entered=new CountDownLatch(1);var release=new CountDownLatch(1);
+    var nonce=auth.nonce(guest,ORIGIN);
+    store.during=()->{
+      entered.countDown();
+      try {if(!release.await(5,TimeUnit.SECONDS))throw new AssertionError("timed out");}
+      catch(InterruptedException e){throw new AssertionError(e);}
+    };
+    var executor=Executors.newSingleThreadExecutor();
+    try {
+      var login=executor.submit(()->auth.login(guest,ORIGIN,"credential",true));
+      assertTrue(entered.await(5,TimeUnit.SECONDS));
+      String room=rooms.create(guest,1).roomId();
+      auth.cancel(guest,ORIGIN,nonce.nonce());
+      rooms.leave(room,guest);
+      release.countDown();
+      var failure=assertInstanceOf(RoomService.Failure.class,
+          assertThrows(ExecutionException.class,()->login.get(5,TimeUnit.SECONDS)).getCause());
+      assertEquals("AUTH_CANCELLED",failure.code);
+      assertEquals(1,store.calls);assertFalse(auth.status(guest).signedIn());
+      assertEquals(guest,rooms.authenticate(guest.token()));
+    } finally {release.countDown();executor.shutdownNow();}
+  }
+  @Test void cancellationWhileSeatedRequiresExactSessionAndDoesNotUnlink() {
+    String old=UUID.randomUUID().toString();rooms.linkAccountOutsideRoom(guest,old,true);
+    var nonce=auth.nonce(guest,ORIGIN,"verify");rooms.create(guest,1);
+    var forged=new RoomService.Identity(guest.token(),guest.playerId(),"Changed");
+    assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,
+        ()->auth.cancel(forged,ORIGIN,nonce.nonce())).code);
+    auth.cancel(guest,ORIGIN,nonce.nonce());
+    assertEquals(old,rooms.accountId(guest));
+    assertEquals("AUTH_IN_ROOM",assertThrows(RoomService.Failure.class,()->auth.logout(guest,ORIGIN)).code);
+  }
   @Test void staleCancellationDoesNotCancelNewAttempt() {
     var first=auth.nonce(guest,ORIGIN);var second=auth.nonce(guest,ORIGIN);auth.cancel(guest,ORIGIN,first.nonce());
     assertTrue(auth.login(guest,ORIGIN,"credential",true).signedIn());assertEquals(second.nonce(),verifier.nonce);
@@ -167,6 +200,117 @@ class GoogleAuthServiceTest {
     assertThrows(RoomService.Failure.class,()->auth.login(guest,ORIGIN,"malicious",true));
     assertEquals(0,store.calls);assertNull(rooms.accountId(guest));
     assertThrows(RoomService.Failure.class,()->auth.login(guest,ORIGIN,"malicious",true));assertEquals(1,verifier.calls);
+  }
+
+  @Test void roomEntryDuringVerificationPreventsAnyStorage() {
+    auth.nonce(guest,ORIGIN);verifier.during=()->rooms.create(guest,1);
+    assertEquals("AUTH_IN_ROOM",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",true)).code);
+    assertEquals(0,store.calls);assertNull(rooms.accountId(guest));
+  }
+
+  @Test void sessionExpiryDuringVerificationPreventsAnyStorage() {
+    MutableClock sessionClock=shortLivedSession();
+    auth.nonce(guest,ORIGIN);verifier.during=()->sessionClock.now+=1000;
+    assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",true)).code);
+    assertEquals(0,store.calls);
+  }
+
+  @Test void sessionExpiryDuringStoragePreventsAttachment() {
+    MutableClock sessionClock=shortLivedSession();
+    auth.nonce(guest,ORIGIN);store.during=()->sessionClock.now+=1000;
+    assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",true)).code);
+    assertEquals(1,store.calls);
+    assertThrows(RoomService.Failure.class,()->rooms.authenticate(guest.token()));
+    var fresh=rooms.createSession("Fresh");assertFalse(auth.status(fresh).signedIn());
+  }
+
+  private MutableClock shortLivedSession() {
+    var sessionClock=new MutableClock();
+    rooms=new RoomService(sessionClock,sessionClock::millis,
+        new BetaLimits(2,128,1000,300000,64,4,600,60,20,30));
+    guest=rooms.createSession("Guest");
+    auth=new GoogleAuthService(rooms,store,verifier,"client",Set.of(ORIGIN),clock,
+        new CollectionPolicy(Set.of(verifier.principal),"contact","retention"));
+    return sessionClock;
+  }
+
+  @Test void forgedExactSessionCannotConsumeOrCancelLegitimateChallenge() {
+    var challenge=auth.nonce(guest,ORIGIN);
+    for(var forged:List.of(new RoomService.Identity(guest.token(),guest.playerId(),"Other name"),
+        new RoomService.Identity(guest.token(),UUID.randomUUID().toString(),guest.displayName()),
+        new RoomService.Identity("bad-token",guest.playerId(),guest.displayName()))) {
+      assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,()->auth.nonce(forged,ORIGIN)).code);
+      assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,()->auth.login(forged,ORIGIN,"credential",true)).code);
+      assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,()->auth.cancel(forged,ORIGIN,challenge.nonce())).code);
+      assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,()->auth.logout(forged,ORIGIN)).code);
+      assertEquals("UNAUTHORIZED",assertThrows(RoomService.Failure.class,()->auth.status(forged)).code);
+    }
+    assertEquals(0,verifier.calls);assertTrue(auth.login(guest,ORIGIN,"credential",true).signedIn());
+    assertEquals(challenge.nonce(),verifier.nonce);
+  }
+
+  @Test void linkChallengeUnlinksBeforeReplacementAndFailedSwitchStaysGuest() {
+    var old=UUID.randomUUID().toString();rooms.linkAccountOutsideRoom(guest,old,true);
+    auth.nonce(guest,ORIGIN);assertFalse(auth.status(guest).signedIn());
+    store.fail=true;
+    assertEquals("IDENTITY_STORAGE_UNAVAILABLE",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",true)).code);
+    assertNull(rooms.accountId(guest));assertEquals(guest,rooms.authenticate(guest.token()));
+  }
+
+  @Test void cancelledAndDeniedSwitchNeverRestorePreviousAccount() {
+    var old=UUID.randomUUID().toString();rooms.linkAccountOutsideRoom(guest,old,true);
+    var challenge=auth.nonce(guest,ORIGIN);auth.cancel(guest,ORIGIN,challenge.nonce());
+    assertFalse(auth.status(guest).signedIn());assertEquals(0,store.calls);
+    assertThrows(RoomService.Failure.class,()->auth.login(guest,ORIGIN,"credential",true));
+    rooms.linkAccountOutsideRoom(guest,old,true);auth.nonce(guest,ORIGIN);
+    assertEquals("CONSENT_REQUIRED",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",false)).code);
+    assertFalse(auth.status(guest).signedIn());assertEquals(0,store.calls);
+    rooms.linkAccountOutsideRoom(guest,old,true);auth.nonce(guest,ORIGIN);
+    verifier.principal=new GoogleCredentialVerifier.Principal("https://accounts.google.com","not-admitted");
+    assertEquals("TESTER_NOT_ADMITTED",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",true)).code);
+    assertFalse(auth.status(guest).signedIn());assertEquals(0,store.calls);
+  }
+
+  @Test void successfulSwitchUsesNewAccountAndKeepsGuestSession() {
+    var old=UUID.randomUUID().toString();rooms.linkAccountOutsideRoom(guest,old,true);
+    auth.nonce(guest,ORIGIN);assertTrue(auth.login(guest,ORIGIN,"credential",true).signedIn());
+    assertEquals(store.account,rooms.accountId(guest));assertNotEquals(old,rooms.accountId(guest));
+    assertEquals(guest,rooms.authenticate(guest.token()));
+  }
+
+  @Test void verificationAndInvalidLinkRequestsDoNotUnlinkExistingAccount() {
+    var old=UUID.randomUUID().toString();rooms.linkAccountOutsideRoom(guest,old,true);
+    assertThrows(RoomService.Failure.class,()->auth.nonce(guest,"https://evil.test"));
+    assertThrows(RoomService.Failure.class,()->auth.nonce(guest,ORIGIN,"unknown"));
+    assertThrows(RoomService.Failure.class,()->auth.login(guest,ORIGIN,"no-challenge",true));
+    assertEquals(old,rooms.accountId(guest));
+    auth.nonce(guest,ORIGIN,"verify");auth.verifyOnly(guest,ORIGIN,"credential",true);
+    assertEquals(old,rooms.accountId(guest));assertEquals(0,store.calls);
+    var challenge=auth.nonce(guest,ORIGIN,"verify");auth.cancel(guest,ORIGIN,challenge.nonce());
+    assertEquals(old,rooms.accountId(guest));
+    rooms.create(guest,1);assertThrows(RoomService.Failure.class,()->auth.nonce(guest,ORIGIN));
+    assertEquals(old,rooms.accountId(guest));
+  }
+
+  @Test void replacementChallengeDuringVerificationPreventsOlderStorageAndKeepsNewChallenge() {
+    auth.nonce(guest,ORIGIN);verifier.during=()->auth.nonce(guest,ORIGIN);
+    assertEquals("AUTH_CANCELLED",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",true)).code);
+    assertEquals(0,store.calls);verifier.during=()->{};
+    assertTrue(auth.login(guest,ORIGIN,"credential",true).signedIn());assertEquals(1,store.calls);
+  }
+
+  @Test void invalidStoreAccountFailsClosed() {
+    auth.nonce(guest,ORIGIN);store.account="not-an-account-id";
+    assertEquals("IDENTITY_STORAGE_UNAVAILABLE",assertThrows(RoomService.Failure.class,
+        ()->auth.login(guest,ORIGIN,"credential",true)).code);
+    assertFalse(auth.status(guest).signedIn());
   }
 
 }

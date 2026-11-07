@@ -2,6 +2,7 @@ package com.bridge.room;
 import static org.junit.jupiter.api.Assertions.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.math.BigInteger;
 import java.security.*;
 import java.time.*;
 import java.util.*;
@@ -58,5 +59,30 @@ class GoogleJwtVerifierTest {
     assertThrows(RoomService.Failure.class, () -> verifier.verify(jwt,"client","challenge"));
     c = claims(); c.put("exp",Long.toString(NOW+300)); String other = token(c);
     assertThrows(RoomService.Failure.class, () -> verifier.verify(other,"client","challenge"));
+  }
+  @Test void rejectsOutOfRangeSignedTimestampsRatherThanWrappingToLong() throws Exception {
+    for (String field : List.of("exp", "iat", "nbf")) {
+      for (BigInteger value : List.of(BigInteger.ONE.shiftLeft(64).add(BigInteger.valueOf(NOW+100)),
+          BigInteger.ONE.shiftLeft(64).negate().add(BigInteger.valueOf(NOW-100)))) {
+        var c=claims();c.put(field,value);String jwt=token(c);
+        assertEquals("INVALID_GOOGLE_CREDENTIAL",assertThrows(RoomService.Failure.class,
+            ()->verifier.verify(jwt,"client","challenge"),field).code);
+      }
+    }
+  }
+  @Test void rejectsWrongClaimTypesAndExactNonceMismatch() throws Exception {
+    for (var change : Map.<String,Object>of("sub",123,"nonce",123,"iat",NOW-0.5,
+        "exp",NOW+300.5,"nbf",Long.toString(NOW),"aud",List.of("client"),"azp",List.of("client")).entrySet()) {
+      var c=claims();c.put(change.getKey(),change.getValue());String jwt=token(c);
+      assertThrows(RoomService.Failure.class,()->verifier.verify(jwt,"client","challenge"),change.getKey());
+    }
+    String jwt=token(claims());
+    assertThrows(RoomService.Failure.class,()->verifier.verify(jwt,"client","challenge "));
+    assertThrows(RoomService.Failure.class,()->verifier.verify(jwt,"client",null));
+    assertThrows(RoomService.Failure.class,()->verifier.verify(jwt,"", "challenge"));
+  }
+  @Test void signedBoundaryClaimsAndMatchingAuthorizedPartyAreAccepted() throws Exception {
+    var c=claims();c.put("iat",NOW+60);c.put("nbf",NOW);c.put("exp",NOW+61);c.put("azp","client");
+    assertEquals("subject",verifier.verify(token(c),"client","challenge").subject());
   }
 }

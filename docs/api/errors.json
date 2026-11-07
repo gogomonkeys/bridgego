@@ -170,6 +170,51 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "EXPERIMENT_EXPIRED",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java",
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Experiment expired",
+      "category": "auth",
+      "meaning": "限時實驗已到期",
+      "handling": "停止登入或開始牌局；不自動延長期限",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "EXPERIMENT_MATCH_LIMIT",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "The experiment match slot is already consumed",
+      "category": "auth",
+      "meaning": "本次單局名額已耗用",
+      "handling": "不再開始第二場；不可刪除標記重新取得名額",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "EXPERIMENT_UNAVAILABLE",
+      "httpStatuses": [
+        403,
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java",
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Experiment admission is unavailable",
+      "category": "auth",
+      "meaning": "實驗名額不可用或結果不明",
+      "handling": "停止並聯絡管理者；不可盲目重新登入",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "GAME_IN_PROGRESS",
       "httpStatuses": [
         409

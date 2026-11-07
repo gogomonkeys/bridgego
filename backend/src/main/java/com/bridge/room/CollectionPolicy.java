@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashSet;
 import java.util.Set;
+import java.time.*;
 
 /** Immutable deployment admission policy. No public-collection mode exists in this candidate. */
 public final class CollectionPolicy {
@@ -12,6 +13,8 @@ public final class CollectionPolicy {
   private final String retention;
   private final boolean erasureWorkflowVerified;
   private final boolean quarterPolicyVerified;
+  private Instant experimentExpiresAt;
+  private String experimentDataset;
   public CollectionPolicy(Set<GoogleCredentialVerifier.Principal> testers) { this(testers, "", ""); }
   public CollectionPolicy(Set<GoogleCredentialVerifier.Principal> testers, String privacyContact, String retention) {
     this(testers, privacyContact, retention, true, true); // explicit injected policies used by offline tests
@@ -29,12 +32,40 @@ public final class CollectionPolicy {
   public String privacyContact() { return privacyContact; }
   public String retention() { return retention; }
   public CollectionPolicy requireVerifiedErasureWorkflow(boolean verified) {
-    return new CollectionPolicy(testers, privacyContact, retention, verified, quarterPolicyVerified);
+    return copy(new CollectionPolicy(testers, privacyContact, retention, verified, quarterPolicyVerified));
   }
   public CollectionPolicy requireVerifiedQuarterPolicy(boolean verified) {
-    return new CollectionPolicy(testers, privacyContact, retention, erasureWorkflowVerified, verified);
+    return copy(new CollectionPolicy(testers, privacyContact, retention, erasureWorkflowVerified, verified));
   }
-  public boolean ready() { return erasureWorkflowVerified && quarterPolicyVerified && hasTesters() && !privacyContact.isBlank() && !retention.isBlank(); }
+  private CollectionPolicy copy(CollectionPolicy value) { value.experimentExpiresAt = experimentExpiresAt; value.experimentDataset = experimentDataset; return value; }
+  public boolean experiment() { return experimentExpiresAt != null; }
+  public Instant experimentExpiresAt() { return experimentExpiresAt; }
+  public String experimentDataset() { return experimentDataset; }
+  public GoogleCredentialVerifier.Principal experimentPrincipal() {
+    if (!experiment() || testers.size() != 1) throw new IllegalStateException("Experiment unavailable");
+    return testers.iterator().next();
+  }
+  public boolean experimentActive(Clock clock) {
+    return experiment() && testers.size() == 1 && !privacyContact.isBlank() && !retention.isBlank()
+        && clock.instant().isBefore(experimentExpiresAt);
+  }
+  public static CollectionPolicy experiment(ObjectMapper json, String configured, String contact, String retention,
+      String dataset, String expiresAt, Clock clock) {
+    CollectionPolicy value = parse(json, "restricted", configured, contact, retention);
+    try {
+      if (json.readTree(configured).size() != 1 || value.testers.size() != 1 || value.privacyContact.isBlank() || value.retention.isBlank()
+          || !java.util.UUID.fromString(dataset).toString().equals(dataset)) throw new IllegalArgumentException();
+      Instant expiry = Instant.parse(expiresAt);
+      // A bounded experiment never grants authority for the next quarter or more than a day ahead.
+      Instant now = clock.instant();
+      if (expiry.isAfter(now.plus(Duration.ofHours(24))) || !expiry.isBefore(
+          com.bridge.persistence.QuarterlyRetention.currentQuarterStart(now).atZone(ZoneId.of("Asia/Taipei")).plusMonths(3).toInstant()))
+        throw new IllegalArgumentException();
+      value.experimentDataset = dataset; value.experimentExpiresAt = expiry;
+      return value;
+    } catch (Exception invalid) { throw new IllegalStateException("Invalid bounded experiment configuration"); }
+  }
+  public boolean ready() { return !experiment() && erasureWorkflowVerified && quarterPolicyVerified && hasTesters() && !privacyContact.isBlank() && !retention.isBlank(); }
   public boolean admits(String issuer, String subject) {
     return issuer != null && subject != null && testers.contains(new GoogleCredentialVerifier.Principal(issuer, subject));
   }

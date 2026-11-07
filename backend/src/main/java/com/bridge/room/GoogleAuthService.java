@@ -6,7 +6,7 @@ import java.util.*;
 
 /** Session-bound, expiring, one-use challenges. Never persists bearer tokens or Google credentials. */
 public final class GoogleAuthService {
-  public record Config(boolean enabled, String clientId, boolean verificationEnabled, String collectionMode, boolean collectionReady, String privacyContact, String retention) {}
+  public record Config(boolean enabled, String clientId, boolean verificationEnabled, String collectionMode, boolean collectionReady, String privacyContact, String retention, boolean experimentReady, String experimentExpiresAt, Integer experimentMaxMatches) {}
   public record VerifiedIdentity(String issuer, String subject, boolean admittedTester) {}
   public record Challenge(String nonce, int expiresInSeconds) {}
   public record Status(boolean signedIn) {}
@@ -32,8 +32,11 @@ public final class GoogleAuthService {
   }
   public Config config() {
     boolean verificationEnabled = !clientId.isBlank();
-    boolean enabled = verificationEnabled && store != null && store.enabled() && policy.ready();
-    return new Config(enabled, verificationEnabled ? clientId : "", verificationEnabled, "restricted", policy.ready(), policy.privacyContact(), policy.retention());
+    boolean experimentReady = policy.experimentActive(clock) && store != null && store.enabled();
+    boolean enabled = verificationEnabled && store != null && store.enabled() && (policy.ready() || experimentReady);
+    return new Config(enabled, verificationEnabled ? clientId : "", verificationEnabled,
+        policy.experiment() ? "single_tester_experiment" : "restricted", policy.ready(), policy.privacyContact(), policy.retention(),
+        experimentReady, policy.experiment() ? policy.experimentExpiresAt().toString() : null, policy.experiment() ? 1 : null);
   }
   public Status status(RoomService.Identity who) { return new Status(rooms.accountId(who) != null); }
   public Challenge nonce(RoomService.Identity who, String origin) { return nonce(who, origin, "link"); }
@@ -50,6 +53,10 @@ public final class GoogleAuthService {
       throw RoomService.fail(429, "AUTH_CAPACITY", "Try signing in again later");
     byte[] bytes = new byte[32]; random.nextBytes(bytes);
     String value = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    // An accepted link challenge starts an explicit replacement, not a fallback to the
+    // previous account. Cancelled/failed replacements must remain guests. Verification
+    // alone is read-only and must never change an existing link.
+    if (purpose.equals("link")) rooms.unlinkAccountOutsideRoom(who);
     inFlight.remove(who.playerId());
     pending.put(who.playerId(), new Pending(value, now + 300000, purpose));
     return new Challenge(value, 300);
@@ -69,26 +76,32 @@ public final class GoogleAuthService {
     if (!challenge.purpose.equals("link"))
       throw RoomService.fail(400, "AUTH_PURPOSE_MISMATCH", "Start a new sign-in for this action");
     var principal = verifier.verify(credential, clientId, challenge.nonce);
-    // Cancellation during verification must stop before any durable identity operation starts.
+    if (!policy.admits(principal.issuer(), principal.subject()))
+      throw RoomService.fail(403, "TESTER_NOT_ADMITTED", "This Google identity is not admitted for test collection");
+    // Validate the exact live session and room state again immediately before storage.
+    // Verification can block on key retrieval while the session expires or enters a room.
     synchronized (this) {
       if (inFlight.get(who.playerId()) != challenge || challenge.expires <= clock.millis())
         throw RoomService.fail(409, "AUTH_CANCELLED", "Google sign-in was cancelled");
+      rooms.requireOutsideRoom(who);
+      experimentWindow();
     }
-    if (!policy.admits(principal.issuer(), principal.subject()))
-      throw RoomService.fail(403, "TESTER_NOT_ADMITTED", "This Google identity is not admitted for test collection");
     // Once storage IO starts, cancellation cannot undo a mapping already written; it still
-    // prevents session attachment below. Cancel/logout are not account deletion operations.
+    // prevents session attachment below. Do not hold auth or gameplay locks over network IO.
+    // Cancel/logout are not account deletion operations.
     String account;
     try {
       account = store.findOrCreateAccount(principal.issuer(), principal.subject());
       UUID.fromString(account);
     } catch (Exception failure) {
+      if (policy.experiment()) throw RoomService.fail(503, "EXPERIMENT_UNAVAILABLE", "Experiment admission is unavailable or uncertain; do not retry");
       throw RoomService.fail(503, "IDENTITY_STORAGE_UNAVAILABLE", "Account storage is unavailable; continue as guest");
     }
     // Recheck atomically with attachment: room entry while verification is in flight must not upgrade seats.
     synchronized (this) {
       if (inFlight.get(who.playerId()) != challenge || challenge.expires <= clock.millis())
         throw RoomService.fail(409, "AUTH_CANCELLED", "Google sign-in was cancelled");
+      experimentWindow();
       rooms.linkAccountOutsideRoom(who, account, true);
     }
     return new Status(true);
@@ -131,8 +144,11 @@ public final class GoogleAuthService {
     return new Status(false);
   }
   public void cancel(RoomService.Identity who, String origin, String nonce) {
-    checkOrigin(origin); rooms.requireOutsideRoom(who);
+    checkOrigin(origin);
     synchronized (this) {
+      // Cancellation only invalidates a challenge. It must remain available after room
+      // entry so a later leave cannot revive a request whose storage IO is still running.
+      rooms.requireCurrentSession(who);
       pending.computeIfPresent(who.playerId(), (id, value) -> value.nonce.equals(nonce) ? null : value);
       inFlight.computeIfPresent(who.playerId(), (id, value) -> value.nonce.equals(nonce) ? null : value);
     }
@@ -144,7 +160,13 @@ public final class GoogleAuthService {
   private void verificationEnabled() {
     if (!config().verificationEnabled()) throw RoomService.fail(503, "GOOGLE_AUTH_DISABLED", "Google verification is not configured");
   }
+  private void experimentWindow() {
+    if (policy.experiment() && !policy.experimentActive(clock))
+      throw RoomService.fail(403, "EXPERIMENT_EXPIRED", "The bounded experiment has expired");
+  }
   private void enabled() {
+    experimentWindow();
+    if (policy.experiment() && !config().enabled()) throw RoomService.fail(503, "EXPERIMENT_UNAVAILABLE", "Experiment admission is unavailable");
     if (!config().enabled()) throw RoomService.fail(503, "GOOGLE_AUTH_DISABLED", "Google sign-in is not configured");
   }
 }

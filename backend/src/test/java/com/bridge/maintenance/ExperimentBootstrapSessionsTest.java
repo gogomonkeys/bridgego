@@ -1,0 +1,21 @@
+package com.bridge.maintenance;
+import com.bridge.room.GoogleCredentialVerifier;
+import java.time.*;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+class ExperimentBootstrapSessionsTest {
+  static class Mutable extends Clock {Instant now=Instant.parse("2026-11-07T08:00:00Z");public ZoneId getZone(){return ZoneOffset.UTC;}public Clock withZone(ZoneId z){return this;}public Instant instant(){return now;}}
+  final Mutable clock=new Mutable();final GoogleCredentialVerifier.Principal owner=new GoogleCredentialVerifier.Principal("https://accounts.google.com","synthetic");
+  int reads,writes;boolean fail;String actual="synthetic";Runnable verifyHook=()->{};
+  ExperimentBootstrapSessions build(boolean enabled){return new ExperimentBootstrapSessions(new ExperimentBootstrapSessions.Storage(){public String previewEmptyDigest(){reads++;return "a".repeat(64);}public String initializeEmpty(String digest,boolean stopped,boolean authorized){writes++;assertTrue(stopped&&authorized);if(fail)throw new IllegalStateException("secret");return "VERIFIED";}},(t,a,n)->{verifyHook.run();return new GoogleCredentialVerifier.Principal(owner.issuer(),actual);},new ExperimentBootstrapSessions.Settings("client","test-sheet-123456","91a3e5a0-9102-43d5-b483-fe7c7f7614dc",owner,clock.instant().plusSeconds(3600),true,enabled),clock);}
+  ExperimentBootstrapSessions.Preview preview(ExperimentBootstrapSessions s,String cookie){s.challenge(cookie,"preview");return s.preview(cookie,"fake",true);}
+  @Test void exactOwnerFreshProofAndConfirmationThenOneAttemptAcrossSessions(){var s=build(true);var cookie=s.create();var p=preview(s,cookie);assertEquals(1,reads);assertEquals(0,writes);s.challenge(cookie,"execute");assertEquals("VERIFIED",s.execute(cookie,"fake",true,p.planId(),p.confirmationText()));assertEquals(1,writes);var another=s.create();preview(s,another);assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.challenge(another,"execute"));assertEquals(1,writes);}
+  @Test void readonlyDefaultNeverEnablesExecution(){var s=build(false);var cookie=s.create();preview(s,cookie);assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.challenge(cookie,"execute"));assertEquals(0,writes);}
+  @Test void wrongOwnerOrMissingConsentReadsNothing(){var s=build(true);var cookie=s.create();s.challenge(cookie,"preview");assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.preview(cookie,"fake",false));actual="other";s.challenge(cookie,"preview");assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.preview(cookie,"fake",true));assertEquals(0,reads);}
+  @Test void nonceCannotBeReplayedOrUsedFromAnotherSession(){var s=build(true);var cookie=s.create();var other=s.create();s.challenge(cookie,"preview");assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.preview(other,"fake",true));s.preview(cookie,"fake",true);assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.preview(cookie,"fake",true));assertEquals(1,reads);}
+  @Test void expiredProofAndSessionRejectBeforeRead(){var s=build(true);var cookie=s.create();s.challenge(cookie,"preview");clock.now=clock.now.plusSeconds(300);assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.preview(cookie,"fake",true));assertEquals(0,reads);}
+  @Test void uncertainAttemptIsNeverRetried(){var s=build(true);var cookie=s.create();var p=preview(s,cookie);s.challenge(cookie,"execute");fail=true;assertEquals("UNCERTAIN",s.execute(cookie,"fake",true,p.planId(),p.confirmationText()));assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.challenge(cookie,"execute"));assertEquals(1,writes);}
+  @Test void expiryDuringGoogleVerificationPreventsStorage(){var s=build(true);var cookie=s.create();s.challenge(cookie,"preview");verifyHook=()->clock.now=clock.now.plusSeconds(3600);assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.preview(cookie,"fake",true));assertEquals(0,reads);}
+  @Test void mismatchConsumesNonceAndPlanWithoutWriting(){var s=build(true);var cookie=s.create();var p=preview(s,cookie);s.challenge(cookie,"execute");assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.execute(cookie,"fake",true,p.planId(),"wrong"));assertEquals(0,writes);assertThrows(ExperimentBootstrapSessions.Failure.class,()->s.execute(cookie,"fake",true,p.planId(),p.confirmationText()));}
+}

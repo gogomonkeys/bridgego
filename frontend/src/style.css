@@ -6962,7 +6962,16 @@ body {
 }
 .google-account h3 { margin-top: 0; }
 .google-account p, .match-persistence p { overflow-wrap: anywhere; }
-.google-signin-button { max-width: 100%; overflow-x: auto; }
+/* Keep the official GIS control in normal, naturally sized flow. Setting only
+   overflow-x:auto also computes overflow-y to auto, producing a tiny vertical
+   scrollbar for iframe/wrapper overflow. Do not crop the iframe, hide scrollbar
+   chrome, force a height, or scale the control to conceal the problem. */
+.google-signin-button {
+  display: flow-root;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
 .google-account button { white-space: normal; }
 .match-persistence { margin: 0.75rem 0; padding: 0.75rem; border: 1px solid rgba(89, 103, 72, 0.25); border-radius: 12px; }
 .entry-choice > button { width: 100%; margin-top: 0.65rem; }

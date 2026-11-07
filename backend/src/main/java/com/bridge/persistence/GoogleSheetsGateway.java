@@ -14,6 +14,7 @@ public final class GoogleSheetsGateway implements SheetsGateway {
     private static final ObjectMapper JSON=new ObjectMapper();
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final String spreadsheet,email; private final PrivateKey key;
+    private final BoundedGoogleBody boundedBody=new BoundedGoogleBody();
     private volatile String token; private long expires; private Map<String,Integer> sheetIds;
     public GoogleSheetsGateway(String spreadsheet,String credentials) {
         try {
@@ -47,14 +48,35 @@ public final class GoogleSheetsGateway implements SheetsGateway {
     }
     private JsonNode send(HttpRequest req) {
         try {
-            HttpResponse<String> response=http.send(req,HttpResponse.BodyHandlers.ofString());int status=response.statusCode();
+            HttpResponse<java.io.InputStream> response=http.send(req,HttpResponse.BodyHandlers.ofInputStream());int status=response.statusCode();
             if(status<200||status>=300) {
+                boundedBody.read(response.body(),64*1024,25000);
                 long retry=0;try {String v=response.headers().firstValue("Retry-After").orElse("0");try{retry=Long.parseLong(v)*1000;}catch(NumberFormatException ex){retry=Math.max(0,java.time.ZonedDateTime.parse(v,java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli()-System.currentTimeMillis());}}catch(Exception ignored){}
                 throw new Failure(status,retry);
             }
-            return JSON.readTree(response.body());
+            return JSON.readTree(boundedBody.read(response.body(),4*1024*1024,25000));
         }catch(Failure e){throw e;}catch(InterruptedException e){Thread.currentThread().interrupt();throw new Failure(0,0);}catch(Exception e){throw new Failure(0,0);}
     }
+    /** Dedicated experiment adapter only; no arbitrary URLs, field masks or ranges. */
+    byte[] experimentWorkbook() {
+        try {
+            HttpRequest req=HttpRequest.newBuilder(URI.create("https://sheets.googleapis.com/v4/spreadsheets/"+spreadsheet+"?includeGridData=true&commentsViewMode=COMMENTS_VIEW_MODE_INCLUDED"))
+                .timeout(Duration.ofSeconds(25)).header("Authorization","Bearer "+token()).header("Accept","application/json").header("Accept-Encoding","identity").GET().build();
+            HttpResponse<java.io.InputStream> response=http.send(req,HttpResponse.BodyHandlers.ofInputStream());
+            try {
+                if(response.statusCode()!=200 || !response.uri().equals(req.uri())
+                    || !response.headers().firstValue("Content-Type").orElse("").toLowerCase(Locale.ROOT).matches("application/json(?:\\s*;\\s*charset=utf-8)?")
+                    || !Set.of("","identity").contains(response.headers().firstValue("Content-Encoding").orElse("")))throw new Failure(response.statusCode(),0);
+                long declared=response.headers().firstValueAsLong("Content-Length").orElse(-1);
+                if(declared>4*1024*1024)throw new Failure(0,0);
+                byte[] bytes=boundedBody.read(response.body(),4*1024*1024,25000);
+                if(bytes.length>4*1024*1024 || declared>=0 && declared!=bytes.length)throw new Failure(0,0);
+                return bytes; // Strict experiment parser receives original bytes, including duplicate-key evidence.
+            } catch(RuntimeException invalid) {BoundedGoogleBody.closeLater(response.body());throw invalid;}
+        }catch(InterruptedException e){Thread.currentThread().interrupt();throw new Failure(0,0);}
+        catch(Failure e){throw e;}catch(Exception e){throw new Failure(0,0);}
+    }
+    void experimentBatch(Map<String,Object> body){request(":batchUpdate",body);}
     public List<List<String>> read(String tab) {
         if(!Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","dataset","retention_ledger","quarterly_aggregates").contains(tab))throw new IllegalArgumentException();
         JsonNode values=request("/values/"+tab+"!A:E?valueRenderOption=UNFORMATTED_VALUE",null).path("values");

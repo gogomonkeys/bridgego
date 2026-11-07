@@ -46,10 +46,11 @@ class QuarterlyRetentionTest {
         assertEquals(List.of("2026-Q3","SUPPRESSED","","","1"),f.read("quarterly_aggregates").get(1));
         f.add(expired);assertThrows(SheetsGateway.Conflict.class,()->engine(f).preview());
     }
-    @Test void boundaryRejectsOldRetryCrossQuarterAndFuture(){
+    @Test void boundaryRejectsOldRetryAndFuture(){
         var ledger=new RetentionLedger(List.of(RetentionLedger.HEADER));
-        for(var envelope:List.of(old(),envelope(NOW.minusSeconds(1),NOW,0),envelope(NOW,NOW.plusSeconds(1),0)))assertThrows(SheetsGateway.Conflict.class,()->QuarterlyRetention.requireCurrent(envelope,CLOCK,ledger));
+        for(var envelope:List.of(old(),envelope(NOW,NOW.plusSeconds(1),0)))assertThrows(SheetsGateway.Conflict.class,()->QuarterlyRetention.requireCurrent(envelope,CLOCK,ledger));
     }
+    @Test void approvedCrossQuarterAttributionUsesFinish(){assertDoesNotThrow(()->QuarterlyRetention.requireCurrent(envelope(NOW.minusSeconds(1),NOW,0),CLOCK,new RetentionLedger(List.of(RetentionLedger.HEADER))));}
     @Test void dryrunAndExclusiveProofAndFreshDigest(){
         Fake f=new Fake();f.add(old());var dry=new QuarterlyRetention(f,CLOCK,()->true);assertEquals(QuarterlyRetention.State.DRY_RUN,run(dry).state());assertEquals(0,f.writes);
         assertThrows(IllegalStateException.class,()->new QuarterlyRetention(f,CLOCK,()->false).preview());

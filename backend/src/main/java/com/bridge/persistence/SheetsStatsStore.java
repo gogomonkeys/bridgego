@@ -58,7 +58,7 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
     private void requireCurrentTime(FinalMatchEnvelope e) {
         Instant now=clock.instant(),boundary=QuarterlyRetention.currentQuarterStart(now),finish=QuarterlyRetention.finishedAt(e),start;
         try {start=Instant.parse(e.payload().path("match").path("started_at").asText());}catch(RuntimeException invalid){throw new SheetsGateway.Conflict();}
-        if(finish.isBefore(boundary)||finish.isAfter(now)||start.isBefore(boundary)||start.isAfter(finish))throw new SheetsGateway.Conflict();
+        if(finish.isBefore(boundary)||finish.isAfter(now)||start.isAfter(finish))throw new SheetsGateway.Conflict();
     }
     @Override public List<FinalMatchEnvelope> exportCommitted() {
         QuarterlyRetention.requireCollectionReady(gateway,clock);

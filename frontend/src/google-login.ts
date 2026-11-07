@@ -9,7 +9,10 @@ export interface AuthConfig {
   enabled: boolean;
   clientId: string;
   verificationEnabled?: boolean;
-  collectionMode?: "restricted";
+  collectionMode?: "restricted" | "single_tester_experiment";
+  experimentReady?: boolean;
+  experimentExpiresAt?: string | null;
+  experimentMaxMatches?: 1 | null;
   collectionReady?: boolean;
   privacyContact?: string;
   retention?: string;
@@ -26,8 +29,11 @@ export async function accountRequest<T>(
   path: string,
   method = "GET",
   body?: unknown,
+  expectedToken?: string,
 ): Promise<T> {
-  const token = getClientState().session?.token;
+  const token = expectedToken ?? getClientState().session?.token;
+  if (expectedToken && getClientState().session?.token !== expectedToken)
+    throw new Error("訪客身分已改變，請重新操作。");
   if (!token) throw new Error("請先建立訪客身分。");
   const response = await fetch(`/api${path}`, {
     method,
@@ -42,12 +48,24 @@ export async function accountRequest<T>(
   if (getClientState().session?.token !== token)
     throw new Error("訪客身分已改變，請重新操作。");
   const data = await response.json();
+  if (getClientState().session?.token !== token)
+    throw new Error("訪客身分已改變，請重新操作。");
   if (!response.ok)
     throw new AccountRequestError(
       errorMessages[data?.code] ??
         "無法完成帳號操作，請稍後重試。訪客仍可繼續遊玩。",
     );
   return data as T;
+}
+
+// Config is public and contains no identity or credential. Reading it never loads Google.
+export async function readAuthConfig(): Promise<AuthConfig> {
+  const response = await fetch("/api/auth/config", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error("Google 服務設定暫時無法確認。");
+  return response.json() as Promise<AuthConfig>;
 }
 
 export interface GoogleIdentity {
@@ -114,7 +132,7 @@ export interface LoginAttemptDependencies {
   eligible: () => boolean;
   update: (phase: LoginPhase, message?: string, signedIn?: boolean) => void;
 }
-// An attempt is scoped to a mounted lobby card. Cancellation and navigation
+// An attempt is scoped to a mounted entry or lobby card. Cancellation and navigation
 // invalidate callbacks even if the Google popup or script finishes later.
 export function createLoginAttempt(deps: LoginAttemptDependencies) {
   let revision = 0,
@@ -147,6 +165,7 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
           return;
         }
         activeNonce = nonce;
+        if (purpose === "link") update("loading", undefined, false);
         identity = await deps.load();
         if (!valid(id)) return;
         identity.initialize({
@@ -163,8 +182,7 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
                   deps.verified(result);
                   update(
                     "idle",
-                    "已完成身分驗證，尚未建立帳號連結或保存帳號對應。",
-                    false,
+                    "已完成身分驗證，這次驗證不建立或保存帳號對應。",
                   );
                 }
               } else {
@@ -172,11 +190,14 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
                 if (valid(id))
                   update(
                     "idle",
-                    "已連結 Google。原訪客身分保留；只有合資格測試場次會保存，之前的訪客場次不會補登。",
-                    result.signedIn,
+                    result.signedIn === true
+                      ? "已連結 Google。原訪客身分保留；只有合資格測試場次會保存，之前的訪客場次不會補登。"
+                      : "尚未確認帳號連結成功，可重新嘗試或當訪客遊玩。",
+                    result.signedIn === true,
                   );
               }
             } catch (error) {
+              cancelNonce();
               if (valid(id))
                 update(
                   "idle",
@@ -196,10 +217,15 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
           text: "signin_with",
         });
         update("ready");
-      } catch {
+      } catch (error) {
         if (valid(id)) {
           cancelNonce();
-          update("idle", "Google 登入暫時無法使用，仍可使用訪客遊玩。");
+          update(
+            "idle",
+            error instanceof AccountRequestError
+              ? error.message
+              : "Google 登入暫時無法使用，仍可使用訪客遊玩。",
+          );
         }
       }
     },
@@ -208,13 +234,13 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
       revision++;
       identity?.cancel();
       cancelNonce();
-      update("idle", "已取消登入，繼續使用原訪客身分。");
+      update("idle", "已取消操作；可選擇以訪客身分遊玩。");
     },
     dispose() {
       disposed = true;
       revision++;
       identity?.cancel();
-      if (phase === "loading" || phase === "ready") cancelNonce();
+      cancelNonce();
     },
   };
 }

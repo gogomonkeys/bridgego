@@ -29,7 +29,7 @@ public final class QuarterlyRetention {
     public static void requireCurrent(FinalMatchEnvelope envelope,Clock clock,RetentionLedger ledger){
         Instant now=clock.instant(),boundary=currentQuarterStart(now),finish=finishedAt(envelope),start;
         try{start=Instant.parse(envelope.payload().path("match").path("started_at").asText());}catch(RuntimeException bad){throw new SheetsGateway.Conflict();}
-        if(finish.isBefore(boundary)||finish.isAfter(now)||start.isBefore(boundary)||start.isAfter(finish))throw new SheetsGateway.Conflict();ledger.requireAllowed(envelope);
+        if(finish.isBefore(boundary)||finish.isAfter(now)||start.isAfter(finish))throw new SheetsGateway.Conflict();ledger.requireAllowed(envelope);
     }
     public static void requireCollectionReady(SheetsGateway gateway,Clock clock){RetentionLedger ledger=new RetentionLedger(gateway.read("retention_ledger"));if(!ledger.complete()||!ledger.cutoff().equals(currentQuarterStart(clock.instant())))throw new IllegalStateException("Quarter cleanup pending; collection blocked");}
     private void requireOffline(){if(!exclusiveOffline.getAsBoolean())throw new IllegalStateException("All game, identity and maintenance writers must be stopped");}
@@ -77,9 +77,9 @@ public final class QuarterlyRetention {
     private List<String> aggregate(String quarter,List<FinalMatchEnvelope> envelopes){
         Set<String> humans=new HashSet<>(),matches=new HashSet<>();long deals=0;boolean eligible=true;
         for(var e:envelopes){
-            // Multiple revisions or cross-boundary matches cannot silently double count or merge scores.
+            // Multiple revisions cannot double count; finished_at assigns the quarter.
             if(!matches.add(e.matchId()))eligible=false;
-            try{if(!quarter(Instant.parse(e.payload().path("match").path("started_at").asText())).equals(quarter))eligible=false;}catch(RuntimeException bad){eligible=false;}
+            try{if(Instant.parse(e.payload().path("match").path("started_at").asText()).isAfter(finishedAt(e)))eligible=false;}catch(RuntimeException bad){eligible=false;}
             deals+=e.payload().path("completed_deals").size();
             for(var person:e.payload().path("participants")){for(String field:List.of("account_id","guest_id")){String id=person.path(field).asText("");if(!id.isBlank())humans.add(field+":"+id);}}
         }

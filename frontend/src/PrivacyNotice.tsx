@@ -3,7 +3,12 @@ export interface PrivacyMetadata {
   retention?: string;
 }
 export function privacyReady(privacy?: PrivacyMetadata): boolean {
-  return Boolean(privacy?.contact?.trim() && privacy?.retention?.trim());
+  return Boolean(
+    typeof privacy?.contact === "string" &&
+    privacy.contact.trim() &&
+    typeof privacy?.retention === "string" &&
+    privacy.retention.trim(),
+  );
 }
 export default function PrivacyNotice({
   privacy,
