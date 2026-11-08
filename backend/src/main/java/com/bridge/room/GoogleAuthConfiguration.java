@@ -1,6 +1,7 @@
 package com.bridge.room;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bridge.persistence.ExperimentRuntimeConfiguration;
 import java.time.Clock;
 import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
@@ -30,7 +31,8 @@ public class GoogleAuthConfiguration {
         .requireVerifiedErasureWorkflow(erasureVerified).requireVerifiedQuarterPolicy(quarterVerified);
   }
   @Bean GoogleAuthService googleAuthService(RoomService rooms, ObjectProvider<IdentityStore> stores,
-      GoogleCredentialVerifier verifier, CollectionPolicy policy, @Value("${GOOGLE_CLIENT_ID:}") String clientId,
+      GoogleCredentialVerifier verifier, CollectionPolicy policy,
+      ObjectProvider<ExperimentRuntimeConfiguration.Handle> experiments, @Value("${GOOGLE_CLIENT_ID:}") String clientId,
       @Value("${PUBLIC_ORIGIN:}") String publicOrigin, Environment env) {
     boolean production = java.util.Arrays.asList(env.getActiveProfiles()).contains("prod");
     IdentityStore store = stores.getIfAvailable();
@@ -38,8 +40,12 @@ public class GoogleAuthConfiguration {
     String recoverFlag = env.getProperty("BRIDGE_EXPERIMENT_RECOVERY_ENABLED", "false");
     if (!Set.of("true", "false").contains(recoverFlag)) throw new IllegalStateException("Invalid recovery flag");
     if ("true".equals(recoverFlag)) {
-      if (!policy.experiment() || !(store instanceof com.bridge.persistence.ExperimentStorage experiment))
+      if (!policy.experiment() || !Boolean.parseBoolean(env.getProperty("BRIDGE_SHEETS_ENABLED", "false")))
         throw new IllegalStateException("Recovery requires experiment storage");
+      var handle = experiments.getIfAvailable();
+      if (handle == null || handle.store() == null || store == null)
+        throw new IllegalStateException("Recovery requires experiment storage");
+      var experiment = handle.store();
       String expected = env.getRequiredProperty("BRIDGE_EXPERIMENT_RECOVERY_IDENTITY_CLAIM");
       try {
         if (!java.util.UUID.fromString(expected).toString().equals(expected)) throw new IllegalArgumentException();
