@@ -29,6 +29,8 @@ class SyntheticCleanupApplicationTest {
   @Test void argumentsAndSystemConfigurationCannotSelectGameOrExternalConfig() {
     assertThrows(IllegalArgumentException.class, () -> SyntheticCleanupApplication.application(new String[] {"--spring.profiles.active=prod"}, key -> null));
     var env = new SyntheticCleanupApplication.LockedEnvironment(SyntheticCleanupApplication.lockedProperties("8080"));
+    assertEquals("ERROR", env.getProperty("logging.level.root"));
+    assertEquals("INFO", env.getProperty("logging.level.com.bridge.syntheticcleanup.SyntheticCleanupService"));
     assertTrue(env.getSystemEnvironment().isEmpty()); assertTrue(env.getSystemProperties().isEmpty());
     assertEquals("classpath:/synthetic-cleanup.properties", env.getProperty("spring.config.location"));
     assertFalse(SyntheticCleanupApplication.Configuration.class.isAnnotationPresent(org.springframework.context.annotation.ComponentScan.class));

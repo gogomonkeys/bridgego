@@ -125,9 +125,10 @@ class SyntheticCleanupIndependentReviewTest {
         () -> { reads.incrementAndGet(); throw new IllegalStateException("fake-key fake-bearer private-sheet-body"); },
         Clock.fixed(NOW, ZoneOffset.UTC));
     var first = service.challenge().nonce();
+    var second = service.challenge().nonce();
     failure(503, "COMPLETE_PREFLIGHT_UNVERIFIED", () -> service.preflight(first, "fake-proof", true));
     failure(401, "FRESH_AUTHENTICATION_REQUIRED", () -> service.preflight(first, "fake-proof", true));
-    var second = service.challenge().nonce();
+    failure(429, "READ_COOLDOWN", service::challenge);
     failure(429, "READ_COOLDOWN", () -> service.preflight(second, "fake-proof", true));
     assertEquals(1, reads.get());
   }
@@ -138,6 +139,44 @@ class SyntheticCleanupIndependentReviewTest {
     var nonce = service.challenge().nonce();
     failure(503, "COMPLETE_PREFLIGHT_UNVERIFIED", () -> service.preflight(nonce, "fake-proof", true));
     assertArrayEquals(new byte[body.length], body);
+  }
+  @Test void diagnosticsDistinguishAuthenticationTransportAndSchemaWithoutPrivateData() {
+    for (int stage = 0; stage < 3; stage++) {
+      final int failureStage = stage;
+      var service = new SyntheticCleanupService(settings(SUBJECT), (c,a,n) -> {
+        if (failureStage == 0) throw new IllegalArgumentException("PRIVATE-EXCEPTION");
+        return principal(SUBJECT);
+      }, () -> {
+        if (failureStage == 1) throw new IllegalStateException("PRIVATE-BODY");
+        return new byte[0];
+      }, Clock.fixed(NOW, ZoneOffset.UTC));
+      var nonce = service.challenge().nonce();
+      var failure = assertThrows(SyntheticCleanupService.Failure.class, () -> service.preflight(nonce, "PRIVATE-PROOF", true));
+      assertEquals(stage == 0 ? "UNVERIFIED" : "SUCCESS", failure.authentication);
+      assertEquals(stage == 0 ? "NOT_ATTEMPTED" : stage == 1 ? "UNVERIFIED" : "SUCCESS", failure.read);
+      assertEquals(stage == 2 ? "UNVERIFIED" : "NOT_ATTEMPTED", failure.schema);
+      assertEquals(stage == 0 ? 0 : 60, failure.retryAfterSeconds);
+      String body = failure.body().toString();
+      for (String secret : List.of("PRIVATE", SUBJECT, nonce, approvedSheet())) assertFalse(body.contains(secret));
+      assertNull(failure.getCause()); assertEquals(false, failure.body().get("cleanupReady"));
+    }
+  }
+  @Test void cooldownIsRoundedUpAndFreshChallengeCannotBypassIt() {
+    MovingClock clock = new MovingClock();
+    var service = new SyntheticCleanupService(settings(SUBJECT), (c,a,n) -> principal(SUBJECT),
+        () -> { throw new IllegalStateException(); }, clock);
+    assertEquals(0, service.health().get("retryAfterSeconds"));
+    var nonce = service.challenge().nonce();
+    assertThrows(SyntheticCleanupService.Failure.class, () -> service.preflight(nonce, "fake", true));
+    clock.now = Instant.MIN; assertEquals(60, service.retryAfterSeconds());
+    clock.now = Instant.MAX; assertEquals(0, service.retryAfterSeconds());
+    clock.now = NOW;
+    assertEquals(60, service.health().get("retryAfterSeconds"));
+    clock.now = NOW.plusMillis(59001);
+    var blocked = assertThrows(SyntheticCleanupService.Failure.class, service::challenge);
+    assertEquals(1, blocked.retryAfterSeconds);
+    clock.now = NOW.plusSeconds(60); assertNotNull(service.challenge());
+    assertEquals(0, service.retryAfterSeconds());
   }
   @Test void challengeCapacityIsBoundedAndExpiredSlotsAreRecovered() {
     MovingClock clock = new MovingClock();

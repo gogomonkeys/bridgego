@@ -79,7 +79,8 @@ public final class SyntheticCleanupApplication {
     p.put("server.tomcat.threads.max", "12"); p.put("server.tomcat.max-connections", "32"); p.put("server.tomcat.accept-count", "16");
     p.put("server.tomcat.connection-timeout", "10s"); p.put("server.max-http-request-header-size", "16KB");
     p.put("spring.web.resources.add-mappings", "false"); p.put("spring.jmx.enabled", "false");
-    p.put("logging.level.root", "ERROR"); p.put("server.error.whitelabel.enabled", "false");
+    p.put("logging.level.root", "ERROR");
+    p.put("logging.level.com.bridge.syntheticcleanup.SyntheticCleanupService", "INFO"); p.put("server.error.whitelabel.enabled", "false");
     return Map.copyOf(p);
   }
   static final class LockedEnvironment extends StandardServletEnvironment {

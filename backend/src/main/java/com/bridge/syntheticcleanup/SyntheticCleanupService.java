@@ -38,8 +38,23 @@ final class SyntheticCleanupService {
   interface Reader { byte[] read(); }
   static final class Failure extends RuntimeException {
     final int status; final String code;
+    int retryAfterSeconds;
+    String authentication = "NOT_ATTEMPTED", read = "NOT_ATTEMPTED", schema = "NOT_ATTEMPTED";
+    Map<String,Object> body() { return Map.of("code", code, "retryAfterSeconds", retryAfterSeconds,
+        "authentication", authentication, "read", read, "schema", schema, "cleanupReady", false, "writesEnabled", false); }
     Failure(int status, String code) { super(code); this.status = status; this.code = code; }
   }
+  enum Diagnostic { AUTHENTICATION_STARTED, AUTHENTICATION_SUCCESS, AUTHENTICATION_UNVERIFIED,
+    READ_STARTED, READ_SUCCESS, READ_UNVERIFIED, SCHEMA_SUCCESS, SCHEMA_UNVERIFIED }
+  private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SyntheticCleanupService.class);
+  private static void diagnostic(Diagnostic code) { LOG.info("SYNTHETIC_PREFLIGHT {}", code.name()); }
+  synchronized int retryAfterSeconds() {
+    Instant now = clock.instant();
+    if (!nextRead.isAfter(now)) return 0;
+    Duration remaining = Duration.between(now, nextRead);
+    return (int)Math.min(60, remaining.getSeconds() + (remaining.getNano() > 0 ? 1 : 0));
+  }
+  private Failure cooldown() { Failure f = new Failure(429, "READ_COOLDOWN"); f.retryAfterSeconds = retryAfterSeconds(); return f; }
   record Challenge(String nonce, String clientId, Instant expiresAt) {}
   private final Settings settings;
   private final GoogleCredentialVerifier verifier;
@@ -61,9 +76,10 @@ final class SyntheticCleanupService {
     this.reader = Objects.requireNonNull(reader); this.clock = Objects.requireNonNull(clock);
   }
   Map<String,Object> health() { return Map.of("mode", "synthetic-readonly-preflight", "configured", settings.enabled(),
-      "cleanupReady", false, "writesEnabled", false); }
+      "cleanupReady", false, "writesEnabled", false, "retryAfterSeconds", retryAfterSeconds()); }
   synchronized Challenge challenge() {
     requireEnabled(); Instant now = clock.instant();
+    if (retryAfterSeconds() > 0) throw cooldown();
     challenges.entrySet().removeIf(e -> !e.getValue().isAfter(now));
     if (challenges.size() >= 16) throw new Failure(429, "CHALLENGE_LIMIT");
     byte[] bytes = new byte[32]; random.nextBytes(bytes);
@@ -83,6 +99,8 @@ final class SyntheticCleanupService {
       if (busy || authActive.get()) throw new Failure(409, "PREFLIGHT_BUSY");
       busy = true;
     }
+    String authentication = "UNVERIFIED", read = "NOT_ATTEMPTED", schema = "NOT_ATTEMPTED";
+    diagnostic(Diagnostic.AUTHENTICATION_STARTED);
     try {
       GoogleCredentialVerifier.Principal principal;
       try { principal = verifyBounded(credential, nonce); }
@@ -93,16 +111,39 @@ final class SyntheticCleanupService {
       String digest = SyntheticCleanupWorkbook.sha256(principal.issuer() + "\n" + principal.subject());
       if (!MessageDigest.isEqual(digest.getBytes(java.nio.charset.StandardCharsets.US_ASCII),
           settings.operatorHash().getBytes(java.nio.charset.StandardCharsets.US_ASCII))) throw new Failure(403, "OPERATOR_NOT_ALLOWED");
+      authentication = "SUCCESS";
+      diagnostic(Diagnostic.AUTHENTICATION_SUCCESS);
       synchronized (this) {
         if (!proofExpires.isAfter(clock.instant())) throw new Failure(401, "FRESH_AUTHENTICATION_REQUIRED");
-        if (clock.instant().isBefore(nextRead)) throw new Failure(429, "READ_COOLDOWN");
+        if (clock.instant().isBefore(nextRead)) throw cooldown();
         nextRead = clock.instant().plusSeconds(60);
       }
+      read = "UNVERIFIED";
+      diagnostic(Diagnostic.READ_STARTED);
       byte[] raw = reader.read();
-      try { return SyntheticCleanupWorkbook.inspect(raw, settings.sheetId(), settings.marker()); }
+      read = "SUCCESS";
+      diagnostic(Diagnostic.READ_SUCCESS);
+      schema = "UNVERIFIED";
+      try {
+        var result = SyntheticCleanupWorkbook.inspect(raw, settings.sheetId(), settings.marker());
+        schema = "SUCCESS";
+        diagnostic(Diagnostic.SCHEMA_SUCCESS);
+        return result;
+      }
       finally { if (raw != null) Arrays.fill(raw, (byte)0); }
-    } catch (Failure expected) { throw expected; }
-    catch (Exception | LinkageError unavailable) { throw new Failure(503, "COMPLETE_PREFLIGHT_UNVERIFIED"); }
+    } catch (Failure expected) {
+      expected.authentication = authentication; expected.read = read; expected.schema = schema;
+      expected.retryAfterSeconds = retryAfterSeconds();
+      if (authentication.equals("UNVERIFIED")) diagnostic(Diagnostic.AUTHENTICATION_UNVERIFIED);
+      throw expected;
+    }
+    catch (Exception | LinkageError unavailable) {
+      Failure failure = new Failure(503, "COMPLETE_PREFLIGHT_UNVERIFIED");
+      failure.authentication = authentication; failure.read = read; failure.schema = schema;
+      failure.retryAfterSeconds = retryAfterSeconds();
+      diagnostic(schema.equals("UNVERIFIED") ? Diagnostic.SCHEMA_UNVERIFIED : Diagnostic.READ_UNVERIFIED);
+      throw failure;
+    }
     finally { synchronized (this) { busy = false; } }
   }
   private GoogleCredentialVerifier.Principal verifyBounded(String credential, String nonce) {
