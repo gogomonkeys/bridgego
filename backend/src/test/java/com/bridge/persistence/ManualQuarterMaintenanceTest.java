@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 
 class ManualQuarterMaintenanceTest {
   static class Storage implements ManualQuarterMaintenance.Storage {
-    final LocalManualQuarterRehearsal.Fixture f = new LocalManualQuarterRehearsal.Fixture();
+    final LocalManualQuarterRehearsal.Fixture f;
+    Storage() { f = new LocalManualQuarterRehearsal.Fixture(); }
+    Storage(Instant now) { f = new LocalManualQuarterRehearsal.Fixture(now); }
     int reads, writes;
     int failBeforeWrite, timeoutAfterWrite;
     boolean readUnavailable;
@@ -66,6 +68,57 @@ class ManualQuarterMaintenanceTest {
     assertThrows(IllegalStateException.class, () -> service.execute(p.planId(), "yes"));
     assertThrows(IllegalStateException.class, () -> service.execute("other-plan", p.confirmationText()));
     assertEquals(ManualQuarterMaintenance.Outcome.DRY_RUN, execute(service, p).outcome()); assertEquals(0, s.writes);
+  }
+
+  @Test void allFourTaiwanBoundariesRemoveOnlyEarlierFinishesAndPreserveExistingAggregates() {
+    for (String boundary : List.of("2025-12-31T16:00:00Z", "2026-03-31T16:00:00Z",
+        "2026-06-30T16:00:00Z", "2026-09-30T16:00:00Z")) {
+      var s = new Storage(Instant.parse(boundary));
+      var oldAggregate = List.of("2024-Q4", "SUPPRESSED", "", "", "1");
+      s.f.tables.get("quarterly_aggregates").add(oldAggregate);
+      var service = s.service(); var p = preview(s, service);
+      assertEquals(Instant.parse(boundary), p.cutoff()); assertEquals(1, p.expiredCommits());
+      assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE, execute(service, p).outcome());
+      s.f.verify(); assertEquals(2, s.writes);
+      assertEquals(oldAggregate, s.f.tables.get("quarterly_aggregates").get(1));
+      assertFalse(s.f.tables.get("envelopes").toString().contains(s.f.expired.matchId()));
+      assertFalse(s.f.tables.get("commits").toString().contains(s.f.expired.matchId()));
+      assertEquals(s.f.retained, ManualQuarterMaintenance.decoded(s.f.tables));
+      assertDoesNotThrow(() -> QuarterlyRetention.requireCollectionReady(new SheetsGateway() {
+        public List<List<String>> read(String tab) { return s.f.tables.get(tab); }
+        public void appendAtomic(Map<String,List<List<Object>>> ignored) { fail("No append expected"); }
+      }, s.f.clock));
+    }
+  }
+
+  @Test void freshCompletedQuarterPlanOnlyRereadsAndPreservesOriginalCompletionTime() {
+    var s = new Storage(); var first = s.service(); execute(first, preview(s, first));
+    var before = ManualQuarterMaintenance.immutable(s.f.tables); int priorReads = s.reads;
+    var clock = new MovingClock(); clock.now = s.f.clock.instant().plusSeconds(60);
+    var again = s.service(() -> true, clock, true); var p = preview(s, again);
+    assertEquals(0, p.expiredCommits()); assertTrue(again.alreadyComplete(p.planId()));
+    assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE, execute(again, p).outcome());
+    assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE, execute(again, p).outcome());
+    assertEquals(2, s.writes); assertEquals(before, s.f.tables); assertTrue(s.reads >= priorReads + 4);
+  }
+
+  @Test void completedQuarterNoopStillRequiresFreshUnchangedSnapshotStoppedWritersAndUnexpiredPlan() {
+    for (String fault : List.of("changed", "read-unavailable", "expired", "rollover", "writers-resumed")) {
+      var s = new Storage(); var first = s.service(); execute(first, preview(s, first));
+      var stopped = new AtomicBoolean(true); var clock = new MovingClock();
+      var again = s.service(stopped::get, clock, true); var p = preview(s, again);
+      switch (fault) {
+        case "changed" -> s.f.tables.get("quarterly_aggregates").add(List.of("2025-Q1", "SUPPRESSED", "", "", "1"));
+        case "read-unavailable" -> s.readUnavailable = true;
+        case "expired" -> clock.now = clock.now.plusSeconds(300);
+        case "rollover" -> clock.now = Instant.parse("2026-12-31T16:00:00Z");
+        case "writers-resumed" -> stopped.set(false);
+      }
+      if (Set.of("changed", "read-unavailable").contains(fault))
+        assertEquals(ManualQuarterMaintenance.Outcome.UNCERTAIN, execute(again, p).outcome());
+      else assertThrows(IllegalStateException.class, () -> execute(again, p));
+      assertEquals(2, s.writes);
+    }
   }
 
   @Test void wrongTargetIncompleteUnknownTabMissingTabOrDatasetRejectsBeforeWrites() {

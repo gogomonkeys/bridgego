@@ -52,6 +52,16 @@ final class LiveQuarterWorkbook {
    * Real Google response/default-style compatibility remains unverified and must fail closed.
    */
   static Workbook parse(byte[] json, ManualQuarterMaintenance.Binding binding, Clock clock) {
+    return parse(json, binding, clock, null);
+  }
+
+  /** Separate read-only scaffold probe. This is NOT a valid quarter/erasure dataset. */
+  static Workbook parseScaffold(byte[] json, ManualQuarterMaintenance.Binding binding, Clock clock, String marker) {
+    if (!"SYNTHETIC-ONLY-FORMAT-TEST".equals(marker)) throw failure();
+    return parse(json, binding, clock, marker);
+  }
+
+  private static Workbook parse(byte[] json, ManualQuarterMaintenance.Binding binding, Clock clock, String scaffoldMarker) {
     try {
       if (json == null || json.length == 0 || json.length > MAX_RESPONSE_BYTES || binding == null || clock == null)
         throw failure();
@@ -104,7 +114,8 @@ final class LiveQuarterWorkbook {
       if (!grids.keySet().equals(ManualQuarterMaintenance.HEADERS.keySet())) throw failure();
       // Do not expose completeKnownLayout=true until every grid, dimension and metadata field has passed.
       var snapshot = new ManualQuarterMaintenance.Snapshot(binding.spreadsheetId(), true, tables);
-      ManualQuarterMaintenance.validate(snapshot, binding, clock);
+      if (scaffoldMarker == null) ManualQuarterMaintenance.validate(snapshot, binding, clock);
+      else validateScaffold(snapshot, scaffoldMarker);
       ObjectNode metadata = without(root, Set.of("sheets"));
       metadata.set("sheetsByTitle", JSON.valueToTree(sheetMetadata));
       metadata.put("boundDatasetId", binding.datasetId());
@@ -113,6 +124,14 @@ final class LiveQuarterWorkbook {
       whole.add(metadataFingerprint); whole.add(JSON.valueToTree(snapshot.tables()));
       return new Workbook(snapshot, grids, hash(canonical(whole)), metadataFingerprint);
     } catch (Exception | LinkageError rejected) { throw failure(); }
+  }
+
+  private static void validateScaffold(ManualQuarterMaintenance.Snapshot snapshot, String marker) {
+    for (var entry : ManualQuarterMaintenance.HEADERS.entrySet()) {
+      List<List<String>> expected = entry.getKey().equals("auth_identities")
+          ? List.of(entry.getValue(), List.of("", marker, "", "")) : List.of(entry.getValue());
+      if (!expected.equals(snapshot.tables().get(entry.getKey()))) throw failure();
+    }
   }
 
   private static ParsedGrid parseGrid(String title, Grid grid, JsonNode blocks, int schemaWidth, boolean carlitoTheme) {

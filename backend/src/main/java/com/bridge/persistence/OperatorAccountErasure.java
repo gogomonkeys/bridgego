@@ -17,7 +17,8 @@ public final class OperatorAccountErasure {
     public record Preview(String planId,String beforeDigest,String afterDigest,int affectedMatches,
                           int affectedSeats,boolean alreadyErased,Instant expiresAt,String confirmationText) {}
     public enum Outcome { VERIFIED, ALREADY_ERASED, NOT_APPLIED, UNCERTAIN }
-    private record Plan(Preview publicView,String identityHash,Map<String,List<List<String>>> replacement) {}
+    private record Plan(Preview publicView,String identityHash,Optional<String> snapshotFingerprint,
+                        Map<String,List<List<String>>> replacement) {}
     private static final ObjectMapper JSON=new ObjectMapper();
     private static final Duration TTL=Duration.ofMinutes(5);
     private static final Map<String,List<String>> HEADERS=Map.of(
@@ -67,6 +68,7 @@ public final class OperatorAccountErasure {
         requireOffline();prune();if(plans.size()>=16)throw new IllegalStateException("Too many erasure plans");
         var owner=verify(credential,challengeNonce);
         Map<String,List<List<String>>> before=readSnapshot();
+        Optional<String> snapshotFingerprint=gateway.snapshotFingerprint();
         String identityHash=ErasureLedger.digest("IDENTITY",ErasureLedger.identityKey(owner.issuer(),owner.subject()));
         ErasureLedger ledger=new ErasureLedger(before.get("erasure_ledger"));
         String account=null;
@@ -114,7 +116,7 @@ public final class OperatorAccountErasure {
         String id=UUID.randomUUID().toString();Instant expiry=clock.instant().plus(TTL);
         String confirmation="ERASE "+id+" "+beforeDigest+" EXCLUSIVE OFFLINE CONFIRMED";
         Preview view=new Preview(id,beforeDigest,afterDigest,affectedMatches,affectedSeats,already,expiry,confirmation);
-        plans.put(id,new Plan(view,identityHash,deepCopy(after)));return view;
+        plans.put(id,new Plan(view,identityHash,snapshotFingerprint,deepCopy(after)));return view;
     }
     /** Fresh proof plus exact confirmation required. Never retries a destructive write blindly. */
     public synchronized Outcome execute(String planId,String expectedWholeDatasetDigest,String explicitConfirmation,
@@ -127,6 +129,8 @@ public final class OperatorAccountErasure {
         Map<String,List<List<String>>> current=readSnapshot();String actual=digest(current);
         if(actual.equals(plan.publicView.afterDigest())&&!actual.equals(plan.publicView.beforeDigest()))return Outcome.VERIFIED;
         if(!actual.equals(plan.publicView.beforeDigest()))throw new IllegalStateException("Dataset changed; fresh preview required");
+        // Bind metadata-capable adapters to the preview too, not merely the final pre-write read.
+        if(!plan.snapshotFingerprint.equals(gateway.snapshotFingerprint()))throw new IllegalStateException("Dataset changed; fresh preview required");
         if(plan.publicView.alreadyErased())return Outcome.ALREADY_ERASED;
         requireOffline();
         Map<String,List<List<Object>>> replacement=new TreeMap<>();

@@ -103,6 +103,9 @@ public final class ManualQuarterMaintenance {
       Preview view = new Preview(id, binding.spreadsheetId, binding.datasetId, before, inner.cutoff(), expiry,
           inner.expiredCommits(), confirmation);
       guard.before = guard.observed; guard.cutoff = inner.cutoff(); guard.expiry = expiry;
+      var retention = new RetentionLedger(guard.before.tables.get("retention_ledger"));
+      if (retention.complete() && retention.cutoff().equals(inner.cutoff()) && inner.expiredCommits() == 0)
+        guard.complete = guard.before; // The engine still rereads and checks the fresh no-op plan before returning.
       plan = new Plan(view, engine, inner, guard);
       return view;
     } catch (RuntimeException failure) { throw safeFailure(); }
@@ -122,6 +125,13 @@ public final class ManualQuarterMaintenance {
       if (current.attempted) return inspect(planId);
       throw safeFailure();
     }
+  }
+
+  /** A preview hint only. Callers must still perform a fresh read-only inspection and honor expiry. */
+  synchronized boolean alreadyComplete(String planId) {
+    Plan current = requirePlan(planId);
+    current.guard.window();
+    return current.guard.complete != null && current.guard.complete.equals(current.guard.before);
   }
 
   /** Read-only reconciliation, including after expiry. Cannot finalize PENDING or retry a rewrite. */

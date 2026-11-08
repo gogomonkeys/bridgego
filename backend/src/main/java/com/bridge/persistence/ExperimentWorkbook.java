@@ -40,7 +40,7 @@ final class ExperimentWorkbook {
   record Grid(int sheetId, int rowCount, int columnCount, int index) {}
   /** metadataFingerprint permits metadata checks across an explicitly authorized value-only rewrite. */
   record Workbook(ExperimentGateway.Snapshot snapshot, Map<String,Grid> grids, String fingerprint,
-      String metadataFingerprint) {
+      String metadataFingerprint, String withoutIssuerCellMetadataFingerprint) {
     Workbook { grids = Collections.unmodifiableMap(new TreeMap<>(grids)); }
   }
   private record ParsedGrid(List<List<String>> rows, JsonNode metadata) {}
@@ -111,9 +111,15 @@ final class ExperimentWorkbook {
       metadata.set("sheetsByTitle", JSON.valueToTree(sheetMetadata));
       metadata.put("boundDatasetId", binding.datasetId());
       String metadataFingerprint = hash(canonical(metadata));
+      // Used only to verify the explicitly bounded issuer-cell format clear during erasure.
+      // Parsing remains strict for this cell, including after its value has been removed.
+      ObjectNode withoutIssuerCell = metadata.deepCopy();
+      ((ObjectNode)withoutIssuerCell.path("sheetsByTitle").path("auth_identities")
+          .path("gridDataMetadata").path("cells")).remove(Integer.toString(grids.get("auth_identities").columnCount()));
+      String withoutIssuerCellMetadataFingerprint = hash(canonical(withoutIssuerCell));
       ArrayNode whole = JSON.createArrayNode(); whole.add("experiment-workbook-v1");
       whole.add(metadataFingerprint); whole.add(JSON.valueToTree(snapshot.tables()));
-      return new Workbook(snapshot, grids, hash(canonical(whole)), metadataFingerprint);
+      return new Workbook(snapshot, grids, hash(canonical(whole)), metadataFingerprint, withoutIssuerCellMetadataFingerprint);
     } catch (Exception | LinkageError rejected) { throw failure(); }
   }
 

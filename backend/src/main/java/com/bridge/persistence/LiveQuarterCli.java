@@ -80,6 +80,13 @@ public final class LiveQuarterCli {
             + "; before=" + preview.beforeDigest() + "; whole-workbook=" + wholeFingerprint + "; expires=" + preview.expiresAt());
         terminal.print("Accounts, identities, tombstones and current match JSON/hashes remain; aggregates stay SUPPRESSED. Two atomic phases, not one transaction.");
         if (!execution) { terminal.print("PREVIEW ONLY: no Sheet-cell write attempted. This is not a verification of any prior attempt."); return 0; }
+        if (operator.alreadyComplete(preview.planId())) {
+          var result = operator.inspect(preview.planId());
+          if (!preview.expiresAt().isAfter(clock.instant())) throw new IllegalStateException();
+          terminal.print("READ-ONLY RESULT=" + result.outcome() + "; cutoff=" + result.cutoff()
+              + "; preview found this quarter already complete. No Sheet-cell write or attempt marker created.");
+          return result.outcome() == ManualQuarterMaintenance.Outcome.COMPLETE ? 0 : 3;
+        }
         terminal.print("Execution records a non-secret one-use attempt marker beside this manifest before any cell write.");
         String wholeConfirmation = preview.confirmationText() + " WORKBOOK " + wholeFingerprint;
         terminal.print("Fresh exact confirmation: " + wholeConfirmation);

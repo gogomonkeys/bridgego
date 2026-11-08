@@ -68,7 +68,7 @@ public final class LocalManualQuarterRehearsal {
 
   // Fixed generated data only; never exposed as application auth or a real storage adapter.
   static final class Fixture implements ManualQuarterMaintenance.Storage {
-    final Clock clock = Clock.fixed(Instant.parse("2026-11-06T08:00:00Z"), ZoneOffset.UTC);
+    final Clock clock;
     final ManualQuarterMaintenance.Binding binding = new ManualQuarterMaintenance.Binding(
         "OFFLINE_MANUAL_QUARTER_MEMORY_ONLY", UUID.randomUUID().toString());
     Map<String,List<List<String>>> tables = new TreeMap<>();
@@ -77,7 +77,9 @@ public final class LocalManualQuarterRehearsal {
     final FinalMatchEnvelope expired;
     final Map<String,FinalMatchEnvelope> retained = new TreeMap<>();
     int reads, writes;
-    Fixture() {
+    Fixture() { this(Instant.parse("2026-11-06T08:00:00Z")); }
+    Fixture(Instant now) {
+      clock = Clock.fixed(now, ZoneOffset.UTC);
       ManualQuarterMaintenance.HEADERS.forEach((tab, header) -> tables.put(tab, new ArrayList<>(List.of(header))));
       tables.get("dataset").add(List.of("bridgego-restricted-test", binding.datasetId()));
       String first = UUID.randomUUID().toString(), second = UUID.randomUUID().toString();
@@ -142,7 +144,8 @@ public final class LocalManualQuarterRehearsal {
       ErasureLedger erasures = new ErasureLedger(tables.get("erasure_ledger"));
       if (!erasures.contains("ACCOUNT", erasedAccount) || !erasures.contains("IDENTITY",
           ErasureLedger.identityKey("https://accounts.google.com", erasedSubject))) throw new IllegalStateException();
-      if (!tables.get("quarterly_aggregates").get(1).equals(List.of("2026-Q3", "SUPPRESSED", "", "", "1"))) throw new IllegalStateException();
+      if (!tables.get("quarterly_aggregates").contains(List.of(QuarterlyRetention.quarter(
+          QuarterlyRetention.finishedAt(expired)), "SUPPRESSED", "", "", "1"))) throw new IllegalStateException();
     }
   }
 }

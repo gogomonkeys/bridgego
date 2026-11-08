@@ -8,6 +8,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class QuarterlyRetentionTest {
     static final Instant NOW=Instant.parse("2026-09-30T16:00:00Z");
     static final Clock CLOCK=Clock.fixed(NOW,ZoneOffset.UTC);
+    static class MovingClock extends Clock {
+        Instant now=NOW;
+        public ZoneId getZone(){return ZoneOffset.UTC;}
+        public Clock withZone(ZoneId ignored){return this;}
+        public Instant instant(){return now;}
+    }
     static class Fake implements SheetsGateway {
         final Map<String,List<List<String>>> tabs=new HashMap<>();int writes;int failMode;
         Fake(){
@@ -58,6 +64,60 @@ class QuarterlyRetentionTest {
     }
     @Test void failureUnknownAndTimeoutReadback(){
         for(int mode:List.of(1,2,3)){Fake f=new Fake();f.add(old());f.failMode=mode;var result=run(engine(f));assertEquals(mode==1?QuarterlyRetention.State.FAILED:mode==2?QuarterlyRetention.State.COMPLETE:QuarterlyRetention.State.UNCERTAIN,result.state());if(mode!=2)assertNull(result.completedAt());assertEquals(mode==2?2:1,f.writes);}
+    }
+    @Test void directEngineNeverReplaysAnAttemptAfterFailureUncertaintyOrCompletion(){
+        for(int mode:List.of(0,1,2,3)){
+            Fake f=new Fake();f.add(old());f.failMode=mode;var e=engine(f);var p=e.preview();
+            e.execute(p.planId(),p.confirmationText());int writes=f.writes;
+            assertThrows(IllegalStateException.class,()->e.execute(p.planId(),p.confirmationText()));
+            assertThrows(IllegalStateException.class,e::preview);assertEquals(writes,f.writes);
+        }
+    }
+    @Test void freshCompletedQuarterIsNoopAndRetainsExistingAggregateRowsByteForByte(){
+        Fake f=new Fake();f.add(old());
+        var suppressed=List.of("2025-Q4","SUPPRESSED","","","1");
+        var candidate=List.of("2026-Q1","CANDIDATE_COUNTS","100","400","1");
+        f.tabs.get("quarterly_aggregates").add(suppressed);f.tabs.get("quarterly_aggregates").add(candidate);
+        assertEquals(QuarterlyRetention.State.COMPLETE,run(engine(f)).state());
+        var before=new TreeMap<String,List<List<String>>>();f.tabs.forEach((name,rows)->before.put(name,List.copyOf(rows)));
+        var later=Clock.fixed(NOW.plusSeconds(60),ZoneOffset.UTC);
+        var again=new QuarterlyRetention(f,later,()->true,true,QuarterlyRetention.AggregatePolicy.suppressAll());
+        var result=run(again);assertEquals(QuarterlyRetention.State.COMPLETE,result.state());assertEquals(NOW,result.completedAt());
+        assertEquals(2,f.writes);assertEquals(before,f.tabs);
+        assertEquals(suppressed,f.read("quarterly_aggregates").get(1));assertEquals(candidate,f.read("quarterly_aggregates").get(2));
+    }
+    @Test void secondPhaseFailureDoesNotBecomeSuccessOrReplayOnTheSamePlan(){
+        Fake f=new Fake();f.add(old());
+        SheetsGateway partial=new SheetsGateway(){int attempts;public List<List<String>> read(String tab){return f.read(tab);}
+            public void appendAtomic(Map<String,List<List<Object>>> rows){throw new AssertionError();}
+            public void replaceAtomic(Map<String,List<List<Object>>> rows){if(++attempts==2)throw new Failure(403,0);f.replaceAtomic(rows);}};
+        var e=new QuarterlyRetention(partial,CLOCK,()->true,true,QuarterlyRetention.AggregatePolicy.suppressAll());var p=e.preview();
+        assertEquals(QuarterlyRetention.State.PENDING,e.execute(p.planId(),p.confirmationText()).state());
+        assertThrows(IllegalStateException.class,()->e.execute(p.planId(),p.confirmationText()));assertEquals(1,f.writes);
+        assertThrows(IllegalStateException.class,()->QuarterlyRetention.requireCollectionReady(f,CLOCK));
+    }
+    @Test void directEngineExpiryOrQuarterRolloverDuringFirstWriteCannotFinalize(){
+        for(Instant moved:List.of(NOW.plusSeconds(300),Instant.parse("2026-12-31T16:00:00Z"))){
+            var clock=new MovingClock();
+            Fake f=new Fake(){@Override public void replaceAtomic(Map<String,List<List<Object>>> rows){super.replaceAtomic(rows);clock.now=moved;}};
+            f.add(old());var e=new QuarterlyRetention(f,clock,()->true,true,QuarterlyRetention.AggregatePolicy.suppressAll());
+            var result=run(e);assertEquals(QuarterlyRetention.State.UNCERTAIN,result.state());assertNull(result.completedAt());
+            assertEquals(1,f.writes);assertFalse(new RetentionLedger(f.read("retention_ledger")).complete());
+        }
+    }
+    @Test void directEngineRolloverAfterFinalWriteDoesNotReportCurrentCompletion(){
+        var clock=new MovingClock();
+        Fake f=new Fake(){@Override public void replaceAtomic(Map<String,List<List<Object>>> rows){super.replaceAtomic(rows);if(writes==2)clock.now=Instant.parse("2026-12-31T16:00:00Z");}};
+        f.add(old());var result=run(new QuarterlyRetention(f,clock,()->true,true,QuarterlyRetention.AggregatePolicy.suppressAll()));
+        assertEquals(QuarterlyRetention.State.UNCERTAIN,result.state());assertNull(result.completedAt());assertEquals(2,f.writes);
+        assertThrows(IllegalStateException.class,()->QuarterlyRetention.requireCollectionReady(f,clock));
+    }
+    @Test void directEngineLosingStoppedWriterProofAfterFirstWriteCannotFinalize(){
+        var stopped=new java.util.concurrent.atomic.AtomicBoolean(true);
+        Fake f=new Fake(){@Override public void replaceAtomic(Map<String,List<List<Object>>> rows){super.replaceAtomic(rows);stopped.set(false);}};
+        f.add(old());var e=new QuarterlyRetention(f,CLOCK,stopped::get,true,QuarterlyRetention.AggregatePolicy.suppressAll());
+        var result=run(e);assertEquals(QuarterlyRetention.State.UNCERTAIN,result.state());assertNull(result.completedAt());
+        assertEquals(1,f.writes);assertFalse(new RetentionLedger(f.read("retention_ledger")).complete());
     }
     @Test void candidateCountsRequireBothMinimaAndExcludeIdentifiers(){
         for(int total:List.of(49,50)){Fake f=new Fake();for(int i=0;i<total;i++)f.add(envelope(NOW.minusSeconds(120),NOW.minusSeconds(1),i));var e=new QuarterlyRetention(f,CLOCK,()->true,true,new QuarterlyRetention.AggregatePolicy(true,50,20,10));assertEquals(QuarterlyRetention.State.COMPLETE,run(e).state());var row=f.read("quarterly_aggregates").get(1);assertEquals(total==49?"SUPPRESSED":"CANDIDATE_COUNTS",row.get(1));assertFalse(row.toString().contains("human-"));if(total==50){assertEquals("50",row.get(2));assertEquals("50",row.get(3));}}

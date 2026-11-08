@@ -59,6 +59,31 @@ class LiveQuarterCliTest {
     var s=new Scenario();s.mode="EXECUTE";assertEquals(0,s.run());assertEquals(2,s.http.posts);s.http.fixture.verify();
     assertTrue(s.attempt);assertEquals(1,s.markerCalls);assertTrue(s.events.indexOf("MARKER")<s.events.indexOf("POST"));
   }
+  @Test void alreadyCompleteQuarterUsesFreshReadbackWithoutCellWritesOrAttemptMarker(){
+    var s=new Scenario();completeInMemory(s);s.mode="EXECUTE";
+    var before=ManualQuarterMaintenance.immutable(s.http.fixture.tables);
+    assertEquals(0,s.run());assertEquals(0,s.http.posts);assertEquals(0,s.markerCalls);assertFalse(s.attempt);
+    assertTrue(s.http.reads>=2);assertEquals(before,s.http.fixture.tables);
+    assertTrue(s.output.toString().contains("READ-ONLY RESULT=COMPLETE"));
+  }
+  @Test void changedOrUnavailableNoopReadbackCannotFallThroughToMarkerOrWrite(){
+    for(String fault:List.of("unavailable","changed-data","changed-metadata")){
+      var s=new Scenario();completeInMemory(s);s.mode="EXECUTE";
+      s.http.beforeRead=count->{if(count==2){
+        if(fault.equals("unavailable"))throw new IllegalStateException("SYNTHETIC-READ-FAILURE");
+        if(fault.equals("changed-metadata"))s.http.mutate=root->((com.fasterxml.jackson.databind.node.ObjectNode)
+            LiveQuarterWorkbookTest.properties(root,"accounts").path("gridProperties")).put("rowGroupControlAfter",true);
+        else s.http.fixture.tables.get("quarterly_aggregates").add(List.of("2025-Q1","SUPPRESSED","","","1"));
+      }};
+      assertEquals(3,s.run());assertEquals(0,s.http.posts);assertEquals(0,s.markerCalls);assertFalse(s.attempt);
+      assertTrue(s.output.toString().contains("READ-ONLY RESULT=UNCERTAIN"));
+    }
+  }
+  static void completeInMemory(Scenario s){
+    var f=s.http.fixture;var op=new ManualQuarterMaintenance(f.binding,f,f.clock,()->true,true);
+    var p=op.preview(f.binding.stoppedConfirmation());
+    assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE,op.execute(p.planId(),p.confirmationText()).outcome());
+  }
   @Test void wrongPlanConfirmationCancelsBeforeMarkerOrCellWrite(){
     var s=new Scenario();s.mode="EXECUTE";s.wrong="execute";assertEquals(2,s.run());assertEquals(0,s.markerCalls);assertEquals(0,s.http.posts);
   }
