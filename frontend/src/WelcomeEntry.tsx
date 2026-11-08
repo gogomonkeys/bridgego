@@ -46,6 +46,7 @@ export default function WelcomeEntry({
     purpose: LoginPurpose;
   } | null>(null);
   const [preparing, setPreparing] = useState(false);
+  const [recoverySubmitted, setRecoverySubmitted] = useState(false);
   const [linkAttempted, setLinkAttempted] = useState(false);
   const button = useRef<HTMLDivElement>(null);
   const controller = useRef<ReturnType<typeof createLoginAttempt> | null>(null);
@@ -108,6 +109,14 @@ export default function WelcomeEntry({
           { credential, consent: true },
           token,
         ),
+      recover: (credential) =>
+        accountRequest(
+          "/auth/google/recover",
+          "POST",
+          { credential, consent: true },
+          token,
+        ),
+      recoverySubmitted: () => setRecoverySubmitted(true),
       verified: setVerified,
       load: loadGoogleIdentity,
       cancel: (nonce) =>
@@ -147,7 +156,7 @@ export default function WelcomeEntry({
       return;
     }
     setPurpose(requested.purpose);
-    setLinkAttempted(requested.purpose === "link");
+    setLinkAttempted(requested.purpose !== "verify");
     if (button.current)
       void controller.current?.start(
         config.clientId,
@@ -159,8 +168,8 @@ export default function WelcomeEntry({
     // An open Google prompt must not silently remain a linking offer after expiry.
     // Submission cannot be retracted here; the server checks the same deadline.
     if (
-      purpose === "link" &&
-      availablePurpose !== "link" &&
+      purpose !== "verify" &&
+      availablePurpose !== purpose &&
       (phase === "loading" || phase === "ready")
     )
       controller.current?.cancel();
@@ -168,6 +177,7 @@ export default function WelcomeEntry({
   const choose = async (choice: "account" | "guest") => {
     if (
       choiceFlight.current ||
+      recoverySubmitted ||
       busy ||
       phase === "submitting" ||
       (choice === "account" &&
@@ -262,7 +272,12 @@ export default function WelcomeEntry({
       )
         return;
       if (result.signedIn === true) enter.current(token, experimentRef.current);
-      else setMessage("尚未確認帳號連結成功，可重新嘗試或當訪客遊玩。");
+      else
+        setMessage(
+          recoverySubmitted
+            ? "尚未確認恢復成功；請聯絡管理者，不要再次登入或重試恢復。"
+            : "尚未確認帳號連結成功，可重新嘗試或當訪客遊玩。",
+        );
     } catch {
       if (live.current && getClientState().session?.token === token)
         setMessage("尚無法確認登入結果，請稍後重試；目前仍停留在入口。");
@@ -323,21 +338,24 @@ export default function WelcomeEntry({
             className="primary"
             disabled={
               disabled ||
+              recoverySubmitted ||
               !availablePurpose ||
               phase !== "idle" ||
               Boolean(requested)
             }
             onClick={() => void choose("account")}
           >
-            {availablePurpose === "link"
-              ? experiment
-                ? "Google 登入（單人一場實驗）"
-                : "使用 Google 登入"
-              : availablePurpose === "verify"
-                ? "Google 驗證（測試）"
-                : config || configFailed
-                  ? "Google 登入尚未開放"
-                  : "正在確認 Google 服務…"}
+            {availablePurpose === "recover"
+              ? "Google 恢復既有帳號（限一次）"
+              : availablePurpose === "link"
+                ? experiment
+                  ? "Google 登入（單人一場實驗）"
+                  : "使用 Google 登入"
+                : availablePurpose === "verify"
+                  ? "Google 驗證（測試）"
+                  : config || configFailed
+                    ? "Google 登入尚未開放"
+                    : "正在確認 Google 服務…"}
           </button>
         )}
         {experimentMessage && (
@@ -346,13 +364,15 @@ export default function WelcomeEntry({
           </p>
         )}
         <p className="fine entry-consent">
-          {availablePurpose === "link"
-            ? experiment
-              ? "登入表示同意將你的 Google 識別碼、遊戲帳號及最多一場戰績存入私人試算表；刪除仍在測試，歷史副本可能保留。重新登入會解除原連結。"
-              : "登入表示同意 Google 驗證、帳號連結及核准測試場次保存；重新登入會解除原連結。"
-            : availablePurpose === "verify"
-              ? "按下驗證表示同意連線至 Google；目前僅驗證身分，不建立帳號連結或保存對局。"
-              : "Google 為選用服務，不影響訪客遊玩。"}{" "}
+          {availablePurpose === "recover"
+            ? "恢復表示同意重新驗證本人 Google 帳號，並在私人試算表新增一次性恢復標記；接回原帳號，不刪資料或重設名額。送出後即使失敗也不可重試，請只查詢登入狀態或聯絡管理者。"
+            : availablePurpose === "link"
+              ? experiment
+                ? "登入表示同意將你的 Google 識別碼、遊戲帳號及最多一場戰績存入私人試算表；刪除仍在測試，歷史副本可能保留。重新登入會解除原連結。"
+                : "登入表示同意 Google 驗證、帳號連結及核准測試場次保存；重新登入會解除原連結。"
+              : availablePurpose === "verify"
+                ? "按下驗證表示同意連線至 Google；目前僅驗證身分，不建立帳號連結或保存對局。"
+                : "Google 為選用服務，不影響訪客遊玩。"}{" "}
           <a href="#help">使用說明：資料保存與刪除</a>
         </p>
         <div ref={button} className="google-signin-button" />
@@ -378,7 +398,7 @@ export default function WelcomeEntry({
         )}
         <button
           className="secondary entry-continue"
-          disabled={disabled || phase === "submitting"}
+          disabled={disabled || recoverySubmitted || phase === "submitting"}
           onClick={() => void choose("guest")}
         >
           以訪客身分遊玩

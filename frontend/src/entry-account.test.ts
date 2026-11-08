@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   canEnterAfterAccountLink,
   canLinkAccount,
+  canRecoverAccount,
   entryAccountPurpose,
   experimentNotice,
 } from "./entry-account";
@@ -166,4 +167,49 @@ it("preselects one deal only on actual experimental account entry", () => {
   expect(app).toContain("if (experiment) setPlannedDeals(1)");
   expect(entry).toContain("enter.current(token, experimentRef.current)");
   expect(entry).toContain("enter.current(expectedToken)");
+});
+
+describe("explicit one-time recovery offer", () => {
+  const now = Date.parse("2026-11-08T00:00:00Z");
+  const config: AuthConfig = {
+    ...configured,
+    collectionMode: "single_tester_experiment",
+    collectionReady: false,
+    experimentReady: true,
+    experimentMaxMatches: 1,
+    experimentExpiresAt: "2026-11-08T13:00:00Z",
+    experimentRecoveryEnabled: true,
+  };
+  it("requires exact explicit enabled flag and never offers after expiry", () => {
+    expect(canRecoverAccount(config, now)).toBe(true);
+    expect(entryAccountPurpose(config, now)).toBe("recover");
+    for (const enabled of [undefined, false, "true", 1])
+      expect(
+        canRecoverAccount(
+          { ...config, experimentRecoveryEnabled: enabled } as AuthConfig,
+          now,
+        ),
+      ).toBe(false);
+    expect(
+      canRecoverAccount(config, Date.parse(config.experimentExpiresAt!)),
+    ).toBe(false);
+    expect(
+      canRecoverAccount(
+        { ...config, collectionMode: "restricted", collectionReady: true },
+        now,
+      ),
+    ).toBe(false);
+  });
+  it("keeps recovery submission and status lookup separate in both entry surfaces", () => {
+    for (const file of ["WelcomeEntry.tsx", "GoogleAccount.tsx"]) {
+      const source = readFileSync(
+        new URL(`./${file}`, import.meta.url),
+        "utf8",
+      );
+      expect(source).toContain('"/auth/google/recover"');
+      expect(source).toContain('"/auth/status"');
+      expect(source).toContain("recoverySubmitted");
+      expect(source).toContain("Google 恢復既有帳號（限一次）");
+    }
+  });
 });

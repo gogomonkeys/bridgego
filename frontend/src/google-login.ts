@@ -11,6 +11,7 @@ export interface AuthConfig {
   verificationEnabled?: boolean;
   collectionMode?: "restricted" | "single_tester_experiment";
   experimentReady?: boolean;
+  experimentRecoveryEnabled?: boolean;
   experimentExpiresAt?: string | null;
   experimentMaxMatches?: 1 | null;
   collectionReady?: boolean;
@@ -22,7 +23,7 @@ export interface VerifiedIdentity {
   subject: string;
   admittedTester: boolean;
 }
-export type LoginPurpose = "link" | "verify";
+export type LoginPurpose = "link" | "verify" | "recover";
 // Deliberately separate from game commands: invalid Google credentials must never
 // clear, replace, persist or log the existing guest token.
 export async function accountRequest<T>(
@@ -38,7 +39,7 @@ export async function accountRequest<T>(
   const response = await fetch(`/api${path}`, {
     method,
     cache: "no-store",
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(path === "/auth/google/recover" ? 60000 : 8000),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -126,6 +127,8 @@ export interface LoginAttemptDependencies {
   nonce: (purpose: LoginPurpose) => Promise<{ nonce: string }>;
   load: () => Promise<GoogleIdentity>;
   link: (credential: string) => Promise<AuthStatus>;
+  recover?: (credential: string) => Promise<AuthStatus>;
+  recoverySubmitted?: () => void;
   verify: (credential: string) => Promise<VerifiedIdentity>;
   verified: (identity: VerifiedIdentity) => void;
   cancel: (nonce: string) => Promise<unknown>;
@@ -137,7 +140,8 @@ export interface LoginAttemptDependencies {
 export function createLoginAttempt(deps: LoginAttemptDependencies) {
   let revision = 0,
     phase: LoginPhase = "idle",
-    disposed = false;
+    disposed = false,
+    recoverySubmitted = false;
   let identity: GoogleIdentity | undefined;
   let activeNonce: string | undefined;
   const valid = (id: number) => !disposed && revision === id && deps.eligible();
@@ -146,6 +150,9 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
     if (!disposed) deps.update(next, message, signedIn);
   };
   const cancelNonce = (nonce = activeNonce) => {
+    // A submitted recovery may already have claimed its persistent marker.
+    // Never revoke its still-running server attempt after a client timeout/navigation.
+    if (recoverySubmitted) return;
     if (nonce) void deps.cancel(nonce).catch(() => undefined);
     if (activeNonce === nonce) activeNonce = undefined;
   };
@@ -155,7 +162,15 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
       element: HTMLElement,
       purpose: LoginPurpose = "link",
     ) {
-      if (disposed || phase !== "idle" || !clientId || !deps.eligible()) return;
+      if (
+        disposed ||
+        recoverySubmitted ||
+        phase !== "idle" ||
+        !clientId ||
+        !deps.eligible() ||
+        (purpose === "recover" && !deps.recover)
+      )
+        return;
       const id = ++revision;
       update("loading");
       try {
@@ -165,7 +180,7 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
           return;
         }
         activeNonce = nonce;
-        if (purpose === "link") update("loading", undefined, false);
+        if (purpose !== "verify") update("loading", undefined, false);
         identity = await deps.load();
         if (!valid(id)) return;
         identity.initialize({
@@ -174,6 +189,10 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
           auto_select: false,
           callback: async ({ credential }) => {
             if (!valid(id) || phase !== "ready" || !credential) return;
+            if (purpose === "recover") {
+              recoverySubmitted = true;
+              deps.recoverySubmitted?.();
+            }
             update("submitting");
             try {
               if (purpose === "verify") {
@@ -186,13 +205,20 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
                   );
                 }
               } else {
-                const result = await deps.link(credential);
+                const result =
+                  purpose === "recover"
+                    ? await deps.recover!(credential)
+                    : await deps.link(credential);
                 if (valid(id))
                   update(
                     "idle",
                     result.signedIn === true
-                      ? "已連結 Google。原訪客身分保留；只有合資格測試場次會保存，之前的訪客場次不會補登。"
-                      : "尚未確認帳號連結成功，可重新嘗試或當訪客遊玩。",
+                      ? purpose === "recover"
+                        ? "已恢復既有帳號；一次性恢復標記已使用，原測試期限與一場限制不變。"
+                        : "已連結 Google。原訪客身分保留；只有合資格測試場次會保存，之前的訪客場次不會補登。"
+                      : purpose === "recover"
+                        ? "尚未確認帳號恢復成功；請只查詢登入狀態或聯絡管理者，不要重試恢復或換房。"
+                        : "尚未確認帳號連結成功，可重新嘗試或當訪客遊玩。",
                     result.signedIn === true,
                   );
               }
@@ -201,11 +227,13 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
               if (valid(id))
                 update(
                   "idle",
-                  error instanceof AccountRequestError
-                    ? error.message
-                    : purpose === "verify"
-                      ? "尚無法確認驗證結果；未自動建立帳號連結，可繼續當訪客。"
-                      : "尚無法確認登入結果，請重新確認帳號狀態。訪客仍可繼續遊玩。",
+                  purpose === "recover"
+                    ? "恢復已送出但結果未確認；請只查詢登入狀態或聯絡管理者，不要重新登入、換房或重試。"
+                    : error instanceof AccountRequestError
+                      ? error.message
+                      : purpose === "verify"
+                        ? "尚無法確認驗證結果；未自動建立帳號連結，可繼續當訪客。"
+                        : "尚無法確認登入結果，請重新確認帳號狀態。訪客仍可繼續遊玩。",
                 );
             }
             revision++;

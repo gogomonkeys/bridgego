@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   canLinkAccount,
+  canRecoverAccount,
   experimentNotice,
   isSingleTesterExperiment,
 } from "./entry-account";
@@ -23,7 +24,9 @@ export default function GoogleAccount({ token }: { token: string }) {
   const experimentNow = useExperimentClock(config);
   const experiment = isSingleTesterExperiment(config);
   const experimentMessage = experimentNotice(config, experimentNow);
-  const canLink = canLinkAccount(config, experimentNow);
+  const canRecover = canRecoverAccount(config, experimentNow);
+  const canLink = canLinkAccount(config, experimentNow) && !canRecover;
+  const [recoverySubmitted, setRecoverySubmitted] = useState(false);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [phase, setPhase] = useState<LoginPhase>("idle");
   const [message, setMessage] = useState("");
@@ -51,6 +54,14 @@ export default function GoogleAccount({ token }: { token: string }) {
           },
           token,
         ),
+      recover: (credential) =>
+        accountRequest(
+          "/auth/google/recover",
+          "POST",
+          { credential, consent: true },
+          token,
+        ),
+      recoverySubmitted: () => setRecoverySubmitted(true),
       verified: setVerified,
       load: loadGoogleIdentity,
       link: (credential) =>
@@ -100,14 +111,19 @@ export default function GoogleAccount({ token }: { token: string }) {
   }, [token]);
   useEffect(() => {
     if (
-      purpose === "link" &&
-      !canLink &&
+      ((purpose === "link" && !canLink) ||
+        (purpose === "recover" && !canRecover)) &&
       (phase === "loading" || phase === "ready")
     )
       attempt.current?.cancel();
-  }, [canLink, phase, purpose]);
+  }, [canLink, canRecover, phase, purpose]);
   const refreshOrLogout = async (logout: boolean) => {
-    if (checkingFlight.current || phase !== "idle" || getClientState().room)
+    if (
+      (logout && recoverySubmitted) ||
+      checkingFlight.current ||
+      phase !== "idle" ||
+      getClientState().room
+    )
       return;
     checkingFlight.current = true;
     setChecking(true);
@@ -202,7 +218,7 @@ export default function GoogleAccount({ token }: { token: string }) {
             <>
               <button
                 className="secondary"
-                disabled={checking || signedIn === null}
+                disabled={checking || recoverySubmitted || signedIn === null}
                 onClick={() => {
                   setPurpose("verify");
                   setVerified(null);
@@ -217,6 +233,32 @@ export default function GoogleAccount({ token }: { token: string }) {
               >
                 同意僅驗證身分，不保存帳號對應
               </button>
+              {canRecover && (
+                <>
+                  <p>
+                    重新驗證後新增一次性恢復標記並接回原帳號，不刪資料、不重設名額。送出後結果不明時不可重試，只能查詢狀態或聯絡管理者。
+                  </p>
+                  <button
+                    className="secondary"
+                    disabled={
+                      checking || recoverySubmitted || signedIn === null
+                    }
+                    onClick={() => {
+                      setPurpose("recover");
+                      setVerified(null);
+                      setCopyMessage("");
+                      if (button.current)
+                        void attempt.current?.start(
+                          config.clientId,
+                          button.current,
+                          "recover",
+                        );
+                    }}
+                  >
+                    Google 恢復既有帳號（限一次）
+                  </button>
+                </>
+              )}
               {canLink ? (
                 <>
                   <p>
@@ -226,7 +268,9 @@ export default function GoogleAccount({ token }: { token: string }) {
                   </p>
                   <button
                     className="secondary"
-                    disabled={checking || signedIn === null}
+                    disabled={
+                      checking || recoverySubmitted || signedIn === null
+                    }
                     onClick={() => {
                       setPurpose("link");
                       setVerified(null);

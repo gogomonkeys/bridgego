@@ -1,5 +1,9 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  EXPERIMENT_RECOVERY_REQUIRED:
+    "本次測試需使用一次性帳號恢復，請勿重新建立帳號連結。",
+  EXPERIMENT_RECOVERY_UNAVAILABLE:
+    "恢復名額已使用、未開放或結果不明；請只查詢登入狀態並聯絡管理者，不要重試。",
   EXPERIMENT_EXPIRED: "單人一場實驗已到期，請停止保存測試；仍可當訪客遊玩。",
   EXPERIMENT_UNAVAILABLE:
     "本次實驗名額已用或狀態不明，請先聯絡管理者；不要重新登入或換房重試保存。",

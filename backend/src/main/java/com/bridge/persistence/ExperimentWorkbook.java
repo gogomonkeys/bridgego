@@ -64,7 +64,7 @@ final class ExperimentWorkbook {
       emptyArrays(root, ROOT_EMPTY_ARRAYS);
       boolean carlitoTheme = properties(required(root, "properties"));
       JsonNode sheets = required(root, "sheets");
-      if (!sheets.isArray() || (sheets.size() < 8 || sheets.size() > 11)) throw failure();
+      if (!sheets.isArray() || (sheets.size() < 8 || sheets.size() > 12)) throw failure();
       var tables = new TreeMap<String,List<List<String>>>();
       var grids = new TreeMap<String,Grid>();
       var sheetMetadata = new TreeMap<String,JsonNode>();
@@ -77,9 +77,9 @@ final class ExperimentWorkbook {
             "tabColor", "tabColorStyle", "dataSourceSheetProperties"));
         String title = text(p, "title");
         List<String> header = ExperimentStorage.headers(title);
-        int id = integer(p, "sheetId", 0, Integer.MAX_VALUE), index = optionalInteger(p, "index", 0, 0, 10);
-        int reserved = title.equals(ExperimentStorage.BOOT)?1900000001:title.equals(ExperimentStorage.IDENTITY)?1900000002:title.equals(ExperimentStorage.RESULT)?1900000003:-1;
-        if(reserved>=0 && id!=reserved || reserved<0 && id>=1900000001 && id<=1900000003)throw failure();
+        int id = integer(p, "sheetId", 0, Integer.MAX_VALUE), index = optionalInteger(p, "index", 0, 0, 11);
+        int reserved = title.equals(ExperimentStorage.BOOT)?1900000001:title.equals(ExperimentStorage.IDENTITY)?1900000002:title.equals(ExperimentStorage.RESULT)?1900000003:title.equals(ExperimentStorage.RECOVERY)?1900000004:-1;
+        if(reserved>=0 && id!=reserved || reserved<0 && id>=1900000001 && id<=1900000004)throw failure();
         if (header == null || !ids.add(id) || !indices.add(index)
             || p.has("sheetType") && !"GRID".equals(text(p, "sheetType"))) throw failure();
         falseBoolean(p, "hidden"); falseBoolean(p, "rightToLeft");
@@ -184,9 +184,8 @@ final class ExperimentWorkbook {
         "dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula", "chipRuns")));
     if (cell.has("note") && !text(cell, "note").isEmpty()) throw failure();
     emptyArrays(cell, Set.of("textFormatRuns", "chipRuns"));
-    for (String key : List.of("userEnteredFormat", "dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula"))
+    for (String key : List.of("dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula"))
       emptyObject(cell, key);
-    if (cell.has("effectiveFormat")) plainDefaultFormat(cell.get("effectiveFormat"), carlitoTheme, true);
     JsonNode entered = cell.get("userEnteredValue"), effective = cell.get("effectiveValue");
     String value;
     if (entered == null || entered.isObject() && entered.isEmpty()) {
@@ -201,7 +200,58 @@ final class ExperimentWorkbook {
     if (cell.has("hyperlink") && !text(cell, "hyperlink").isEmpty()
         && !(title.equals("auth_identities") && row > 0 && column == 0
             && ISSUER.equals(value) && ISSUER.equals(text(cell, "hyperlink")))) throw failure();
+    boolean issuerLink = title.equals("auth_identities") && row > 0 && column == 0
+        && ISSUER.equals(value) && cell.has("hyperlink") && ISSUER.equals(text(cell, "hyperlink"));
+    if (issuerLink) issuerLinkFormats(cell, carlitoTheme);
+    else {
+      emptyObject(cell, "userEnteredFormat");
+      if (cell.has("effectiveFormat")) plainDefaultFormat(cell.get("effectiveFormat"), carlitoTheme, true);
+    }
     return value;
+  }
+
+  /** Accept only Google's literal issuer auto-link presentation, never an arbitrary link or rich text. */
+  private static void issuerLinkFormats(JsonNode cell, boolean carlitoTheme) {
+    if (cell.has("userEnteredFormat")) {
+      JsonNode format = cell.get("userEnteredFormat"); fields(format, Set.of("textFormat"));
+      if (format.has("textFormat")) {
+        JsonNode text = format.get("textFormat"); fields(text, Set.of("link"));
+        if (text.has("link")) issuerUri(text.get("link"));
+      }
+    }
+    if (!cell.has("effectiveFormat")) return;
+    ObjectNode format = required(cell, "effectiveFormat").deepCopy();
+    if (format.has("hyperlinkDisplayType") && "LINKED".equals(text(format, "hyperlinkDisplayType")))
+      format.put("hyperlinkDisplayType", "PLAIN_TEXT");
+    if (format.has("textFormat")) {
+      JsonNode raw = format.get("textFormat"); if (!raw.isObject()) throw failure();
+      ObjectNode text = (ObjectNode) raw;
+      if (text.has("link")) { issuerUri(text.get("link")); text.remove("link"); }
+      if (text.has("underline")) {
+        if (!text.get("underline").isBoolean()) throw failure();
+        text.put("underline", false);
+      }
+      if (text.has("foregroundColor")) normalizeIssuerColor(text, "foregroundColor", carlitoTheme);
+      if (text.has("foregroundColorStyle")) {
+        JsonNode style = text.get("foregroundColorStyle"); fields(style, Set.of("rgbColor"));
+        normalizeIssuerColor((ObjectNode)style, "rgbColor", carlitoTheme);
+      }
+    }
+    plainDefaultFormat(format, carlitoTheme, true);
+  }
+  private static void issuerUri(JsonNode link) {
+    fields(link, Set.of("uri")); if (!ISSUER.equals(text(link, "uri"))) throw failure();
+  }
+  private static void normalizeIssuerColor(ObjectNode parent, String key, boolean carlitoTheme) {
+    JsonNode rgb = parent.get(key);
+    if (carlitoTheme && rgb != null && rgb.isObject() && rgb.size() == 3
+        && exactChannel(rgb, "red", "0.27450982") && exactChannel(rgb, "green", "0.47058824")
+        && exactChannel(rgb, "blue", "0.5254902")) parent.putObject(key);
+    else color(rgb, 0);
+  }
+  private static boolean exactChannel(JsonNode rgb, String key, String expected) {
+    return rgb.has(key) && rgb.get(key).isNumber()
+        && rgb.get(key).decimalValue().compareTo(new BigDecimal(expected)) == 0;
   }
 
   private static boolean properties(JsonNode p) {

@@ -33,7 +33,20 @@ public class GoogleAuthConfiguration {
       GoogleCredentialVerifier verifier, CollectionPolicy policy, @Value("${GOOGLE_CLIENT_ID:}") String clientId,
       @Value("${PUBLIC_ORIGIN:}") String publicOrigin, Environment env) {
     boolean production = java.util.Arrays.asList(env.getActiveProfiles()).contains("prod");
-    return new GoogleAuthService(rooms, stores.getIfAvailable(), verifier, clientId,
-        Set.of(AllowedOrigins.forProfile(production || policy.experiment(), publicOrigin)), Clock.systemUTC(), policy);
+    IdentityStore store = stores.getIfAvailable();
+    GoogleAuthService.Recovery recovery = null;
+    String recoverFlag = env.getProperty("BRIDGE_EXPERIMENT_RECOVERY_ENABLED", "false");
+    if (!Set.of("true", "false").contains(recoverFlag)) throw new IllegalStateException("Invalid recovery flag");
+    if ("true".equals(recoverFlag)) {
+      if (!policy.experiment() || !(store instanceof com.bridge.persistence.ExperimentStorage experiment))
+        throw new IllegalStateException("Recovery requires experiment storage");
+      String expected = env.getRequiredProperty("BRIDGE_EXPERIMENT_RECOVERY_IDENTITY_CLAIM");
+      try {
+        if (!java.util.UUID.fromString(expected).toString().equals(expected)) throw new IllegalArgumentException();
+      } catch (RuntimeException invalid) { throw new IllegalStateException("Invalid recovery claim"); }
+      recovery = (issuer, subject) -> experiment.recoverAccount(issuer, subject, expected);
+    }
+    return new GoogleAuthService(rooms, store, verifier, clientId,
+        Set.of(AllowedOrigins.forProfile(production || policy.experiment(), publicOrigin)), Clock.systemUTC(), policy, recovery);
   }
 }

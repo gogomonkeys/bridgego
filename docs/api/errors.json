@@ -199,6 +199,35 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "EXPERIMENT_RECOVERY_REQUIRED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "Use explicit one-time recovery",
+      "category": "auth",
+      "meaning": "本次只允許明確的一次性恢復",
+      "handling": "請使用恢復按鈕，不可退回一般登入或重設標記",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "EXPERIMENT_RECOVERY_UNAVAILABLE",
+      "httpStatuses": [
+        409,
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "One-time recovery is disabled or expired",
+      "category": "auth",
+      "meaning": "一次性恢復未開啟、已到期或已連結",
+      "handling": "停止操作，先以唯讀狀態核對；不可自動重試",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "EXPERIMENT_UNAVAILABLE",
       "httpStatuses": [
         403,

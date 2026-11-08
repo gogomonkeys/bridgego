@@ -31,6 +31,8 @@ export function experimentNotice(
     timeZone: "Asia/Taipei",
     hour12: false,
   });
+  if (canRecoverAccount(config, now))
+    return `一次性帳號恢復，截止 ${deadline}（台灣時間）；送出後會新增恢復標記，結果不明時不得重試。`;
   return `單人一場實驗，截止 ${deadline}（台灣時間）；取消或失敗也可能用掉名額。`;
 }
 
@@ -58,10 +60,22 @@ export function canLinkAccount(
   );
 }
 
+export function canRecoverAccount(
+  config: AuthConfig | null,
+  now = Date.now(),
+): boolean {
+  return (
+    config?.experimentRecoveryEnabled === true &&
+    isSingleTesterExperiment(config) &&
+    canLinkAccount(config, now)
+  );
+}
+
 export function entryAccountPurpose(
   config: AuthConfig | null,
   now = Date.now(),
 ): LoginPurpose | null {
+  if (canRecoverAccount(config, now)) return "recover";
   if (canLinkAccount(config, now)) return "link";
   return config?.verificationEnabled === true &&
     typeof config.clientId === "string" &&

@@ -8,8 +8,8 @@ import java.util.concurrent.*;
 /** One-use experiment admission. Production readiness is neither consulted nor asserted here. */
 public final class ExperimentStorage implements IdentityStore, StatsStore, AutoCloseable {
   public static final String PURPOSE="bridgego-single-match-experiment-v1";
-  static final String BOOT="_bridge_experiment_bootstrap", IDENTITY="_bridge_experiment_identity", RESULT="_bridge_experiment_result";
-  static final Set<String> GUARDS=Set.of(BOOT,IDENTITY,RESULT);
+  static final String BOOT="_bridge_experiment_bootstrap", IDENTITY="_bridge_experiment_identity", RESULT="_bridge_experiment_result", RECOVERY="_bridge_experiment_recovery";
+  static final Set<String> GUARDS=Set.of(BOOT,IDENTITY,RESULT,RECOVERY);
   static final List<String> GUARD_HEADER=List.of("dataset_id","expires_at","claim_nonce");
   static final Map<String,List<String>> HEADERS=Map.of(
       "dataset",List.of("purpose","dataset_id"), "accounts",List.of("account_id","schema_version"),
@@ -103,6 +103,29 @@ public final class ExperimentStorage implements IdentityStore, StatsStore, AutoC
     if(!after.tables().equals(expected))throw rejected();
     active(); account=proposed;return proposed;
   }
+  /**
+   * Separately enabled, operator-bound recovery after a verified Google principal. This does not
+   * create an account or reset admission. A permanent singleton claim fences retries and restarts.
+   */
+  public synchronized String recoverAccount(String issuer,String subject,String expectedIdentityClaimNonce) {
+    active();
+    if(identityAttempted||!settings.issuer().equals(issuer)||!settings.subject().equals(subject)
+        ||!uuid(expectedIdentityClaimNonce))throw rejected();
+    identityAttempted=true; // No retry even when the read/write outcome cannot be established.
+    var before=read();ready(before);
+    if(!before.tables().containsKey(IDENTITY)||before.tables().containsKey(RECOVERY)
+        ||before.tables().containsKey(RESULT)
+        ||!before.tables().get(IDENTITY).get(1).get(2).equals(expectedIdentityClaimNonce)
+        ||before.tables().get("accounts").size()!=2||before.tables().get("auth_identities").size()!=2
+        ||before.tables().get("envelopes").size()!=1||before.tables().get("commits").size()!=1
+        ||!before.tables().get("erasure_ledger").equals(List.of(ErasureLedger.HEADER,ErasureLedger.SENTINEL)))throw rejected();
+    String existing=before.tables().get("accounts").get(1).get(0);
+    if(!before.tables().get("auth_identities").get(1).equals(List.of(issuer,subject,existing,"1")))throw rejected();
+    var guard=guard();active();gateway.claimAtomic(RECOVERY,guard,Map.of());
+    var after=read();var expected=new TreeMap<>(before.tables());expected.put(RECOVERY,guard);
+    if(!after.tables().equals(expected))throw rejected();
+    active();account=existing;return existing;
+  }
   @Override public synchronized SaveStatus submit(FinalMatchEnvelope e) {
     if(finalAttempted) return Objects.equals(attemptedCommit,e.commitId())&&Objects.equals(attemptedHash,e.payloadHash())?saveStatus:SaveStatus.REJECTED;
     try {active(); validateOwner(e);}catch(RuntimeException rejected){return SaveStatus.REJECTED;}
@@ -168,7 +191,7 @@ public final class ExperimentStorage implements IdentityStore, StatsStore, AutoC
       if(GUARDS.contains(entry.getKey())&&(rows.size()!=2||!rows.get(1).get(0).equals(settings.datasetId())||!rows.get(1).get(1).equals(settings.expiresAt().toString())||!uuid(rows.get(1).get(2))))throw rejected();
     }
     if(!s.tables().get("dataset").equals(List.of(HEADERS.get("dataset"),List.of(PURPOSE,settings.datasetId()))))throw rejected();
-    if(s.tables().containsKey(RESULT)&&!s.tables().containsKey(IDENTITY)||s.tables().containsKey(IDENTITY)&&!s.tables().containsKey(BOOT))throw rejected();
+    if((s.tables().containsKey(RESULT)||s.tables().containsKey(RECOVERY))&&!s.tables().containsKey(IDENTITY)||s.tables().containsKey(IDENTITY)&&!s.tables().containsKey(BOOT))throw rejected();
     var a=s.tables().get("accounts");var i=s.tables().get("auth_identities");
     if(a.size()>2||i.size()>2||a.size()!=i.size())throw rejected();
     if(a.size()==2&&(!uuid(a.get(1).get(0))||!a.get(1).get(1).equals("1")||!i.get(1).equals(List.of(settings.issuer(),settings.subject(),a.get(1).get(0),"1"))||!s.tables().containsKey(IDENTITY)))throw rejected();

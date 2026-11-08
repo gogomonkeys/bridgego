@@ -50,3 +50,22 @@ describe("public config and identity-scoped account requests", () => {
     ).rejects.toThrow("身分已改變");
   });
 });
+
+it("allows bounded 60-second recovery readback without retrying its write", async () => {
+  const timeout = vi.spyOn(AbortSignal, "timeout");
+  const fetch = vi.fn(async () => {
+    throw new Error("timeout");
+  });
+  vi.stubGlobal("fetch", fetch);
+  await expect(
+    accountRequest(
+      "/auth/google/recover",
+      "POST",
+      { credential: "synthetic", consent: true },
+      "current",
+    ),
+  ).rejects.toThrow("timeout");
+  expect(timeout).toHaveBeenCalledWith(60000);
+  expect(fetch).toHaveBeenCalledOnce();
+  timeout.mockRestore();
+});

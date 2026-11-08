@@ -288,3 +288,131 @@ describe("optional consent-scoped Google attempts", () => {
     expect(s.deps.update).not.toHaveBeenCalled();
   });
 });
+
+describe("one-time account recovery", () => {
+  function recoverySetup() {
+    const base = setup();
+    const recover = vi.fn(async () => ({ signedIn: true }));
+    const recoverySubmitted = vi.fn();
+    const controller = createLoginAttempt({
+      ...base.deps,
+      recover,
+      recoverySubmitted,
+    });
+    return { ...base, controller, recover, recoverySubmitted };
+  }
+  it("uses only explicit recovery nonce and endpoint and does not create an identity", async () => {
+    const s = recoverySetup();
+    await s.controller.start("configured", s.element, "recover");
+    expect(s.deps.nonce).toHaveBeenCalledWith("recover");
+    s.credential();
+    await Promise.resolve();
+    expect(s.recoverySubmitted).toHaveBeenCalledOnce();
+    expect(s.recover).toHaveBeenCalledOnce();
+    expect(s.deps.link).not.toHaveBeenCalled();
+    expect(s.deps.verify).not.toHaveBeenCalled();
+    expect(s.deps.update).toHaveBeenLastCalledWith(
+      "idle",
+      expect.stringContaining("已恢復"),
+      true,
+    );
+  });
+  it("blocks retry and normal-login fallback after uncertain submission", async () => {
+    const s = recoverySetup();
+    s.recover.mockRejectedValue(new Error("network"));
+    await s.controller.start("configured", s.element, "recover");
+    s.credential();
+    await Promise.resolve();
+    await s.controller.start("configured", s.element, "recover");
+    await s.controller.start("configured", s.element, "link");
+    expect(s.recover).toHaveBeenCalledOnce();
+    expect(s.deps.nonce).toHaveBeenCalledOnce();
+    expect(s.deps.link).not.toHaveBeenCalled();
+    expect(s.deps.update).toHaveBeenLastCalledWith(
+      "idle",
+      expect.stringContaining("不要重新登入"),
+      undefined,
+    );
+  });
+  it("blocks a duplicate callback during and after submission", async () => {
+    const s = recoverySetup();
+    const pending = deferred<{ signedIn: boolean }>();
+    s.recover.mockReturnValue(pending.promise);
+    await s.controller.start("configured", s.element, "recover");
+    s.credential();
+    s.credential();
+    s.controller.cancel();
+    expect(s.recover).toHaveBeenCalledOnce();
+    pending.resolve({ signedIn: true });
+    await Promise.resolve();
+    s.credential();
+    expect(s.recover).toHaveBeenCalledOnce();
+  });
+  it("cancel before credential prevents late callback without consuming recovery", async () => {
+    const s = recoverySetup();
+    await s.controller.start("configured", s.element, "recover");
+    const old = vi.mocked(s.google.initialize).mock.calls[0][0].callback;
+    s.controller.cancel();
+    old({ credential: "old" });
+    expect(s.recover).not.toHaveBeenCalled();
+    expect(s.recoverySubmitted).not.toHaveBeenCalled();
+    await s.controller.start("configured", s.element, "recover");
+    old({ credential: "old" });
+    s.credential();
+    await Promise.resolve();
+    expect(s.recover).toHaveBeenCalledOnce();
+  });
+  it("expiry/navigation makes callbacks inert", async () => {
+    const s = recoverySetup();
+    await s.controller.start("configured", s.element, "recover");
+    s.deps.eligible.mockReturnValue(false);
+    s.credential();
+    expect(s.recover).not.toHaveBeenCalled();
+  });
+  it("dispose ignores pending recovery result", async () => {
+    const s = recoverySetup();
+    const pending = deferred<{ signedIn: boolean }>();
+    s.recover.mockReturnValue(pending.promise);
+    await s.controller.start("configured", s.element, "recover");
+    s.credential();
+    s.controller.dispose();
+    const count = s.deps.update.mock.calls.length;
+    pending.resolve({ signedIn: true });
+    await Promise.resolve();
+    expect(s.deps.update.mock.calls).toHaveLength(count);
+  });
+  it("missing recovery implementation does not downgrade to normal link", async () => {
+    const s = setup();
+    await s.controller.start("configured", s.element, "recover");
+    expect(s.deps.nonce).not.toHaveBeenCalled();
+    expect(s.deps.link).not.toHaveBeenCalled();
+  });
+  it("false recovery response stays blocked rather than inviting a retry", async () => {
+    const s = recoverySetup();
+    s.recover.mockResolvedValue({ signedIn: false });
+    await s.controller.start("configured", s.element, "recover");
+    s.credential();
+    await Promise.resolve();
+    await s.controller.start("configured", s.element, "recover");
+    expect(s.recover).toHaveBeenCalledOnce();
+    expect(s.deps.update).toHaveBeenLastCalledWith(
+      "idle",
+      expect.stringContaining("不要重試"),
+      false,
+    );
+  });
+});
+
+it("does not revoke a submitted recovery after navigation or network timeout", async () => {
+  const s = setup();
+  const pending = deferred<{ signedIn: boolean }>();
+  const recover = vi.fn(() => pending.promise);
+  const controller = createLoginAttempt({ ...s.deps, recover });
+  await controller.start("configured", s.element, "recover");
+  s.credential();
+  controller.dispose();
+  expect(s.deps.cancel).not.toHaveBeenCalled();
+  pending.resolve({ signedIn: true });
+  await Promise.resolve();
+  expect(s.deps.cancel).not.toHaveBeenCalled();
+});

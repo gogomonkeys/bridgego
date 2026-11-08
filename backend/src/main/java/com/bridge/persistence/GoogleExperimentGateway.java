@@ -21,13 +21,14 @@ public final class GoogleExperimentGateway implements ExperimentGateway {
     if(observed==null||!ExperimentStorage.GUARDS.contains(guard)||observed.snapshot().tables().containsKey(guard))throw stopped();
     var expected=observed;readComplete();if(!expected.fingerprint().equals(observed.fingerprint()))throw stopped();
     Set<String> expectedTabs=guard.equals(ExperimentStorage.BOOT)?Set.of("retention_ledger"):
-        guard.equals(ExperimentStorage.IDENTITY)?Set.of("accounts","auth_identities"):Set.of("envelopes","commits");
+        guard.equals(ExperimentStorage.IDENTITY)?Set.of("accounts","auth_identities"):
+        guard.equals(ExperimentStorage.RECOVERY)?Set.of():Set.of("envelopes","commits");
     if(!appendRows.keySet().equals(expectedTabs)||!guardRows.get(0).equals(ExperimentStorage.GUARD_HEADER))throw stopped();
     var candidate=new TreeMap<>(observed.snapshot().tables());candidate.put(guard,guardRows);
     appendRows.forEach((tab,rows)->{var combined=new ArrayList<>(candidate.get(tab));rows.forEach(row->combined.add(row.stream().map(Object::toString).toList()));candidate.put(tab,combined);});
     ExperimentStorage.validate(new Snapshot(settings.spreadsheetId(),true,candidate),settings,clock);
     if(!clock.instant().isBefore(settings.expiresAt()))throw stopped();
-    int id=guard.equals(ExperimentStorage.BOOT)?1900000001:guard.equals(ExperimentStorage.IDENTITY)?1900000002:1900000003;
+    int id=guard.equals(ExperimentStorage.BOOT)?1900000001:guard.equals(ExperimentStorage.IDENTITY)?1900000002:guard.equals(ExperimentStorage.RECOVERY)?1900000004:1900000003;
     if(observed.grids().values().stream().anyMatch(g->g.sheetId()==id))throw stopped();
     var requests=new ArrayList<Object>();
     requests.add(Map.of("addSheet",Map.of("properties",Map.of("sheetId",id,"title",guard,"gridProperties",Map.of("rowCount",2,"columnCount",3)))));

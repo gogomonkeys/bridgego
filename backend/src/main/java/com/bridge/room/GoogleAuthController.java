@@ -31,6 +31,11 @@ public class GoogleAuthController {
       @RequestHeader(value="Origin", required=false) String origin, @RequestBody LoginRequest request) {
     return auth.login(identity(bearer), origin, request.credential(), request.consent());
   }
+  @PostMapping("/google/recover") public GoogleAuthService.Status recover(
+      @RequestHeader(value="Authorization", required=false) String bearer,
+      @RequestHeader(value="Origin", required=false) String origin, @RequestBody LoginRequest request) {
+    return auth.recover(identity(bearer), origin, request.credential(), request.consent());
+  }
   @PostMapping("/google/verify") public GoogleAuthService.VerifiedIdentity verifyOnly(
       @RequestHeader(value="Authorization", required=false) String bearer,
       @RequestHeader(value="Origin", required=false) String origin, @RequestBody LoginRequest request) {
