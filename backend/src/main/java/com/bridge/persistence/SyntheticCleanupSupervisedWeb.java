@@ -153,43 +153,66 @@ public final class SyntheticCleanupSupervisedWeb {
       <label><input id="consent" type="checkbox">我同意本次操作僅作用於已授權的隔離合成測試表。</label>
       <label><input id="frozen" type="checkbox">我已停止所有其他寫入者，並將持續停止直到本次流程結束。</label>
       <button id="preview" disabled>重新驗證並取得第一階段預覽</button>
+      <p id="status" role="status" aria-live="polite">INITIALIZING：頁面程式尚未完成初始化；尚未送出操作。</p>
+      <noscript>JAVASCRIPT_DISABLED：請啟用 JavaScript 才能顯示診斷與驗證介面；尚未送出操作。</noscript>
       <h2>本階段精確預覽（識別資訊遮蔽）</h2><pre id="view">尚未讀取。</pre>
       <label>逐字輸入本階段確認文字：<input id="exact" type="text" autocomplete="off" spellcheck="false"></label>
       <pre id="required"></pre><button id="confirm" disabled>重新驗證並執行本階段</button>
-      <div id="google"></div><p id="status" role="status">確認服務設定中。</p><h2>最近結果</h2><pre id="result">尚未執行。</pre>
+      <div id="google"></div><h2>最近結果</h2><pre id="result">尚未執行。</pre>
       <script src="https://accounts.google.com/gsi/client" async defer></script><script src="/supervised.js" defer></script></html>
       """;
   static final String JS = """
       'use strict';
       const el=id=>document.getElementById(id), preview=el('preview'), confirm=el('confirm'), consent=el('consent'), frozen=el('frozen'), exact=el('exact'), holder=el('google');
-      let enabled=false, stopped=false, busy=false, next=false, view=null, active=null;
+      let enabled=false, stopped=false, busy=false, next=false, view=null, active=null, submission='NO_OPERATION_SUBMITTED';
+      const backendCodes=new Set(['CHALLENGE_LIMIT','CONFIGURATION_REJECTED','EXPLICIT_CONSENT_AND_FREEZE_REQUIRED','FRESH_AUTHENTICATION_REQUIRED','NOT_CONFIGURED','OPERATOR_AUTHENTICATION_FAILED','OPERATOR_NOT_ALLOWED','PREVIEW_NOT_AVAILABLE','PREVIEW_UNVERIFIED','RUN_ALREADY_STARTED','RUN_STOPPED','START_UNVERIFIED','SUPERVISED_REQUEST_REJECTED','ORIGIN_NOT_ALLOWED','JSON_REQUIRED','REQUEST_TOO_LARGE','RATE_LIMITED','EMPTY_CHALLENGE_REQUIRED']);
+      const reasons={HEALTH_NETWORK:'無法取得服務健康狀態。',HEALTH_HTTP:'服務健康狀態請求遭拒。',HEALTH_DECODE:'服務健康狀態不是有效 JSON。',HEALTH_INVALID:'服務健康狀態格式不正確。',SERVICE_DISABLED:'服務尚未啟用。',GOOGLE_NOT_READY:'Google 登入程式尚未就緒。',GOOGLE_SETUP_FAILED:'Google 登入介面無法初始化。',CHALLENGE_NETWORK:'無法取得驗證挑戰。',CHALLENGE_DECODE:'驗證挑戰不是有效 JSON。',CHALLENGE_REJECTED:'驗證挑戰請求遭拒。',CHALLENGE_INVALID:'驗證挑戰格式不正確。',AUTH_TIMEOUT:'等待操作者驗證逾時。',CONSENT_CHANGED:'驗證或請求途中同意勾選已變更。',CONFIRMATION_CHANGED:'驗證或請求途中確認文字已變更。',GOOGLE_PROOF_INVALID:'Google 未提供有效驗證資料。',OPERATION_NETWORK:'操作請求未收到可判讀回應。',OPERATION_DECODE:'操作回應不是有效 JSON。',OPERATION_REJECTED:'操作請求遭拒。',PREVIEW_INVALID:'預覽資料格式不正確。',PREVIEW_EXPIRED:'本階段預覽已過期。',RESULT_INVALID:'執行結果格式不正確。',RESULT_NOT_VERIFIED:'伺服器未回報本階段驗證通過。',CLIENT_FAILURE:'頁面無法完成目前步驟。'};
+      const stages={NO_OPERATION_SUBMITTED:'本次尚未嘗試送出試算表操作請求（可能已嘗試送出驗證挑戰）。',READ_SUBMITTED:'本次已嘗試送出讀取請求；是否送達及處理結果不能單憑此欄確認，請參照上方結果代碼。',WRITE_SUBMITTED:'本次已嘗試送出寫入請求；是否送達及處理結果不能單憑此欄確認，請參照上方結果代碼。'};
+      function status(code,text){el('status').textContent=code+'：'+text+' ['+submission+'] '+stages[submission];}
       function update(){const ok=enabled&&!stopped&&!busy&&consent.checked&&frozen.checked;
-        preview.disabled=!ok||view!==null;confirm.disabled=!ok||view===null||exact.value!==view.confirmation||Date.parse(view.expiresAt)<=Date.now();}
-      function stop(code){stopped=true;busy=false;active=null;holder.replaceChildren();update();el('status').textContent=(typeof code==='string'&&/^[A-Z_]{1,64}$/.test(code)?code+'：':'')+'流程已停止或結果未確認。請保留目前狀態並人工檢查；不要重試或移除控制標記。';}
+        preview.disabled=!ok||view!==null;confirm.disabled=!ok||view===null||exact.value!==view.confirmation||Date.parse(view.expiresAt)<=Date.now();
+        if(view&&!busy&&!stopped&&Date.parse(view.expiresAt)<=Date.now())stop('PREVIEW_EXPIRED');}
+      function stop(code){const safe=Object.hasOwn(reasons,code)||backendCodes.has(code)?code:'CLIENT_FAILURE';stopped=true;busy=false;active=null;holder.replaceChildren();update();status(safe,(reasons[safe]||'伺服器拒絕本次請求。')+(submission==='NO_OPERATION_SUBMITTED'?'':' 服務端結果未確認。')+' 流程已停止。請保留狀態並人工檢查；不要重試或移除控制標記。');}
       function finish(){busy=false;active=null;holder.replaceChildren();consent.checked=false;frozen.checked=false;exact.value='';update();}
-      async function post(path,body){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'omit',cache:'no-store'});const data=await response.json();if(!response.ok){const error=Error();error.code=data.code;throw error;}return data;}
-      function changed(){if(active){stop();}update();}consent.onchange=changed;frozen.onchange=changed;exact.oninput=()=>{if(active)stop();else update();};
-      fetch('/health/ready',{cache:'no-store',credentials:'omit'}).then(r=>r.json()).then(j=>{enabled=j.enabled===true;el('status').textContent=enabled?'尚未讀取。請明確開始第一階段預覽。':'尚未啟用。';update();}).catch(stop);
+      function failure(code){const error=Error();error.code=code;return error;}
+      async function post(path,body,kind){let response,data;
+        try{response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'omit',cache:'no-store'});}catch(ignored){throw failure(kind+'_NETWORK');}
+        try{data=await response.json();}catch(ignored){throw failure(kind+'_DECODE');}
+        if(!response.ok)throw failure(backendCodes.has(data?.code)?data.code:kind+'_REJECTED');return data;}
+      function changed(){if(active)stop('CONSENT_CHANGED');else update();}consent.onchange=changed;frozen.onchange=changed;exact.oninput=()=>{if(active)stop('CONFIRMATION_CHANGED');else update();};
+      async function health(){let response,j;status('HEALTH_CHECK','確認服務設定中。');
+        try{response=await fetch('/health/ready',{cache:'no-store',credentials:'omit'});}catch(ignored){stop('HEALTH_NETWORK');return;}
+        if(!response.ok){stop('HEALTH_HTTP');return;}
+        try{j=await response.json();}catch(ignored){stop('HEALTH_DECODE');return;}
+        if(!j||typeof j.enabled!=='boolean'){stop('HEALTH_INVALID');return;}
+        if(!j.enabled){stop('SERVICE_DISABLED');return;}enabled=true;status('READY','請勾選同意與停止寫入者，再明確開始第一階段預覽。');update();}
+      health();
       async function authorize(action){if(busy||stopped||!consent.checked||!frozen.checked)return;
-        const pending=view, phrase=exact.value, a={used:false};active=a;busy=true;update();
-        try{if(!window.google?.accounts?.id)throw Error();const c=await post('/supervised/challenge',{});if(active!==a)return;
-          el('status').textContent='請完成本次全新 Google 操作者驗證。';
-          setTimeout(()=>{if(active===a&&!a.used)stop();},120000);
-          google.accounts.id.initialize({client_id:c.clientId,nonce:c.nonce,auto_select:false,callback:async token=>{
+        const pending=view, phrase=exact.value, a={used:false};active=a;busy=true;submission='NO_OPERATION_SUBMITTED';update();
+        try{if(!window.google?.accounts?.id){stop('GOOGLE_NOT_READY');return;}status('CHALLENGE_PENDING','正在取得一次性驗證挑戰。');
+          const c=await post('/supervised/challenge',{},'CHALLENGE');if(active!==a)return;
+          if(!c||typeof c.clientId!=='string'||!c.clientId||typeof c.nonce!=='string'||!c.nonce){stop('CHALLENGE_INVALID');return;}
+          status('AUTH_PENDING','請完成本次全新 Google 操作者驗證。');
+          setTimeout(()=>{if(active===a&&!a.used)stop('AUTH_TIMEOUT');},120000);
+          try{google.accounts.id.initialize({client_id:c.clientId,nonce:c.nonce,auto_select:false,callback:async token=>{
             if(active!==a||a.used||stopped||!consent.checked||!frozen.checked)return;a.used=true;holder.replaceChildren();
+            if(!token||typeof token.credential!=='string'||!token.credential){stop('GOOGLE_PROOF_INVALID');return;}
             const proof={nonce:c.nonce,credential:token.credential,consent:true,writersFrozen:true};
-            try{el('status').textContent='執行本次請求中。不會自動重試。';
-              const j=await post('/supervised/'+action,action==='confirm'?{proof,planId:pending.planId,exactConfirmation:phrase}:proof);
+            try{submission=action==='confirm'?'WRITE_SUBMITTED':'READ_SUBMITTED';status('OPERATION_PENDING','正在等待本次操作回應。不會自動重試。');
+              const j=await post('/supervised/'+action,action==='confirm'?{proof,planId:pending.planId,exactConfirmation:phrase}:proof,'OPERATION');
               if(active!==a)return;
-              if(action==='confirm'){el('result').textContent=JSON.stringify(j,null,2);view=null;el('required').textContent='';
-                if(j.outcome!=='VERIFIED'){stop();return;}if(j.syntheticFunctionalRunVerified===true){stopped=true;el('status').textContent='合成流程驗證通過。正式清理仍未獲得認證。';}
-                else{next=true;preview.textContent='重新驗證並取得下一階段預覽';el('status').textContent='本階段已驗證。下一階段需重新勾選同意並手動開始。';}}
-              else{if(typeof j.confirmation!=='string'||!j.confirmation||typeof j.planId!=='string'||!Number.isFinite(Date.parse(j.expiresAt)))throw Error();
-                view=j;el('view').textContent=JSON.stringify(j,null,2);el('required').textContent=j.confirmation;el('status').textContent='請檢查每個表格與儲存格變更，重新勾選同意並逐字輸入確認文字。';}
+              if(action==='confirm'){
+                if(!j||typeof j.outcome!=='string'||!Number.isInteger(j.verifiedPhases)||typeof j.syntheticFunctionalRunVerified!=='boolean'||j.productionCleanupCertified!==false){stop('RESULT_INVALID');return;}
+                el('result').textContent=JSON.stringify({outcome:['VERIFIED','REJECTED','STOPPED_UNCERTAIN'].includes(j.outcome)?j.outcome:'UNVERIFIED',verifiedPhases:j.verifiedPhases,syntheticFunctionalRunVerified:j.syntheticFunctionalRunVerified,productionCleanupCertified:false},null,2);view=null;el('required').textContent='';
+                if(j.outcome!=='VERIFIED'){stop('RESULT_NOT_VERIFIED');return;}if(j.syntheticFunctionalRunVerified===true){stopped=true;status('RUN_VERIFIED','伺服器回報合成流程驗證通過。正式清理仍未獲得認證。');}
+                else{next=true;preview.textContent='重新驗證並取得下一階段預覽';status('STAGE_VERIFIED','伺服器回報本階段已驗證。下一階段需重新勾選同意並手動開始。');}}
+              else{if(!j||typeof j.confirmation!=='string'||!j.confirmation||typeof j.planId!=='string'||!j.planId||!Number.isFinite(Date.parse(j.expiresAt))){stop('PREVIEW_INVALID');return;}
+                view=j;el('view').textContent=JSON.stringify(j,null,2);el('required').textContent=j.confirmation;status('PREVIEW_READY','請檢查每個表格與儲存格變更，重新勾選同意並逐字輸入確認文字。');}
               finish();
-            }catch(error){stop(error.code);}}});
-          holder.replaceChildren();google.accounts.id.renderButton(holder,{type:'standard',theme:'outline',size:'large'});
-        }catch(error){stop(error.code);}}
+            }catch(error){if(active===a)stop(error.code);}}});
+            holder.replaceChildren();google.accounts.id.renderButton(holder,{type:'standard',theme:'outline',size:'large'});
+          }catch(ignored){stop('GOOGLE_SETUP_FAILED');}
+        }catch(error){if(active===a)stop(error.code);}}
       preview.onclick=()=>{if(!preview.disabled)authorize(next?'next':'start');};
       confirm.onclick=()=>{if(!confirm.disabled)authorize('confirm');};
       setInterval(update,1000);

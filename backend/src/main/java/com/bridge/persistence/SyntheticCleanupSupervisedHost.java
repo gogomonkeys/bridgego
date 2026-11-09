@@ -44,6 +44,15 @@ final class SyntheticCleanupSupervisedHost implements AutoCloseable {
     final String code;
     Failure(String code){super(code);this.code=code;}
   }
+  enum Diagnostic { AUTHENTICATION_STARTED, AUTHENTICATION_SUCCESS, AUTHENTICATION_FAILED,
+    FACTORY_STARTED, FACTORY_SUCCESS, FACTORY_FAILED,
+    INITIAL_READ_STARTED, INITIAL_READ_SUCCESS, INITIAL_READ_FAILED,
+    INITIAL_SCHEMA_STARTED, INITIAL_SCHEMA_SUCCESS, INITIAL_SCHEMA_FAILED,
+    PREVIEW_STARTED, PREVIEW_SUCCESS, PREVIEW_FAILED,
+    CONFIRMATION_REJECTED, EXECUTION_STARTED, PHASE_VERIFIED, EXECUTION_UNVERIFIED }
+  private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(SyntheticCleanupSupervisedHost.class);
+  private static void log(Diagnostic code){LOG.info("SYNTHETIC_SUPERVISED {}",code.name());}
+  private final Consumer<Diagnostic> diagnostics;
   private final Settings settings;
   private final GoogleCredentialVerifier verifier;
   private final Factory factory;
@@ -56,8 +65,12 @@ final class SyntheticCleanupSupervisedHost implements AutoCloseable {
   private int verifiedPhases;
 
   SyntheticCleanupSupervisedHost(Settings settings,GoogleCredentialVerifier verifier,Factory factory,Clock clock){
+    this(settings,verifier,factory,clock,SyntheticCleanupSupervisedHost::log);
+  }
+  SyntheticCleanupSupervisedHost(Settings settings,GoogleCredentialVerifier verifier,Factory factory,Clock clock,Consumer<Diagnostic> diagnostics){
     this.settings=Objects.requireNonNull(settings);this.verifier=Objects.requireNonNull(verifier);
     this.factory=Objects.requireNonNull(factory);this.clock=Objects.requireNonNull(clock);
+    this.diagnostics=Objects.requireNonNull(diagnostics);
   }
   /** Called only after authenticated explicit start. Initial scaffold read uses the fixed route.
    * No keys are loaded at startup or supplied through browser fields. */
@@ -70,10 +83,15 @@ final class SyntheticCleanupSupervisedHost implements AutoCloseable {
         if(supplied==null||supplied.length()>20000)throw fail("START_UNVERIFIED");
         key=supplied.getBytes(StandardCharsets.UTF_8);
         http=LiveQuarterHttp.open(new ManualQuarterMaintenance.Binding(settings.target(),"00000000-0000-4000-8000-000000000001"),key);
-        scaffold=http.readWorkbook();
-        var wire=new SyntheticCleanupHttpWire(settings.target(),scaffold,http,clock);
-        var result=new SyntheticCleanupSupervisedSession(settings.target(),scaffold,wire,clock,()->true);
-        http=null;return result;
+        log(Diagnostic.INITIAL_READ_STARTED);
+        try{scaffold=http.readWorkbook();log(Diagnostic.INITIAL_READ_SUCCESS);}
+        catch(RuntimeException | LinkageError invalid){log(Diagnostic.INITIAL_READ_FAILED);throw invalid;}
+        log(Diagnostic.INITIAL_SCHEMA_STARTED);
+        try{
+          var wire=new SyntheticCleanupHttpWire(settings.target(),scaffold,http,clock);
+          var result=new SyntheticCleanupSupervisedSession(settings.target(),scaffold,wire,clock,()->true);
+          log(Diagnostic.INITIAL_SCHEMA_SUCCESS);http=null;return result;
+        }catch(RuntimeException | LinkageError invalid){log(Diagnostic.INITIAL_SCHEMA_FAILED);throw invalid;}
       }catch(RuntimeException | LinkageError invalid){throw fail("START_UNVERIFIED");}
       finally{
         if(key!=null)Arrays.fill(key,(byte)0);if(scaffold!=null)Arrays.fill(scaffold,(byte)0);
@@ -92,32 +110,40 @@ final class SyntheticCleanupSupervisedHost implements AutoCloseable {
   synchronized View start(Proof proof){
     authenticate(proof);if(attempted||session!=null)throw fail("RUN_ALREADY_STARTED");
     attempted=true;
-    try{session=factory.open();return preview();}
-    catch(RuntimeException | LinkageError invalid){close();throw fail("START_UNVERIFIED");}
+    diagnostics.accept(Diagnostic.FACTORY_STARTED);
+    try{session=factory.open();diagnostics.accept(Diagnostic.FACTORY_SUCCESS);}
+    catch(RuntimeException | LinkageError invalid){diagnostics.accept(Diagnostic.FACTORY_FAILED);close();throw fail("START_UNVERIFIED");}
+    return preview();
   }
   synchronized View next(Proof proof){
     authenticate(proof);if(session==null||pending)throw fail("PREVIEW_NOT_AVAILABLE");
     return preview();
   }
   private View preview(){
+    diagnostics.accept(Diagnostic.PREVIEW_STARTED);
     try{
       var p=session.preview();pending=true;pendingPlan=p.confirmation().planId();pendingConfirmation=p.confirmation().confirmation();
       var changes=p.changes().stream().map(c->new SyntheticCleanupSupervisedSession.CellChange(c.table(),c.row(),c.column(),
           redact(c.before()),redact(c.after()))).toList();
+      diagnostics.accept(Diagnostic.PREVIEW_SUCCESS);
       return new View(p.confirmation().phase().name(),p.purpose(),p.tables(),changes,
           p.confirmation().confirmation(),p.confirmation().planId(),p.confirmation().expiresAt(),p.confirmation().targetHash(),
           "僅修改指定隔離假表；每階段單批次新增防重放標記並更新八張表 A1:E32，重設該範圍值與格式。人工停止其他寫入，這不是分散式鎖。版本歷史與備份不會清除。每步須另行確認，未知結果不得重試。");
-    }catch(RuntimeException | LinkageError invalid){close();throw fail("PREVIEW_UNVERIFIED");}
+    }catch(RuntimeException | LinkageError invalid){diagnostics.accept(Diagnostic.PREVIEW_FAILED);close();throw fail("PREVIEW_UNVERIFIED");}
   }
   synchronized Result confirm(Proof proof,String planId,String exactConfirmation){
     authenticate(proof);if(session==null||!pending)throw fail("PREVIEW_NOT_AVAILABLE");
-    if(!pendingPlan.equals(planId)||!pendingConfirmation.equals(exactConfirmation))return new Result("REJECTED",verifiedPhases,false,false);
+    if(!pendingPlan.equals(planId)||!pendingConfirmation.equals(exactConfirmation)){
+      diagnostics.accept(Diagnostic.CONFIRMATION_REJECTED);return new Result("REJECTED",verifiedPhases,false,false);
+    }
     try{
+      diagnostics.accept(Diagnostic.EXECUTION_STARTED); // Invocation, not proof a network write occurred.
       var r=session.confirm(planId,exactConfirmation);
+      diagnostics.accept(r.outcome().equals("VERIFIED")?Diagnostic.PHASE_VERIFIED:Diagnostic.EXECUTION_UNVERIFIED);
       pending=false;verifiedPhases=r.verifiedPhases();
       if(!r.outcome().equals("VERIFIED")||r.syntheticFunctionalRunVerified())close();
       return new Result(r.outcome(),r.verifiedPhases(),r.syntheticFunctionalRunVerified(),false);
-    }catch(RuntimeException | LinkageError invalid){close();return new Result("STOPPED_UNCERTAIN",verifiedPhases,false,false);}
+    }catch(RuntimeException | LinkageError invalid){diagnostics.accept(Diagnostic.EXECUTION_UNVERIFIED);close();return new Result("STOPPED_UNCERTAIN",verifiedPhases,false,false);}
   }
   private String redact(String value){return value.replace(settings.target(),"[指定隔離假表]");}
   private void authenticate(Proof p){
@@ -126,6 +152,7 @@ final class SyntheticCleanupSupervisedHost implements AutoCloseable {
     if(expiry==null||!expiry.isAfter(clock.instant()))throw fail("FRESH_AUTHENTICATION_REQUIRED");
     if(!p.consent()||!p.writersFrozen()||p.credential()==null||p.credential().isBlank()||p.credential().length()>12000)
       throw fail("EXPLICIT_CONSENT_AND_FREEZE_REQUIRED");
+    diagnostics.accept(Diagnostic.AUTHENTICATION_STARTED);
     try{
       var principal=verifier.verify(p.credential(),settings.clientId(),p.nonce());
       if(principal==null||!"https://accounts.google.com".equals(principal.issuer())||principal.subject()==null
@@ -134,7 +161,8 @@ final class SyntheticCleanupSupervisedHost implements AutoCloseable {
       if(!MessageDigest.isEqual(hash.getBytes(StandardCharsets.US_ASCII),settings.operatorHash().getBytes(StandardCharsets.US_ASCII)))
         throw fail("OPERATOR_NOT_ALLOWED");
       if(!expiry.isAfter(clock.instant()))throw fail("FRESH_AUTHENTICATION_REQUIRED");
-    }catch(RuntimeException | LinkageError invalid){throw fail("OPERATOR_AUTHENTICATION_FAILED");}
+      diagnostics.accept(Diagnostic.AUTHENTICATION_SUCCESS);
+    }catch(RuntimeException | LinkageError invalid){diagnostics.accept(Diagnostic.AUTHENTICATION_FAILED);throw fail("OPERATOR_AUTHENTICATION_FAILED");}
   }
   private void enabled(){if(!settings.enabled())throw fail("NOT_CONFIGURED");}
   @Override public synchronized void close(){stopped=true;pending=false;challenges.clear();if(session!=null)session.close();}

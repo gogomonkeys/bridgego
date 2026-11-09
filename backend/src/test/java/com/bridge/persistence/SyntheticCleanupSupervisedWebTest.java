@@ -48,10 +48,12 @@ class SyntheticCleanupSupervisedWebTest {
   }
   @Test void uiRequiresFreshStageApprovalAndNeverPersistsCredentials() {
     var js=SyntheticCleanupSupervisedWeb.JS;
-    assertTrue(js.contains("exact.value!==view.confirmation"));assertTrue(js.contains("post('/supervised/challenge',{})"));
+    assertTrue(js.contains("exact.value!==view.confirmation"));assertTrue(js.contains("post('/supervised/challenge',{},'CHALLENGE')"));
     assertTrue(js.contains("consent.checked=false;frozen.checked=false;exact.value=''"));
-    assertTrue(js.contains("if(j.outcome!=='VERIFIED'){stop();return;}"));
+    assertTrue(js.contains("if(j.outcome!=='VERIFIED'){stop('RESULT_NOT_VERIFIED');return;}"));
     assertFalse(js.contains("localStorage"));assertFalse(js.contains("sessionStorage"));assertFalse(js.contains("innerHTML"));assertFalse(js.contains("/reset"));
+    assertTrue(SyntheticCleanupSupervisedWeb.HTML.indexOf("id=\"status\"")<SyntheticCleanupSupervisedWeb.HTML.indexOf("id=\"confirm\""));
+    assertTrue(SyntheticCleanupSupervisedWeb.HTML.contains("<noscript>JAVASCRIPT_DISABLED"));
   }
   @Test void enabledGuardBoundsOriginBodyAndStrictJsonBeforeAnyCredentialAccess() throws Exception {
     var settings=new SyntheticCleanupSupervisedHost.Settings(true,"https://example.test",

@@ -54,7 +54,9 @@ final class SyntheticCleanupHttpWire implements Wire, AutoCloseable {
           new ManualQuarterMaintenance.Binding(target, DATASET), Objects.requireNonNull(clock), "SYNTHETIC-ONLY-FORMAT-TEST");
       Set<Integer> ids=new HashSet<>();
       for(var grid:book.grids().values()) {
-        if(grid.rowCount()!=1000 || grid.columnCount()!=26 || grid.sheetId()>=SyntheticCleanupExecutor.CONTROL_ID_BASE
+        if(grid.rowCount()!=1000 || grid.columnCount()!=26 || grid.sheetId()<0
+            || (grid.sheetId()>=SyntheticCleanupExecutor.CONTROL_ID_BASE
+                && grid.sheetId()<SyntheticCleanupExecutor.CONTROL_ID_BASE+Phase.values().length)
             || !ids.add(grid.sheetId()))throw failure();
       }
       if(ids.size()!=8)throw failure();return ids;
