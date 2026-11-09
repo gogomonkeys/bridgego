@@ -529,17 +529,33 @@ export default function App() {
               </div>
             </section>
             <section className="panel">
-              <span className="eyebrow">LET’S GET TOGETHER</span>
-              <h2>你好，{state.session!.displayName}</h2>
+              <div className="lobby-panel-heading">
+                <div className="lobby-greeting">
+                  <span className="eyebrow">LET’S GET TOGETHER</span>
+                  <h2>你好，{state.session!.displayName}</h2>
+                </div>
+                {canSeeStatistics && (
+                  <button
+                    type="button"
+                    className="secondary lobby-statistics-button"
+                    onClick={() => navigate("statistics")}
+                  >
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M3 16.5h14M5 13V9m5 4V3.5m5 9.5V6" />
+                    </svg>
+                    <span>本季戰績統計</span>
+                  </button>
+                )}
+              </div>
               <p>開一個新房間，或加入朋友的邀請。</p>
-              {canSeeStatistics && (
-                <button
-                  className="secondary"
-                  onClick={() => navigate("statistics")}
-                >
-                  本季戰績統計
-                </button>
-              )}
               <fieldset className="deal-count-choice" disabled={state.busy}>
                 <legend>本場局數</legend>
                 {[1, 3, 5].map((count) => (

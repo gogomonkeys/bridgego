@@ -6981,6 +6981,50 @@ body {
 .entry-details p { font-size: 0.88rem; }
 .entry-verified { font-weight: 700; }
 
+/* Keep statistics in the greeting card's upper-right corner in normal flow.
+   A long nickname wraps instead of pushing the action outside a narrow card. */
+.lobby-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lobby-greeting {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lobby-statistics-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-color: #b98a3c;
+  border-radius: 12px;
+  background: #f7e5bd;
+  color: #654515;
+  font-weight: 750;
+  white-space: nowrap;
+  box-shadow: 0 2px 0 #dcc18b;
+}
+.lobby-statistics-button svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+@media (max-width: 380px) {
+  .lobby-panel-heading {
+    gap: 8px;
+  }
+  .lobby-statistics-button {
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+  }
+}
+
 .statistics-panel {
   max-width: 850px;
   margin: 0 auto;
