@@ -1,0 +1,314 @@
+[
+  {
+    "title": "commits",
+    "data": [
+      {
+        "startRow": 3
+      }
+    ]
+  },
+  {
+    "title": "quarterly_aggregates",
+    "data": [
+      {
+        "startRow": 1,
+        "rowData": [
+          {
+            "values": [
+              {
+                "formattedValue": "2026-Q3",
+                "userEnteredValue": {
+                  "stringValue": "2026-Q3"
+                },
+                "effectiveValue": {
+                  "stringValue": "2026-Q3"
+                },
+                "effectiveFormat": {
+                  "backgroundColor": {
+                    "red": 1,
+                    "green": 1,
+                    "blue": 1
+                  },
+                  "padding": {
+                    "right": 3,
+                    "left": 3
+                  },
+                  "horizontalAlignment": "LEFT",
+                  "verticalAlignment": "BOTTOM",
+                  "wrapStrategy": "OVERFLOW_CELL",
+                  "textFormat": {
+                    "fontFamily": "Carlito",
+                    "fontSize": 11,
+                    "bold": false,
+                    "italic": false,
+                    "strikethrough": false,
+                    "underline": false
+                  },
+                  "hyperlinkDisplayType": "PLAIN_TEXT",
+                  "backgroundColorStyle": {
+                    "rgbColor": {
+                      "red": 1,
+                      "green": 1,
+                      "blue": 1
+                    }
+                  }
+                }
+              },
+              {
+                "formattedValue": "SUPPRESSED",
+                "userEnteredValue": {
+                  "stringValue": "SUPPRESSED"
+                },
+                "effectiveValue": {
+                  "stringValue": "SUPPRESSED"
+                },
+                "effectiveFormat": {
+                  "backgroundColor": {
+                    "red": 1,
+                    "green": 1,
+                    "blue": 1
+                  },
+                  "padding": {
+                    "right": 3,
+                    "left": 3
+                  },
+                  "horizontalAlignment": "LEFT",
+                  "verticalAlignment": "BOTTOM",
+                  "wrapStrategy": "OVERFLOW_CELL",
+                  "textFormat": {
+                    "fontFamily": "Carlito",
+                    "fontSize": 11,
+                    "bold": false,
+                    "italic": false,
+                    "strikethrough": false,
+                    "underline": false
+                  },
+                  "hyperlinkDisplayType": "PLAIN_TEXT",
+                  "backgroundColorStyle": {
+                    "rgbColor": {
+                      "red": 1,
+                      "green": 1,
+                      "blue": 1
+                    }
+                  }
+                }
+              },
+              {},
+              {},
+              {
+                "formattedValue": "1",
+                "userEnteredValue": {
+                  "stringValue": "1"
+                },
+                "effectiveValue": {
+                  "stringValue": "1"
+                },
+                "effectiveFormat": {
+                  "backgroundColor": {
+                    "red": 1,
+                    "green": 1,
+                    "blue": 1
+                  },
+                  "padding": {
+                    "right": 3,
+                    "left": 3
+                  },
+                  "horizontalAlignment": "LEFT",
+                  "verticalAlignment": "BOTTOM",
+                  "wrapStrategy": "OVERFLOW_CELL",
+                  "textFormat": {
+                    "fontFamily": "Carlito",
+                    "fontSize": 11,
+                    "bold": false,
+                    "italic": false,
+                    "strikethrough": false,
+                    "underline": false
+                  },
+                  "hyperlinkDisplayType": "PLAIN_TEXT",
+                  "backgroundColorStyle": {
+                    "rgbColor": {
+                      "red": 1,
+                      "green": 1,
+                      "blue": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "retention_ledger",
+    "data": [
+      {
+        "startRow": 1,
+        "rowData": [
+          {
+            "values": [
+              {
+                "formattedValue": "2026-Q4",
+                "userEnteredValue": {
+                  "stringValue": "2026-Q4"
+                },
+                "effectiveValue": {
+                  "stringValue": "2026-Q4"
+                },
+                "effectiveFormat": {
+                  "backgroundColor": {
+                    "red": 1,
+                    "green": 1,
+                    "blue": 1
+                  },
+                  "padding": {
+                    "right": 3,
+                    "left": 3
+                  },
+                  "horizontalAlignment": "LEFT",
+                  "verticalAlignment": "BOTTOM",
+                  "wrapStrategy": "OVERFLOW_CELL",
+                  "textFormat": {
+                    "fontFamily": "Carlito",
+                    "fontSize": 11,
+                    "bold": false,
+                    "italic": false,
+                    "strikethrough": false,
+                    "underline": false
+                  },
+                  "hyperlinkDisplayType": "PLAIN_TEXT",
+                  "backgroundColorStyle": {
+                    "rgbColor": {
+                      "red": 1,
+                      "green": 1,
+                      "blue": 1
+                    }
+                  }
+                }
+              },
+              {
+                "formattedValue": "2026-09-30T16:00:00Z",
+                "userEnteredValue": {
+                  "stringValue": "2026-09-30T16:00:00Z"
+                },
+                "effectiveValue": {
+                  "stringValue": "2026-09-30T16:00:00Z"
+                },
+                "effectiveFormat": {
+                  "backgroundColor": {
+                    "red": 1,
+                    "green": 1,
+                    "blue": 1
+                  },
+                  "padding": {
+                    "right": 3,
+                    "left": 3
+                  },
+                  "horizontalAlignment": "LEFT",
+                  "verticalAlignment": "BOTTOM",
+                  "wrapStrategy": "OVERFLOW_CELL",
+                  "textFormat": {
+                    "fontFamily": "Carlito",
+                    "fontSize": 11,
+                    "bold": false,
+                    "italic": false,
+                    "strikethrough": false,
+                    "underline": false
+                  },
+                  "hyperlinkDisplayType": "PLAIN_TEXT",
+                  "backgroundColorStyle": {
+                    "rgbColor": {
+                      "red": 1,
+                      "green": 1,
+                      "blue": 1
+                    }
+                  }
+                }
+              },
+              {
+                "formattedValue": "PENDING",
+                "userEnteredValue": {
+                  "stringValue": "PENDING"
+                },
+                "effectiveValue": {
+                  "stringValue": "PENDING"
+                },
+                "effectiveFormat": {
+                  "backgroundColor": {
+                    "red": 1,
+                    "green": 1,
+                    "blue": 1
+                  },
+                  "padding": {
+                    "right": 3,
+                    "left": 3
+                  },
+                  "horizontalAlignment": "LEFT",
+                  "verticalAlignment": "BOTTOM",
+                  "wrapStrategy": "OVERFLOW_CELL",
+                  "textFormat": {
+                    "fontFamily": "Carlito",
+                    "fontSize": 11,
+                    "bold": false,
+                    "italic": false,
+                    "strikethrough": false,
+                    "underline": false
+                  },
+                  "hyperlinkDisplayType": "PLAIN_TEXT",
+                  "backgroundColorStyle": {
+                    "rgbColor": {
+                      "red": 1,
+                      "green": 1,
+                      "blue": 1
+                    }
+                  }
+                }
+              },
+              {},
+              {
+                "formattedValue": "1",
+                "userEnteredValue": {
+                  "stringValue": "1"
+                },
+                "effectiveValue": {
+                  "stringValue": "1"
+                },
+                "effectiveFormat": {
+                  "backgroundColor": {
+                    "red": 1,
+                    "green": 1,
+                    "blue": 1
+                  },
+                  "padding": {
+                    "right": 3,
+                    "left": 3
+                  },
+                  "horizontalAlignment": "LEFT",
+                  "verticalAlignment": "BOTTOM",
+                  "wrapStrategy": "OVERFLOW_CELL",
+                  "textFormat": {
+                    "fontFamily": "Carlito",
+                    "fontSize": 11,
+                    "bold": false,
+                    "italic": false,
+                    "strikethrough": false,
+                    "underline": false
+                  },
+                  "hyperlinkDisplayType": "PLAIN_TEXT",
+                  "backgroundColorStyle": {
+                    "rgbColor": {
+                      "red": 1,
+                      "green": 1,
+                      "blue": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

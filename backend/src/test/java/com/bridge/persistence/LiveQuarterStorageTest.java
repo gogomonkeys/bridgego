@@ -131,13 +131,13 @@ class LiveQuarterStorageTest {
       assertEquals("userEnteredValue", request.path("updateCells").path("fields").asText());
   }
 
-  @Test void derivedFormatDisappearanceAfterClearingDataRemainsUncertainWithoutSecondWrite() {
+  @Test void inheritedDefaultFormatDisappearanceAfterClearingPermitsVerifiedSecondWrite() {
     var fake = new FakeTransport(); fake.mutate = LiveQuarterWorkbookTest::applyObservedCellDisplayMetadata;
     var run = prepared(fake);
-    assertEquals(ManualQuarterMaintenance.Outcome.UNCERTAIN, run.execute().outcome());
-    assertEquals(1, fake.posts);
-    assertEquals(ManualQuarterMaintenance.Outcome.UNCERTAIN, run.execute().outcome());
-    assertEquals(1, fake.posts);
+    assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE, run.execute().outcome());
+    assertEquals(2, fake.posts);
+    assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE, run.execute().outcome());
+    assertEquals(2, fake.posts);
   }
 
   @Test void acceptedCellFormatPresenceDriftStopsBeforeEitherPhase() {

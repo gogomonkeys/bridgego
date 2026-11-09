@@ -104,7 +104,8 @@ final class LiveQuarterWorkbook {
         for (String name : List.of("rowGroupControlAfter", "columnGroupControlAfter"))
           if (dimensions.has(name) && !dimensions.get(name).isBoolean()) throw failure();
         Grid grid = new Grid(id, rows, columns, index);
-        ParsedGrid parsed = parseGrid(title, grid, required(sheet, "data"), header.size(), carlitoTheme);
+        ParsedGrid parsed = parseGrid(title, grid, required(sheet, "data"), header.size(), carlitoTheme,
+            required(root, "properties").get("defaultFormat"));
         if (grids.put(title, grid) != null) throw failure();
         tables.put(title, parsed.rows());
         ObjectNode metadata = without(sheet, Set.of("data"));
@@ -134,7 +135,8 @@ final class LiveQuarterWorkbook {
     }
   }
 
-  private static ParsedGrid parseGrid(String title, Grid grid, JsonNode blocks, int schemaWidth, boolean carlitoTheme) {
+  private static ParsedGrid parseGrid(String title, Grid grid, JsonNode blocks, int schemaWidth, boolean carlitoTheme,
+      JsonNode defaultFormat) {
     if (!blocks.isArray() || blocks.isEmpty() || blocks.size() > MAX_BLOCKS) throw failure();
     String[][] cells = new String[grid.rowCount()][grid.columnCount()];
     for (String[] row : cells) Arrays.fill(row, "");
@@ -166,6 +168,10 @@ final class LiveQuarterWorkbook {
           // The top-level hyperlink is derived from the exact literal. All accepted user/effective
           // link formatting remains in metadata and must survive value-only readback unchanged.
           ObjectNode meta = without(cell, union(VALUE_FIELDS, Set.of("hyperlink")));
+          // Google sparsely emits this inherited default on populated literal cells and omits it
+          // after clearing. The already-validated root default remains fingerprinted once globally.
+          // Never discard explicit user formatting, issuer-link styling or a non-default format.
+          if (inheritedLiteralDefault(cell, defaultFormat)) meta.remove("effectiveFormat");
           if (!meta.isEmpty()) cellMetadata.put(rr * grid.columnCount() + cc, meta);
         }
       }
@@ -180,6 +186,19 @@ final class LiveQuarterWorkbook {
     metadata.set("rows", JSON.valueToTree(rowMetadata)); metadata.set("columns", JSON.valueToTree(columnMetadata));
     metadata.set("cells", JSON.valueToTree(cellMetadata));
     return new ParsedGrid(List.copyOf(rows), metadata);
+  }
+
+  private static boolean inheritedLiteralDefault(JsonNode cell, JsonNode defaultFormat) {
+    // Called only after parseCell and root properties validated all field names, types and values.
+    if (defaultFormat == null || !defaultFormat.isObject() || defaultFormat.isEmpty()
+        || !cell.has("effectiveFormat")
+        || cell.has("userEnteredFormat") && !cell.get("userEnteredFormat").isEmpty()) return false;
+    ObjectNode expected = defaultFormat.deepCopy();
+    expected.put("horizontalAlignment", "LEFT");
+    expected.put("hyperlinkDisplayType", "PLAIN_TEXT");
+    // In the observed response, default black RGB {} may be omitted. canonical() equates only
+    // those empty representations; populated style fields are compared, not broadly stripped.
+    return canonical(expected).equals(canonical(cell.get("effectiveFormat")));
   }
 
   private static void dimensions(JsonNode block, String key, int start, JsonNode[] coverage) {
