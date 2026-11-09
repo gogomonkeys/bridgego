@@ -199,7 +199,7 @@ public final class SyntheticSheetsErasurePreparation {
     }
   }
 
-  private static Workbook computeInMemoryCandidate(Manifest manifest, Clock clock) {
+  static Workbook computeInMemoryCandidate(Manifest manifest, Clock clock) {
     MemoryTables memory = new MemoryTables(manifest.baseline);
     String localProof = UUID.randomUUID().toString();
     GoogleCredentialVerifier syntheticProof = (credential, audience, nonce) -> {
@@ -219,7 +219,7 @@ public final class SyntheticSheetsErasurePreparation {
     return new Workbook(manifest.sheetId, true, false, result);
   }
 
-  private static void verifyTransform(Manifest manifest, Workbook after) {
+  static void verifyTransform(Manifest manifest, Workbook after) {
     MemoryTables beforeRows = new MemoryTables(manifest.baseline), afterRows = new MemoryTables(after);
     for (String tab : TABLES) if (!REPLACED.contains(tab))
       if (!manifest.baseline.sheets().get(tab).equals(after.sheets().get(tab))) reject();
@@ -304,7 +304,7 @@ public final class SyntheticSheetsErasurePreparation {
     return new Workbook(manifest.sheetId, true, false, grids);
   }
 
-  private static Grid grid(int sheetId, List<List<String>> data) {
+  static Grid grid(int sheetId, List<List<String>> data) {
     if (data.size() > ROWS) reject();
     List<List<Cell>> cells = new ArrayList<>();
     for (int row = 0; row < ROWS; row++) {

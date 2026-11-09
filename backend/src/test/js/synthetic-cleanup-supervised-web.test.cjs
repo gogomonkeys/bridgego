@@ -1,0 +1,26 @@
+// Local fake-browser workflow only. No network, credential or external service access.
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('backend/src/main/java/com/bridge/persistence/SyntheticCleanupSupervisedWeb.java','utf8');
+const js=source.split('static final String JS = """')[1].split('""";')[0];
+const elements=new Map();const get=id=>{if(!elements.has(id))elements.set(id,{checked:false,disabled:true,value:'',textContent:'',replaceChildren(){}});return elements.get(id);};
+let callback,requests=[],queue=[];
+const context=vm.createContext({document:{getElementById:get},Date,JSON,Number,Object,Error,window:{google:{accounts:{id:{}}}},google:{accounts:{id:{initialize(o){callback=o.callback;},renderButton(){}}}},setTimeout(){},setInterval(){},fetch:async(path,options)=>{requests.push({path,body:options?.body});return {ok:true,json:async()=>path==='/health/ready'?{enabled:true}:queue.shift()};}});
+vm.runInContext(js,context);const tick=()=>new Promise(resolve=>setImmediate(resolve));
+const evaluate=code=>vm.runInContext(code,context);
+(async()=>{await tick();assert.equal(get('preview').disabled,true);
+get('consent').checked=true;get('frozen').checked=true;evaluate('update()');assert.equal(get('preview').disabled,false);
+queue.push({nonce:'n1',clientId:'fake'},{phase:'SEED_ERASURE',confirmation:'EXACT STAGE ONE',planId:'p1',expiresAt:new Date(Date.now()+60000).toISOString(),changes:[{table:'fixture',row:2,column:1,before:'',after:'synthetic'}]});
+get('preview').onclick();await tick();await callback({credential:'incoming-proof-one'});
+assert.equal(get('consent').checked,false);assert.equal(get('frozen').checked,false);assert.equal(get('confirm').disabled,true);
+get('consent').checked=true;get('frozen').checked=true;get('exact').value='wrong';evaluate('update()');assert.equal(get('confirm').disabled,true);
+get('exact').value='EXACT STAGE ONE';evaluate('update()');assert.equal(get('confirm').disabled,false);
+queue.push({nonce:'n2',clientId:'fake'},{outcome:'VERIFIED',verifiedPhases:1,syntheticFunctionalRunVerified:false,productionCleanupCertified:false});
+get('confirm').onclick();await tick();await callback({credential:'incoming-proof-two'});
+assert.equal(requests.filter(r=>r.path==='/supervised/challenge').length,2);
+assert.deepEqual(JSON.parse(requests.find(r=>r.path==='/supervised/confirm').body),{proof:{nonce:'n2',credential:'incoming-proof-two',consent:true,writersFrozen:true},planId:'p1',exactConfirmation:'EXACT STAGE ONE'});
+assert.equal(get('exact').value,'');assert.equal(get('consent').checked,false);assert.equal(get('preview').disabled,true);
+assert.equal(requests.filter(r=>r.path==='/supervised/next').length,0);
+evaluate("view={confirmation:'expired',expiresAt:'2000-01-01T00:00:00Z'}");get('consent').checked=true;get('frozen').checked=true;get('exact').value='expired';evaluate('update()');assert.equal(get('confirm').disabled,true);
+evaluate("stop('RUN_STOPPED')");assert.match(get('status').textContent,/RUN_STOPPED/);assert.equal(get('preview').disabled,true);
+console.log('PASS: fake browser fresh proofs, stage-specific confirmation, consent reset, no automatic next, expired preview, safe failure.');
+})().catch(error=>{console.error(error);process.exitCode=1;});
