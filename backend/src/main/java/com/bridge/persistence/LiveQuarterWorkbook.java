@@ -163,7 +163,8 @@ final class LiveQuarterWorkbook {
           String value = parseCell(cell, title, rr, cc, carlitoTheme);
           if (cc >= schemaWidth && !value.isEmpty()) throw failure();
           cells[rr][cc] = value;
-          // The only accepted hyperlink is derived from this exact literal and carries no independent metadata.
+          // The top-level hyperlink is derived from the exact literal. All accepted user/effective
+          // link formatting remains in metadata and must survive value-only readback unchanged.
           ObjectNode meta = without(cell, union(VALUE_FIELDS, Set.of("hyperlink")));
           if (!meta.isEmpty()) cellMetadata.put(rr * grid.columnCount() + cc, meta);
         }
@@ -201,9 +202,8 @@ final class LiveQuarterWorkbook {
         "dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula", "chipRuns")));
     if (cell.has("note") && !text(cell, "note").isEmpty()) throw failure();
     emptyArrays(cell, Set.of("textFormatRuns", "chipRuns"));
-    for (String key : List.of("userEnteredFormat", "dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula"))
+    for (String key : List.of("dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula"))
       emptyObject(cell, key);
-    if (cell.has("effectiveFormat")) plainDefaultFormat(cell.get("effectiveFormat"), carlitoTheme, true);
     JsonNode entered = cell.get("userEnteredValue"), effective = cell.get("effectiveValue");
     String value;
     if (entered == null || entered.isObject() && entered.isEmpty()) {
@@ -215,10 +215,53 @@ final class LiveQuarterWorkbook {
       if (!value.equals(text(effective, "stringValue"))) throw failure();
     }
     if (cell.has("formattedValue") && !value.equals(text(cell, "formattedValue"))) throw failure();
+    boolean enteredLink = cell.has("userEnteredFormat") && !cell.get("userEnteredFormat").isEmpty();
+    if (enteredLink) {
+      // Only the observed Google-created literal issuer link, at its schema-defined data position.
+      // Keep its complete original metadata in the fingerprint; this is validation, not normalization.
+      if (!carlitoTheme || !title.equals("auth_identities") || row <= 0 || column != 0
+          || !ISSUER.equals(value) || !ISSUER.equals(text(cell, "hyperlink"))) throw failure();
+      observedIssuerLinkFormat(cell);
+    } else {
+      emptyObject(cell, "userEnteredFormat");
+      if (cell.has("effectiveFormat")) plainDefaultFormat(cell.get("effectiveFormat"), carlitoTheme, true);
+    }
     if (cell.has("hyperlink") && !text(cell, "hyperlink").isEmpty()
         && !(title.equals("auth_identities") && row > 0 && column == 0
             && ISSUER.equals(value) && ISSUER.equals(text(cell, "hyperlink")))) throw failure();
     return value;
+  }
+
+  /** Exact linked additions from the retained native issuer CellData response. */
+  private static void observedIssuerLinkFormat(JsonNode cell) {
+    JsonNode entered = required(cell, "userEnteredFormat"); fields(entered, Set.of("textFormat"));
+    JsonNode enteredText = required(entered, "textFormat"); fields(enteredText, Set.of("link"));
+    issuerLink(required(enteredText, "link"));
+    JsonNode effective = required(cell, "effectiveFormat");
+    if (!"LINKED".equals(text(effective, "hyperlinkDisplayType"))) throw failure();
+    JsonNode text = required(effective, "textFormat");
+    issuerLink(required(text, "link"));
+    if (!required(text, "underline").isBoolean() || !text.get("underline").booleanValue()) throw failure();
+    if (!"Carlito".equals(text(text, "fontFamily")) || integer(text, "fontSize", 11, 11) != 11) throw failure();
+    issuerLinkColor(required(text, "foregroundColor"));
+    JsonNode style = required(text, "foregroundColorStyle"); fields(style, Set.of("rgbColor"));
+    issuerLinkColor(required(style, "rgbColor"));
+    // Validate all remaining fields with the unchanged plain-format rules, on a private copy only.
+    ObjectNode plain = effective.deepCopy(); plain.remove("hyperlinkDisplayType");
+    ((ObjectNode)plain.get("textFormat")).remove(List.of("link", "underline", "foregroundColor", "foregroundColorStyle"));
+    plainDefaultFormat(plain, true, true);
+  }
+  private static void issuerLink(JsonNode link) {
+    fields(link, Set.of("uri")); if (!ISSUER.equals(text(link, "uri"))) throw failure();
+  }
+  private static void issuerLinkColor(JsonNode rgb) {
+    fields(rgb, Set.of("red", "green", "blue"));
+    List<String> channels = List.of("red", "green", "blue");
+    List<String> expected = CARLITO_THEME_COLORS.get("LINK");
+    for (int i = 0; i < channels.size(); i++) {
+      JsonNode value = required(rgb, channels.get(i));
+      if (!value.isNumber() || value.decimalValue().compareTo(new BigDecimal(expected.get(i))) != 0) throw failure();
+    }
   }
 
   private static boolean properties(JsonNode p) {

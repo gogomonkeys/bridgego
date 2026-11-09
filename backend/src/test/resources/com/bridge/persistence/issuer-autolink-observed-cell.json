@@ -1,0 +1,62 @@
+{
+  "formattedValue": "https://accounts.google.com",
+  "userEnteredValue": {
+    "stringValue": "https://accounts.google.com"
+  },
+  "effectiveValue": {
+    "stringValue": "https://accounts.google.com"
+  },
+  "userEnteredFormat": {
+    "textFormat": {
+      "link": {
+        "uri": "https://accounts.google.com"
+      }
+    }
+  },
+  "effectiveFormat": {
+    "backgroundColor": {
+      "red": 1,
+      "green": 1,
+      "blue": 1
+    },
+    "padding": {
+      "right": 3,
+      "left": 3
+    },
+    "horizontalAlignment": "LEFT",
+    "verticalAlignment": "BOTTOM",
+    "wrapStrategy": "OVERFLOW_CELL",
+    "textFormat": {
+      "foregroundColor": {
+        "red": 0.27450982,
+        "green": 0.47058824,
+        "blue": 0.5254902
+      },
+      "fontFamily": "Carlito",
+      "fontSize": 11,
+      "bold": false,
+      "italic": false,
+      "strikethrough": false,
+      "underline": true,
+      "foregroundColorStyle": {
+        "rgbColor": {
+          "red": 0.27450982,
+          "green": 0.47058824,
+          "blue": 0.5254902
+        }
+      },
+      "link": {
+        "uri": "https://accounts.google.com"
+      }
+    },
+    "hyperlinkDisplayType": "LINKED",
+    "backgroundColorStyle": {
+      "rgbColor": {
+        "red": 1,
+        "green": 1,
+        "blue": 1
+      }
+    }
+  },
+  "hyperlink": "https://accounts.google.com"
+}
