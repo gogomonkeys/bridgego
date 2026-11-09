@@ -28,6 +28,10 @@ public final class SyntheticCleanupSupervisedWeb {
     if (!System.getProperty("jdk.httpclient.HttpClient.log", "").isBlank()
         || !System.getProperty("javax.net.debug", "").isBlank()) throw new IllegalArgumentException("HTTP/TLS debug logging is not supported");
     if (args == null || args.length != 0) throw new IllegalArgumentException("No command-line options accepted");
+    // This isolated artifact must use SLF4J's no-provider NOP fallback. Never relax the
+    // transport's standalone guard or rely on mutable logger levels/filter configuration.
+    LiveQuarterHttp.requireSilentLogging();
+    System.setProperty("org.springframework.boot.logging.LoggingSystem", "none");
     var settings = SyntheticCleanupSupervisedHost.Settings.read(env);
     String port = env.apply("PORT");
     if (port == null) port = "8080";

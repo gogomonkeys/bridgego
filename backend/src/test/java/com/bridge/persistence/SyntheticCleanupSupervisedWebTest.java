@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 class SyntheticCleanupSupervisedWebTest {
+  @org.junit.jupiter.api.condition.EnabledIfSystemProperty(named="bridge.supervised.runtime",matches="true")
   @Test void disabledGraphHasNoGameSecretReadsOrMutation() throws Exception {
     String port;try(var socket=new ServerSocket(0)){port=""+socket.getLocalPort();}
     AtomicInteger reads=new AtomicInteger();

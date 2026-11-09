@@ -50,8 +50,8 @@ final class SyntheticCleanupSupervisedHost implements AutoCloseable {
     INITIAL_SCHEMA_STARTED, INITIAL_SCHEMA_SUCCESS, INITIAL_SCHEMA_FAILED,
     PREVIEW_STARTED, PREVIEW_SUCCESS, PREVIEW_FAILED,
     CONFIRMATION_REJECTED, EXECUTION_STARTED, PHASE_VERIFIED, EXECUTION_UNVERIFIED }
-  private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(SyntheticCleanupSupervisedHost.class);
-  private static void log(Diagnostic code){LOG.info("SYNTHETIC_SUPERVISED {}",code.name());}
+  
+  private static void log(Diagnostic code){System.err.println("SYNTHETIC_SUPERVISED "+code.name());}
   private final Consumer<Diagnostic> diagnostics;
   private final Settings settings;
   private final GoogleCredentialVerifier verifier;
