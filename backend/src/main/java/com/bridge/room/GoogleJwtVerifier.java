@@ -13,17 +13,28 @@ import java.util.*;
 
 /** Offline signature verification against keys fetched only from Google's fixed HTTPS JWKS URL. */
 public final class GoogleJwtVerifier implements GoogleCredentialVerifier {
+  /** Fixed classifications only; no token, claim, key identifier or exception data crosses this boundary. */
+  public enum Diagnostic { FORMAT_REJECTED, KEY_LOOKUP_FAILED, SIGNATURE_REJECTED,
+    CLAIMS_REJECTED, TIME_REJECTED, NONCE_REJECTED }
   public interface Keys { PublicKey get(String kid) throws Exception; }
   private final ObjectMapper json;
   private final Clock clock;
   private final Keys keys;
+  private final java.util.function.Consumer<Diagnostic> diagnostics;
   public GoogleJwtVerifier(ObjectMapper json) {
-    this(json, Clock.systemUTC(), new GoogleKeys(json));
+    this(json, Clock.systemUTC(), new GoogleKeys(json), code -> {});
+  }
+  public GoogleJwtVerifier(ObjectMapper json, java.util.function.Consumer<Diagnostic> diagnostics) {
+    this(json, Clock.systemUTC(), new GoogleKeys(json), diagnostics);
   }
   public GoogleJwtVerifier(ObjectMapper json, Clock clock, Keys keys) {
-    this.json = json; this.clock = clock; this.keys = keys;
+    this(json, clock, keys, code -> {});
+  }
+  public GoogleJwtVerifier(ObjectMapper json, Clock clock, Keys keys, java.util.function.Consumer<Diagnostic> diagnostics) {
+    this.json = json; this.clock = clock; this.keys = keys; this.diagnostics = Objects.requireNonNull(diagnostics);
   }
   @Override public Principal verify(String credential, String audience, String nonce) {
+    Diagnostic rejectedAt = Diagnostic.FORMAT_REJECTED;
     try {
       if (credential == null || credential.length() > 12000 || audience == null || audience.isBlank()
           || nonce == null || nonce.isBlank()) throw new IllegalArgumentException();
@@ -33,9 +44,13 @@ public final class GoogleJwtVerifier implements GoogleCredentialVerifier {
       if (!"RS256".equals(header.path("alg").asText()) || !header.path("kid").isTextual()
           || header.has("crit")) throw new IllegalArgumentException();
       Signature signature = Signature.getInstance("SHA256withRSA");
-      signature.initVerify(keys.get(header.get("kid").asText()));
+      rejectedAt = Diagnostic.KEY_LOOKUP_FAILED;
+      PublicKey verificationKey = keys.get(header.get("kid").asText());
+      rejectedAt = Diagnostic.SIGNATURE_REJECTED;
+      signature.initVerify(verificationKey);
       signature.update((parts[0] + "." + parts[1]).getBytes(StandardCharsets.US_ASCII));
       if (!signature.verify(Base64.getUrlDecoder().decode(parts[2]))) throw new IllegalArgumentException();
+      rejectedAt = Diagnostic.CLAIMS_REJECTED;
       JsonNode claims = json.readTree(Base64.getUrlDecoder().decode(parts[1]));
       String issuer = claims.path("iss").asText();
       if (!issuer.equals("accounts.google.com") && !issuer.equals("https://accounts.google.com"))
@@ -44,19 +59,24 @@ public final class GoogleJwtVerifier implements GoogleCredentialVerifier {
       if (!claims.path("aud").isTextual() || !audience.equals(claims.get("aud").asText())
           || (claims.has("azp") && !audience.equals(claims.get("azp").asText())))
         throw new IllegalArgumentException();
+      rejectedAt = Diagnostic.TIME_REJECTED;
       long now = clock.instant().getEpochSecond();
       if (!integerTimestamp(claims.path("exp")) || claims.get("exp").asLong() <= now
           || !integerTimestamp(claims.path("iat")) || claims.get("iat").asLong() > now + 60
           || (claims.has("nbf") && (!integerTimestamp(claims.get("nbf")) || claims.get("nbf").asLong() > now)))
         throw new IllegalArgumentException();
+      rejectedAt = Diagnostic.NONCE_REJECTED;
       if (!claims.path("nonce").isTextual() || !MessageDigest.isEqual(
           nonce.getBytes(StandardCharsets.UTF_8), claims.get("nonce").asText().getBytes(StandardCharsets.UTF_8)))
         throw new IllegalArgumentException();
+      rejectedAt = Diagnostic.CLAIMS_REJECTED;
       String subject = claims.path("sub").asText();
       if (!claims.path("sub").isTextual() || subject.isBlank() || subject.length() > 255)
         throw new IllegalArgumentException();
       return new Principal("https://accounts.google.com", subject);
     } catch (Exception invalid) {
+      // Diagnostic failures must not alter authentication behavior or expose upstream objects.
+      try { diagnostics.accept(rejectedAt); } catch (RuntimeException ignored) { }
       // Deliberately omit upstream exception text: it may contain the credential or claims.
       throw RoomService.fail(401, "INVALID_GOOGLE_CREDENTIAL", "Google sign-in could not be verified");
     }

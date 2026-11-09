@@ -55,7 +55,7 @@ public final class SyntheticCleanupManualQuarterWeb {
   @EnableAutoConfiguration
   static class Configuration {
     @Bean SyntheticCleanupManualQuarterHost preflightService(SyntheticCleanupManualQuarterHost.Settings settings, SyntheticCleanupManualQuarterHost.Factory factory) {
-      return new SyntheticCleanupManualQuarterHost(settings, new GoogleJwtVerifier(new ObjectMapper()), factory, Clock.systemUTC());
+      return new SyntheticCleanupManualQuarterHost(settings, new GoogleJwtVerifier(new ObjectMapper(), code -> System.err.println("SYNTHETIC_QUARTER_GOOGLE " + code.name())), factory, Clock.systemUTC());
     }
     @Bean Controller preflightController(SyntheticCleanupManualQuarterHost service, SyntheticCleanupManualQuarterHost.Settings settings) { return new Controller(service, settings); }
     @Bean SyntheticCleanupManualQuarterWebGuard preflightGuard(SyntheticCleanupManualQuarterHost.Settings settings) { return new SyntheticCleanupManualQuarterWebGuard(settings); }

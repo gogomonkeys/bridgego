@@ -41,7 +41,8 @@ final class SyntheticCleanupManualQuarterHost implements AutoCloseable {
     final String code;
     Failure(String code){super(code);this.code=code;}
   }
-  enum Diagnostic { AUTHENTICATION_STARTED, AUTHENTICATION_SUCCESS, AUTHENTICATION_FAILED }
+  enum Diagnostic { AUTHENTICATION_STARTED, AUTHENTICATION_SUCCESS, AUTHENTICATION_FAILED,
+    VERIFIER_REJECTED, VERIFIED_PRINCIPAL_REJECTED, OPERATOR_HASH_MISMATCH, CHALLENGE_EXPIRED }
   private static void log(Diagnostic code){System.err.println("SYNTHETIC_QUARTER_TRIAL "+code.name());}
   private final Consumer<Diagnostic> diagnostics;
   private final Settings settings;
@@ -110,20 +111,24 @@ final class SyntheticCleanupManualQuarterHost implements AutoCloseable {
   private void authenticate(Proof p){
     enabled();if(stopped)throw fail("RUN_STOPPED");
     Instant expiry=p==null?null:challenges.remove(p.nonce());
-    if(expiry==null||!expiry.isAfter(clock.instant()))throw fail("FRESH_AUTHENTICATION_REQUIRED");
+    if(expiry==null||!expiry.isAfter(clock.instant())){diagnostics.accept(Diagnostic.CHALLENGE_EXPIRED);throw fail("FRESH_AUTHENTICATION_REQUIRED");}
     if(!p.consent()||!p.writersFrozen()||p.credential()==null||p.credential().isBlank()||p.credential().length()>12000)
       throw fail("EXPLICIT_CONSENT_AND_FREEZE_REQUIRED");
     diagnostics.accept(Diagnostic.AUTHENTICATION_STARTED);
+    Diagnostic rejectedAt=Diagnostic.VERIFIER_REJECTED;
     try{
       var principal=verifier.verify(p.credential(),settings.clientId(),p.nonce());
+      rejectedAt=Diagnostic.VERIFIED_PRINCIPAL_REJECTED;
       if(principal==null||!"https://accounts.google.com".equals(principal.issuer())||principal.subject()==null
           ||principal.subject().isBlank()||principal.subject().startsWith("SYNTHETIC-ONLY"))throw fail("OPERATOR_NOT_ALLOWED");
+      rejectedAt=Diagnostic.OPERATOR_HASH_MISMATCH;
       String hash=SyntheticCleanupWorkbook.sha256(principal.issuer()+"\n"+principal.subject());
       if(!MessageDigest.isEqual(hash.getBytes(StandardCharsets.US_ASCII),settings.operatorHash().getBytes(StandardCharsets.US_ASCII)))
         throw fail("OPERATOR_NOT_ALLOWED");
+      rejectedAt=Diagnostic.CHALLENGE_EXPIRED;
       if(!expiry.isAfter(clock.instant()))throw fail("FRESH_AUTHENTICATION_REQUIRED");
       diagnostics.accept(Diagnostic.AUTHENTICATION_SUCCESS);
-    }catch(RuntimeException | LinkageError invalid){diagnostics.accept(Diagnostic.AUTHENTICATION_FAILED);throw fail("OPERATOR_AUTHENTICATION_FAILED");}
+    }catch(RuntimeException | LinkageError invalid){diagnostics.accept(rejectedAt);diagnostics.accept(Diagnostic.AUTHENTICATION_FAILED);throw fail("OPERATOR_AUTHENTICATION_FAILED");}
   }
   private void enabled(){if(!settings.enabled())throw fail("NOT_CONFIGURED");}
   @Override public synchronized void close(){stopped=true;pending=null;challenges.clear();if(session!=null)session.close();}
