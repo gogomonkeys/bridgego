@@ -122,6 +122,8 @@ export default function WelcomeEntry({
       recoverySubmitted: () => setRecoverySubmitted(true),
       verified: setVerified,
       load: loadGoogleIdentity,
+      readStatus: () =>
+        accountRequest<AuthStatus>("/auth/status", "GET", undefined, token),
       cancel: (nonce) =>
         accountRequest("/auth/cancel", "POST", { nonce }, token),
       eligible,

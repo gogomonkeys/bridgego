@@ -74,6 +74,8 @@ export default function GoogleAccount({ token }: { token: string }) {
           { credential, consent: true },
           token,
         ),
+      readStatus: () =>
+        accountRequest<AuthStatus>("/auth/status", "GET", undefined, token),
       cancel: (nonce) =>
         accountRequest("/auth/cancel", "POST", { nonce }, token),
       eligible: () =>

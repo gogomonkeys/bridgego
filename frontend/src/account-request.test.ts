@@ -69,3 +69,19 @@ it("allows bounded 60-second recovery readback without retrying its write", asyn
   expect(fetch).toHaveBeenCalledOnce();
   timeout.mockRestore();
 });
+
+
+it("waits up to 60 seconds for normal Sheets-backed login and never resubmits", async () => {
+  const timeout = vi.spyOn(AbortSignal, "timeout");
+  const fetch = vi.fn(async () => ({
+    ok: true,
+    json: async () => ({ signedIn: true }),
+  }));
+  vi.stubGlobal("fetch", fetch);
+  await expect(
+    accountRequest("/auth/google", "POST", { credential: "synthetic", consent: true }, "current"),
+  ).resolves.toEqual({ signedIn: true });
+  expect(timeout).toHaveBeenCalledWith(60000);
+  expect(fetch).toHaveBeenCalledOnce();
+  timeout.mockRestore();
+});

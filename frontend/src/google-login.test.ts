@@ -416,3 +416,84 @@ it("does not revoke a submitted recovery after navigation or network timeout", a
   await Promise.resolve();
   expect(s.deps.cancel).not.toHaveBeenCalled();
 });
+
+
+describe("normal login response reconciliation", () => {
+  it("reads status after a lost response without cancelling the valid server link", async () => {
+    const s = setup();
+    s.deps.link.mockRejectedValue(new Error("timeout"));
+    const readStatus = vi.fn(async () => ({ signedIn: true }));
+    const controller = createLoginAttempt({ ...s.deps, readStatus });
+    await controller.start("configured", s.element, "link");
+    s.credential();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+    expect(readStatus).toHaveBeenCalledOnce();
+    expect(s.deps.cancel).not.toHaveBeenCalled();
+    expect(s.deps.link).toHaveBeenCalledOnce();
+    expect(s.deps.nonce).toHaveBeenCalledOnce();
+    expect(s.deps.update).toHaveBeenLastCalledWith("idle", expect.stringContaining("登入成功"), true);
+    controller.dispose();
+    expect(s.deps.cancel).not.toHaveBeenCalled();
+  });
+  it("waits for a delayed attachment without prompting for Google a second time", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = setup();
+      s.deps.link.mockRejectedValue(new Error("timeout"));
+      const readStatus = vi.fn().mockResolvedValueOnce({ signedIn: false }).mockResolvedValue({ signedIn: true });
+      const controller = createLoginAttempt({ ...s.deps, readStatus });
+      await controller.start("configured", s.element, "link");
+      s.credential();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(readStatus).toHaveBeenCalledTimes(2);
+      expect(s.deps.link).toHaveBeenCalledOnce();
+      expect(s.deps.nonce).toHaveBeenCalledOnce();
+      expect(s.deps.cancel).not.toHaveBeenCalled();
+      expect(s.deps.update).toHaveBeenLastCalledWith("idle", expect.any(String), true);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not claim success or cancel when bounded status reads stay uncertain", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = setup();
+      s.deps.link.mockRejectedValue(new Error("timeout"));
+      const readStatus = vi.fn(async () => ({ signedIn: false }));
+      const controller = createLoginAttempt({ ...s.deps, readStatus });
+      await controller.start("configured", s.element, "link");
+      s.credential();
+      await vi.runAllTimersAsync();
+      expect(readStatus).toHaveBeenCalledTimes(5);
+      expect(s.deps.cancel).not.toHaveBeenCalled();
+      expect(s.deps.update).toHaveBeenLastCalledWith("idle", expect.stringContaining("重新確認帳號狀態"), undefined);
+      expect(s.deps.link).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+  it("suppresses stale status after navigation and preserves explicit cancellation", async () => {
+    const s = setup();
+    s.deps.link.mockRejectedValue(new Error("timeout"));
+    const pending = deferred<{ signedIn: boolean }>();
+    const readStatus = vi.fn(() => pending.promise);
+    const controller = createLoginAttempt({ ...s.deps, readStatus });
+    await controller.start("configured", s.element, "link");
+    s.credential();
+    for (let i = 0; i < 3; i++) await Promise.resolve();
+    controller.dispose();
+    s.deps.update.mockClear();
+    pending.resolve({ signedIn: true });
+    for (let i = 0; i < 3; i++) await Promise.resolve();
+    expect(s.deps.update).not.toHaveBeenCalled();
+    expect(s.deps.cancel).toHaveBeenCalledOnce();
+  });
+  it("keeps explicit authentication failures rejected without status fallback", async () => {
+    const s = setup();
+    s.deps.link.mockRejectedValue(new AccountRequestError("Google 驗證未成功"));
+    const readStatus = vi.fn(async () => ({ signedIn: true }));
+    const controller = createLoginAttempt({ ...s.deps, readStatus });
+    await controller.start("configured", s.element, "link");
+    s.credential();
+    for (let i = 0; i < 3; i++) await Promise.resolve();
+    expect(readStatus).not.toHaveBeenCalled();
+    expect(s.deps.cancel).toHaveBeenCalledOnce();
+    expect(s.deps.update).toHaveBeenLastCalledWith("idle", "Google 驗證未成功", undefined);
+  });
+});

@@ -39,7 +39,11 @@ export async function accountRequest<T>(
   const response = await fetch(`/api${path}`, {
     method,
     cache: "no-store",
-    signal: AbortSignal.timeout(path === "/auth/google/recover" ? 60000 : 8000),
+    // Linking waits for several Sheets reads and an atomic write/readback. Do not
+    // revoke a valid Google sign-in just because that work outlasts a UI read.
+    signal: AbortSignal.timeout(
+      path === "/auth/google" || path === "/auth/google/recover" ? 60000 : 8000,
+    ),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -128,6 +132,7 @@ export interface LoginAttemptDependencies {
   load: () => Promise<GoogleIdentity>;
   link: (credential: string) => Promise<AuthStatus>;
   recover?: (credential: string) => Promise<AuthStatus>;
+  readStatus?: () => Promise<AuthStatus>;
   recoverySubmitted?: () => void;
   verify: (credential: string) => Promise<VerifiedIdentity>;
   verified: (identity: VerifiedIdentity) => void;
@@ -223,7 +228,30 @@ export function createLoginAttempt(deps: LoginAttemptDependencies) {
                   );
               }
             } catch (error) {
-              cancelNonce();
+              const uncertainLink =
+                purpose === "link" && !(error instanceof AccountRequestError);
+              // A timeout/lost response is not a cancelled user action. The
+              // server may still be writing or attaching this exact session.
+              // Only read status: never replay a credential or issue a nonce.
+              if (uncertainLink && deps.readStatus) {
+                for (let check = 0; check < 5 && valid(id); check++) {
+                  try {
+                    const status = await deps.readStatus();
+                    if (!valid(id)) return;
+                    if (status.signedIn === true) {
+                      activeNonce = undefined;
+                      update("idle", "已確認 Google 登入成功。", true);
+                      revision++;
+                      return;
+                    }
+                  } catch {
+                    if (!valid(id)) return;
+                  }
+                  if (check < 4)
+                    await new Promise((resolve) => setTimeout(resolve, 1000));
+                }
+              }
+              if (!uncertainLink) cancelNonce();
               if (valid(id))
                 update(
                   "idle",
