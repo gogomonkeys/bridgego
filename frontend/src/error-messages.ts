@@ -1,5 +1,10 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  AUTH_ORIGIN: "請從本遊戲網站重新操作。",
+  STATS_ACCOUNT_CHANGED: "帳號狀態已改變，請重新登入後查看統計。",
+  STATS_CONSENT_INVALID: "資料使用說明已更新，請返回入口重新確認。",
+  STATS_DISABLED: "統計尚未開放。",
+  STATS_LOGIN_REQUIRED: "請先登入，再查看統計。",
   EXPERIMENT_RECOVERY_REQUIRED:
     "本次測試需使用一次性帳號恢復，請勿重新建立帳號連結。",
   EXPERIMENT_RECOVERY_UNAVAILABLE:

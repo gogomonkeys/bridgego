@@ -136,8 +136,44 @@ public class RoomService {
   private boolean quarterRetentionEnabled;
   private CollectionPolicy experimentPolicy = CollectionPolicy.restrictedEmpty();
   private boolean experimentMatchStarted;
+  private boolean statisticsRequested;
+  private boolean statisticsStorageEnabled;
+  private final Set<String> statisticsConsents = new HashSet<>();
   @Autowired
   public synchronized void experimentPolicy(CollectionPolicy policy) { this.experimentPolicy = Objects.requireNonNull(policy); }
+
+  @Autowired
+  public synchronized void statisticsPolicy(
+      @org.springframework.beans.factory.annotation.Value("${BRIDGE_STATISTICS_ENABLED:false}") boolean requested,
+      @org.springframework.beans.factory.annotation.Value("${BRIDGE_SHEETS_ENABLED:false}") boolean storageEnabled) {
+    statisticsRequested = requested;
+    statisticsStorageEnabled = storageEnabled;
+  }
+
+  public synchronized boolean statisticsEnabled() {
+    return statisticsRequested && statisticsStorageEnabled && experimentPolicy.managed() && experimentPolicy.ready();
+  }
+
+  public synchronized void statisticsConsent(Identity who, Boolean consent, String version) {
+    requireOutsideRoom(who);
+    if (consent == null || !StatisticsService.CONSENT_VERSION.equals(version))
+      throw fail(400, "STATS_CONSENT_INVALID", "Current statistics notice acknowledgement required");
+    if (!statisticsEnabled()) throw fail(409, "STATS_DISABLED", "Statistics are not enabled");
+    if (consent) statisticsConsents.add(who.playerId());
+    else statisticsConsents.remove(who.playerId());
+  }
+
+  synchronized String statisticsAccount(Identity who) {
+    requireCurrentSession(who);
+    String account = accountsByPlayer.get(who.playerId());
+    if (account == null) throw fail(403, "STATS_LOGIN_REQUIRED", "Sign in to view statistics");
+    return account;
+  }
+
+  synchronized void requireStatisticsAccountUnchanged(Identity who, String expected) {
+    if (!statisticsAccount(who).equals(expected))
+      throw fail(409, "STATS_ACCOUNT_CHANGED", "The signed-in account changed");
+  }
 
   @Autowired
   public synchronized void quarterRetentionPolicy(CollectionPolicy policy,
@@ -263,6 +299,16 @@ public class RoomService {
       throw fail(403, "NOT_PARTICIPANT", "Only original participants may read save status");
     if (r.lastPersistence == null || !r.lastPersistence.matchId().equals(gameId)) return "DISABLED";
     return r.lastPersistence.status(statsStore);
+  }
+
+  /** Internal foundation only: not mapped to an HTTP/WebSocket response. */
+  synchronized SettlementStatistics.Facts settlementStatistics(String roomId, Identity who) {
+    requireCurrentSession(who);
+    Room r = room(roomId);
+    if (r.lastMatch == null) throw fail(404, "NO_LAST_MATCH", "No completed match is archived");
+    if (!archiveParticipant(r, who))
+      throw fail(403, "NOT_PARTICIPANT", "Only original participants may read statistics facts");
+    return r.lastPersistence == null ? null : r.lastPersistence.statistics();
   }
 
   public synchronized Me me(Identity id) {
@@ -623,6 +669,7 @@ public class RoomService {
       } else if (now - sessionLastSeen.getOrDefault(token, now) >= limits.sessionIdleMs()) {
         accountsByPlayer.remove(entry.getValue().playerId());
         admittedTesters.remove(entry.getValue().playerId());
+        statisticsConsents.remove(entry.getValue().playerId());
         sessions.remove(token);
         sessionLastSeen.remove(token);
       }
@@ -729,7 +776,7 @@ public class RoomService {
       // Refresh the safe projection when the final two-second display unlocks review.
       r.lastMatch = r.game.archive();
       if (r.persistence != null) {
-        r.persistence.finish(r.lastMatch, clock.instant(), statsStore);
+        r.persistence.finish(r.lastMatch, clock.instant(), statsStore, r.members.values(), accountsByPlayer);
         r.lastPersistence = r.persistence;
       }
       electTerminalHost(r);
@@ -903,7 +950,9 @@ public class RoomService {
     r.persistence = new MatchPersistence(r.game.id, r.plannedDeals, clock.instant(),
         r.members.values(), accountsByPlayer, r.members.values().stream()
             .filter(m -> !m.computer).allMatch(m -> accountsByPlayer.containsKey(m.identity.playerId())
-                && admittedTesters.contains(m.identity.playerId())));
+                && admittedTesters.contains(m.identity.playerId())), statisticsEnabled(),
+        r.members.values().stream().filter(m -> !m.computer)
+            .allMatch(m -> statisticsConsents.contains(m.identity.playerId())));
     r.game.roster(
         r.members.values().stream()
             .sorted(Comparator.comparingInt(m -> m.seat))

@@ -7,6 +7,7 @@ import java.security.MessageDigest;
 
 /** Immutable server-created canonical JSON, never a request DTO. */
 public record FinalMatchEnvelope(String commitId, String matchId, int revision, String canonicalJson, String payloadHash) {
+    public static final String STATISTICS_RULE = "four-humans-at-settlement-v1";
     private static final ObjectMapper JSON = new ObjectMapper();
     public FinalMatchEnvelope {
         if (revision < 1 || !UUID.fromString(matchId).toString().equals(matchId) || !commitId.equals(matchId + ":" + revision)) throw new IllegalArgumentException("Invalid match identity");
@@ -33,11 +34,28 @@ public record FinalMatchEnvelope(String commitId, String matchId, int revision, 
             || !people.isArray() || people.size()!=4 || !deals.isArray()
             || !match.path("completed_deals").isIntegralNumber() || match.path("completed_deals").asInt()!=deals.size())
             throw new IllegalArgumentException("Invalid match schema");
+        boolean statistics = match.has("statistics_rule");
+        if (statistics && (!match.path("statistics_rule").isTextual()
+            || !STATISTICS_RULE.equals(match.path("statistics_rule").textValue())
+            || !"SCORED".equals(match.path("outcome").textValue())))
+            throw new IllegalArgumentException("Invalid statistics rule");
+        Set<String> accounts = new HashSet<>();
         Set<Integer> seats=new HashSet<>();
         for(JsonNode person:people) {
             JsonNode seat=person.path("seat");
             if(!person.path("match_id").asText().equals(matchId) || !seat.isIntegralNumber() || seat.asInt()<0 || seat.asInt()>3 || !seats.add(seat.asInt()))throw new IllegalArgumentException("Invalid participant key");
             if(!person.path("account_id").isNull() && !person.path("account_id").isMissingNode() && !person.path("guest_id").isNull() && !person.path("guest_id").isMissingNode())throw new IllegalArgumentException("Ambiguous identity");
+            if (statistics) {
+                JsonNode account = person.path("account_id");
+                if (!"HUMAN".equals(person.path("player_type").textValue())
+                    || !("HUMAN".equals(person.path("control_type").textValue()) || "MIXED".equals(person.path("control_type").textValue()))
+                    || !(seat.asInt() % 2 == 0 ? "NS" : "EW").equals(person.path("team_id").textValue())
+                    || !person.path("guest_id").isNull()
+                    || !(account.isNull() || canonicalUuid(account) && accounts.add(account.textValue())))
+                    throw new IllegalArgumentException("Invalid statistics participant");
+                if (person.has("erased_marker") && (!canonicalUuid(person.path("erased_marker")) || !account.isNull()))
+                    throw new IllegalArgumentException("Invalid erased statistics participant");
+            }
         }
         Set<String> ids=new HashSet<>();Set<Integer> indices=new HashSet<>();
         for(JsonNode deal:deals) {
@@ -45,6 +63,11 @@ public record FinalMatchEnvelope(String commitId, String matchId, int revision, 
             if(!deal.path("match_id").asText().equals(matchId) || !UUID.fromString(id).toString().equals(id) || !ids.add(id)
                 || !deal.path("deal_index").isIntegralNumber() || !indices.add(deal.path("deal_index").asInt()))throw new IllegalArgumentException("Invalid completed deal key");
         }
+    }
+    private static boolean canonicalUuid(JsonNode node) {
+        if (!node.isTextual()) return false;
+        try { return UUID.fromString(node.textValue()).toString().equals(node.textValue()); }
+        catch (IllegalArgumentException invalid) { return false; }
     }
     private static Object canonical(JsonNode n) {
         if(n.isObject()) { Map<String,Object> m=new TreeMap<>(); n.fields().forEachRemaining(e->m.put(e.getKey(),canonical(e.getValue()))); return m; }

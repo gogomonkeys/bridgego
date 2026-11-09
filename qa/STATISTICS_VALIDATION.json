@@ -1,0 +1,37 @@
+{
+  "base_commit": "562cea6185103069cd40722f4be26c9f3f8f1a7d",
+  "scope": "complete candidate statistics feature; opt-in managed configuration; no publication",
+  "backend_clean_package": {
+    "tests": 994,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "frontend": {
+    "test_files": 43,
+    "tests": 516,
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed"
+  },
+  "packaged_loopback_http": {
+    "checks": 11,
+    "passed": true,
+    "report": "qa/STATISTICS_NETWORK_VALIDATION.json"
+  },
+  "browser": {
+    "status": "passed",
+    "report": "qa/STATISTICS_BROWSER_VALIDATION.json",
+    "scope": "desktop actual React components, synthetic API/Google; not mobile or live acceptance"
+  },
+  "web_jar_sha256": "b3e8ad4fce4d51bd266f44bf7080c34dd948cec08d0e43686075c66f3dfd3ced",
+  "default_statistics_flag": false,
+  "new_persistence_metadata": "optional match.statistics_rule; no new sheet tabs or columns",
+  "guest_identifiers_in_new_marked_records": false,
+  "legacy_records_backfilled": false,
+  "quarterly_history_publication": "SUPPRESSED unchanged",
+  "destructive_actions": false,
+  "pushed": false,
+  "deployed": false,
+  "real_google_or_sheets_acceptance": "not run"
+}

@@ -33,3 +33,11 @@ Tests use a fake storage boundary only, including post-commit timeout recovery, 
 ## Erasure readiness
 
 See `ACCOUNT_ERASURE.md` for the default-dry-run, owner-verified offline maintenance workflow and its limitations. All writers/exports now require an `erasure_ledger` tab with header `kind, identifier_hash, schema_version` and sentinel `META, erasure-ledger-v1, 1`; absent/malformed ledger fails closed. No live deletion has been performed, and fake-verifier tests do not establish live readiness.
+
+## Optional current-quarter statistics
+
+`BRIDGE_STATISTICS_ENABLED` defaults to false. It activates only with ready managed collection and existing Sheets persistence. New visible notice acknowledgment is required for every human before starting a match. Only scored matches whose four seats are controlled by distinct connected human sessions at the authoritative final-card settlement are eligible; previous takeover is permitted after a human returns. Guests have no statistics access or personal statistics. Their name/session identifier is never in marked records; both participant identifiers are null. Linked consenting accounts retain personal attribution.
+
+Eligible new snapshots use optional `match.statistics_rule = four-humans-at-settlement-v1`, within the existing canonical schema and tabs. Absence of the marker is unknown eligibility, never backfilled. Operator erasure and manual-quarter validators recognize the marker, preserve its integrity, and retain their existing authorization/offline constraints. No deletion or maintenance scheduler is added. Existing historical quarterly aggregates stay suppressed. Current-quarter counts are served only to verified signed-in sessions, with no raw match/account/person identifiers returned.
+
+See `../docs/STATISTICS_IMPLEMENTATION_PLAN.zh-TW.md` and `../docs/api/openapi.json`. This description is not a live deployment or Google/Sheets acceptance result.

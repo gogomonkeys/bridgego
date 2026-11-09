@@ -24,7 +24,7 @@ describe("help data policy", () => {
       "手動執行",
       "季度清理保留帳號",
       "SUPPRESSED",
-      "不發布統計數字",
+      "本季統計另依已確認保存的合資格新場次計算",
     ])
       expect(html).toContain(text);
   });

@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-09",
+  "result": "PASS for the explicitly listed desktop synthetic-service scenarios",
+  "method": "Desktop browser runtime QA with visible controls in frontend/qa/statistics-preview.mjs. Actual App, WelcomeEntry, StatisticsPanel and GoogleAccount components were used unchanged.",
+  "verified_cases": [
+    "Guest entry hides statistics entrance and personal/overall tabs; direct #statistics remains gated and produces no statistics reads.",
+    "Statistics notice is visible before guest and account entry. Consent counter is zero before initial choice and increases after explicit entry choice.",
+    "Reloaded existing guest session shows entry notice without additional automatic consent.",
+    "Synthetic signed-in account can enter statistics from lobby; personal counts and overall counts match fixture values, and overall excludes personal score fields.",
+    "Statistics API failure shows an error instead of zero counts; retry after fixture recovery restores data.",
+    "Genuine empty response shows zero counts and the explicit no-qualified-matches message.",
+    "Actual production GoogleAccount unlink/logout button removes displayed statistics and returns guest-visible lobby.",
+    "Held statistics responses released after account invalidation do not restore stale statistics.",
+    "Browser session replacement clears previously displayed statistics and shows changed-session guidance and entry.",
+    "Authentication status failure hides statistics and entrance even at #statistics.",
+    "Consent submission failure keeps user at entry; retry after recovery succeeds.",
+    "Disabled statistics allows guest lobby entry without consent submission or statistics reads.",
+    "Restored active match remains displayed at #statistics without additional consent or statistics reads.",
+    "Browser back and forward restore appropriate statistics/lobby views.",
+    "Desktop personal and overall screenshots were visually inspected; no obvious overlap observed."
+  ],
+  "limitations": [
+    "All API, Google identity and game WebSocket responses were synthetic. No live authentication, backend persistence or Google Sheets behavior was tested.",
+    "Desktop browser only. Mobile viewport and real-device responsiveness remain untested.",
+    "The standalone nine-scenario Playwright script was not successfully executed; this report records separate manual browser runtime checks.",
+    "Screenshots were visually inspected but not saved as separate files; no screenshot paths are claimed.",
+    "Active-room check verifies no new client consent submission and route replacement. It does not independently verify backend eligibility or migration behavior."
+  ],
+  "production_changes": "None performed by this QA task. No deployment, push, real-account operation or real data writes."
+}

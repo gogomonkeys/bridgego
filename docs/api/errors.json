@@ -100,6 +100,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "AUTH_ORIGIN",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/StatisticsController.java"
+      ],
+      "exampleMessage": "Allowed origin required",
+      "category": "auth",
+      "meaning": "驗證來源不符合本站",
+      "handling": "請從原網站重新操作，不自動重試。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "AUTH_PURPOSE_MISMATCH",
       "httpStatuses": [
         400
@@ -818,6 +832,62 @@
       "category": "domain",
       "meaning": "輸入或目前席位/流程不符合要求",
       "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "STATS_ACCOUNT_CHANGED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "The signed-in account changed",
+      "category": "auth",
+      "meaning": "登入帳號已變更",
+      "handling": "清除先前統計，再確認目前帳號。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "STATS_CONSENT_INVALID",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Current statistics notice acknowledgement required",
+      "category": "auth",
+      "meaning": "需要目前版本的統計告知同意",
+      "handling": "重新閱讀告知後由玩家確認，不自動重試。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "STATS_DISABLED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Statistics are not enabled",
+      "category": "auth",
+      "meaning": "統計尚未啟用",
+      "handling": "確認功能狀態，不宣稱已取得同意或已保存。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "STATS_LOGIN_REQUIRED",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Sign in to view statistics",
+      "category": "auth",
+      "meaning": "需要登入才能查看統計",
+      "handling": "訪客不顯示入口，也不保留前一帳號的資料。",
       "automaticMutationRetry": false
     },
     {

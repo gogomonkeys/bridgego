@@ -3643,6 +3643,382 @@
           }
         }
       }
+    },
+    "/api/statistics/config": {
+      "get": {
+        "operationId": "getStatisticsConfig",
+        "tags": [
+          "statistics"
+        ],
+        "summary": "Public statistics availability and notice version",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsConfig"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/statistics/consent": {
+      "put": {
+        "operationId": "acknowledgeStatisticsNotice",
+        "tags": [
+          "statistics"
+        ],
+        "summary": "Acknowledge current notice before entering a room",
+        "description": "Requires current session and allowed Origin; callable only outside rooms. Session-only acknowledgment survives Google link/unlink but expires with the session. All human participants must acknowledge before a new match starts. Does not backfill previous matches.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatisticsConsent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "accepted"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/statistics": {
+      "get": {
+        "operationId": "getCurrentQuarterStatistics",
+        "tags": [
+          "statistics"
+        ],
+        "summary": "Personal and nonidentifying overall current-quarter counts for signed-in users",
+        "description": "Guest-only sessions receive 403 STATS_LOGIN_REQUIRED, including for overall counts. Account attribution is exclusively server-derived; no requested account identifier is accepted. No-store. Query does not mutate storage; unavailable export or concurrent read returns status UNAVAILABLE with null summaries.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "X-Bridge-Instance-Epoch": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Server incarnation; changes invalidate in-memory sessions/rooms."
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "See errors.json / errors.zh-TW.md; code determines action. Unexpected proxy/server failures may be empty or non-JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4525,6 +4901,154 @@
             "default": "link"
           }
         }
+      },
+      "StatisticsConfig": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "consentVersion"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "consentVersion": {
+            "type": "string",
+            "enum": [
+              "statistics-v1"
+            ]
+          }
+        }
+      },
+      "StatisticsConsent": {
+        "type": "object",
+        "required": [
+          "consent",
+          "version"
+        ],
+        "properties": {
+          "consent": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "statistics-v1"
+            ]
+          }
+        }
+      },
+      "PersonalStatistics": {
+        "type": "object",
+        "nullable": true,
+        "required": [
+          "matches",
+          "completedDeals",
+          "wins",
+          "losses",
+          "draws",
+          "totalScore"
+        ],
+        "properties": {
+          "matches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "completedDeals": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "wins": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "losses": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "draws": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "totalScore": {
+            "type": "integer",
+            "format": "int64",
+            "description": "登入者隊伍在本季合資格正常完成場次中的累計分數。"
+          }
+        }
+      },
+      "OverallStatistics": {
+        "type": "object",
+        "nullable": true,
+        "required": [
+          "matches",
+          "completedDeals",
+          "draws"
+        ],
+        "properties": {
+          "matches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "completedDeals": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "draws": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "StatisticsReport": {
+        "type": "object",
+        "required": [
+          "status",
+          "quarter",
+          "asOf",
+          "ruleVersion",
+          "personal",
+          "overall"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "DISABLED",
+              "UNAVAILABLE"
+            ]
+          },
+          "quarter": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-Q[1-4]$"
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ruleVersion": {
+            "type": "string",
+            "enum": [
+              "four-humans-at-settlement-v1"
+            ]
+          },
+          "personal": {
+            "$ref": "#/components/schemas/PersonalStatistics"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/OverallStatistics"
+          }
+        },
+        "description": "僅限已登入帳號。已確認保存且有新結算規則標記的本季正常完成場次；舊紀錄不回補。DISABLED/UNAVAILABLE 時 personal/overall 為 null，不能當成 0。"
       }
     }
   },

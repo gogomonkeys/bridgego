@@ -6980,3 +6980,32 @@ body {
 .entry-details summary { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .entry-details p { font-size: 0.88rem; }
 .entry-verified { font-weight: 700; }
+
+.statistics-panel {
+  max-width: 850px;
+  margin: 0 auto;
+}
+.statistics-tabs {
+  display: flex;
+  gap: 12px;
+  margin-block: 16px;
+}
+.statistics-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 16px;
+  margin-block: 24px;
+}
+.statistics-counts > div {
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  padding: 16px;
+}
+.statistics-counts dd {
+  margin: 8px 0 0;
+  font-size: 1.7rem;
+  font-weight: bold;
+}
+.entry-statistics-notice {
+  line-height: 1.8;
+}

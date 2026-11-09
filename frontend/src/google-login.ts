@@ -36,13 +36,26 @@ export async function accountRequest<T>(
   if (expectedToken && getClientState().session?.token !== expectedToken)
     throw new Error("訪客身分已改變，請重新操作。");
   if (!token) throw new Error("請先建立訪客身分。");
+  const changesAccount =
+    [
+      "/auth/google",
+      "/auth/google/recover",
+      "/auth/logout",
+      "/auth/nonce",
+    ].includes(path) && method !== "GET";
+  if (changesAccount && typeof window !== "undefined")
+    window.dispatchEvent(new Event("bridge-account-changing"));
   const response = await fetch(`/api${path}`, {
     method,
     cache: "no-store",
     // Linking waits for several Sheets reads and an atomic write/readback. Do not
     // revoke a valid Google sign-in just because that work outlasts a UI read.
     signal: AbortSignal.timeout(
-      path === "/auth/google" || path === "/auth/google/recover" ? 60000 : 8000,
+      path === "/auth/google" ||
+        path === "/auth/google/recover" ||
+        path === "/statistics"
+        ? 60000
+        : 8000,
     ),
     headers: {
       "Content-Type": "application/json",
@@ -60,6 +73,8 @@ export async function accountRequest<T>(
       errorMessages[data?.code] ??
         "無法完成帳號操作，請稍後重試。訪客仍可繼續遊玩。",
     );
+  if (changesAccount && typeof window !== "undefined")
+    window.dispatchEvent(new Event("bridge-account-changed"));
   return data as T;
 }
 

@@ -20,7 +20,7 @@ public final class ManualQuarterMaintenance {
   static final Set<String> MUTABLE = Set.of("accounts", "auth_identities", "envelopes", "commits",
       "erasure_ledger", "retention_ledger", "quarterly_aggregates");
   static final Set<String> PRESERVED = Set.of("dataset", "accounts", "auth_identities", "erasure_ledger");
-  private static final Set<String> MATCH_FIELDS = Set.of("match_id", "revision", "schema_version", "score_version",
+  private static final Set<String> MATCH_FIELDS = Set.of("statistics_rule", "match_id", "revision", "schema_version", "score_version",
       "app_version", "started_at", "finished_at", "planned_deals", "completed_deals", "outcome", "winner_team_id",
       "reason", "ns_total", "ew_total");
   private static final Set<String> PERSON_FIELDS = Set.of("match_id", "seat", "team_id", "player_type",

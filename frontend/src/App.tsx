@@ -1,3 +1,6 @@
+import StatisticsPanel from "./StatisticsPanel";
+import { accountRequest, type AuthStatus } from "./google-login";
+import { readStatisticsConfig } from "./statistics";
 import DataPrivacyHelp from "./DataPrivacyHelp";
 import WelcomeEntry from "./WelcomeEntry";
 import { needsEntry } from "./entry-flow";
@@ -15,21 +18,86 @@ export default function App() {
   const [enteredToken, setEnteredToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [plannedDeals, setPlannedDeals] = useState<1 | 3 | 5>(3);
-  const [page, setPage] = useState<"room" | "help">(() =>
+  const [route, setPage] = useState<"room" | "help" | "statistics">(() =>
     typeof window !== "undefined" && window.location?.hash === "#help"
       ? "help"
-      : "room",
+      : typeof window !== "undefined" && window.location?.hash === "#statistics"
+        ? "statistics"
+        : "room",
   );
-  const navigate = (next: "room" | "help") => {
+  const page = route === "statistics" && state.room ? "room" : route;
+  const navigate = (next: "room" | "help" | "statistics") => {
     setPage(next);
-    window.location.hash = next === "help" ? "help" : "room";
+    window.location.hash = next;
   };
   useEffect(() => {
     const changed = () =>
-      setPage(window.location.hash === "#help" ? "help" : "room");
+      setPage(
+        window.location.hash === "#help"
+          ? "help"
+          : window.location.hash === "#statistics"
+            ? "statistics"
+            : "room",
+      );
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
   }, []);
+  const [statisticsAuth, setStatisticsAuth] = useState<string | null>(null);
+  const [accountEpoch, setAccountEpoch] = useState(0);
+  const accountChanging = useRef(false);
+  useEffect(() => {
+    const changing = () => {
+      accountChanging.current = true;
+      setStatisticsAuth(null);
+      setAccountEpoch((value) => value + 1);
+    };
+    const changed = () => {
+      accountChanging.current = false;
+      setStatisticsAuth(null);
+      setAccountEpoch((value) => value + 1);
+    };
+    window.addEventListener("bridge-account-changing", changing);
+    window.addEventListener("bridge-account-changed", changed);
+    window.addEventListener("focus", changed);
+    return () => {
+      window.removeEventListener("bridge-account-changing", changing);
+      window.removeEventListener("bridge-account-changed", changed);
+      window.removeEventListener("focus", changed);
+    };
+  }, []);
+  useEffect(() => {
+    let live = true;
+    setStatisticsAuth(null);
+    const token = state.session?.token;
+    if (
+      !token ||
+      state.room ||
+      enteredToken !== token ||
+      accountChanging.current
+    )
+      return;
+    void Promise.all([
+      readStatisticsConfig(),
+      accountRequest<AuthStatus>("/auth/status", "GET", undefined, token),
+    ])
+      .then(([config, auth]) => {
+        if (live && config.enabled && auth.signedIn === true)
+          setStatisticsAuth(token);
+      })
+      .catch(() => {
+        /* Unknown authorization never exposes statistics. */
+      });
+    return () => {
+      live = false;
+    };
+  }, [state.session?.token, state.room, enteredToken, accountEpoch, route]);
+  const canSeeStatistics = Boolean(
+    state.session &&
+    !state.room &&
+    enteredToken === state.session.token &&
+    statisticsAuth === state.session.token &&
+    !accountChanging.current,
+  );
   const [copied, setCopied] = useState(false);
   const [diagnosticCopy, setDiagnosticCopy] = useState("");
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
@@ -304,6 +372,12 @@ export default function App() {
               setEnteredToken(token);
             }}
           />
+        ) : page === "statistics" && canSeeStatistics ? (
+          <StatisticsPanel
+            key={`${state.session!.token}:${accountEpoch}`}
+            token={state.session!.token}
+            onBack={() => navigate("room")}
+          />
         ) : state.room && state.room.phase !== "WAITING" ? (
           <GamePanel
             room={state.room}
@@ -458,6 +532,14 @@ export default function App() {
               <span className="eyebrow">LET’S GET TOGETHER</span>
               <h2>你好，{state.session!.displayName}</h2>
               <p>開一個新房間，或加入朋友的邀請。</p>
+              {canSeeStatistics && (
+                <button
+                  className="secondary"
+                  onClick={() => navigate("statistics")}
+                >
+                  本季戰績統計
+                </button>
+              )}
               <fieldset className="deal-count-choice" disabled={state.busy}>
                 <legend>本場局數</legend>
                 {[1, 3, 5].map((count) => (

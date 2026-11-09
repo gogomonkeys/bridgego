@@ -1,3 +1,9 @@
+import {
+  acceptStatistics,
+  readStatisticsConfig,
+  statisticsNotice,
+  type StatisticsConfig,
+} from "./statistics";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { client, getClientState } from "./client";
 import type { Session } from "./model";
@@ -34,6 +40,19 @@ export default function WelcomeEntry({
   busy: boolean;
   onEnter: (token: string, experiment?: boolean) => void;
 }) {
+  const [statisticsConfig, setStatisticsConfig] =
+    useState<StatisticsConfig | null>(null);
+  const [statisticsFailed, setStatisticsFailed] = useState(false);
+  const loadStatistics = () => {
+    setStatisticsFailed(false);
+    void readStatisticsConfig()
+      .then((value) => {
+        if (live.current) setStatisticsConfig(value);
+      })
+      .catch(() => {
+        if (live.current) setStatisticsFailed(true);
+      });
+  };
   const [name, setName] = useState("");
   const [composing, setComposing] = useState(false);
   const nickname = nicknameValidation(name);
@@ -68,6 +87,13 @@ export default function WelcomeEntry({
   useEffect(() => {
     live.current = true;
     let current = true;
+    void readStatisticsConfig()
+      .then((value) => {
+        if (current) setStatisticsConfig(value);
+      })
+      .catch(() => {
+        if (current) setStatisticsFailed(true);
+      });
     void readAuthConfig()
       .then((value) => {
         if (current) setConfig(value);
@@ -181,6 +207,7 @@ export default function WelcomeEntry({
   }, [availablePurpose, phase, purpose]);
   const choose = async (choice: "account" | "guest") => {
     if (
+      !statisticsConfig ||
       choiceFlight.current ||
       recoverySubmitted ||
       busy ||
@@ -231,10 +258,30 @@ export default function WelcomeEntry({
             Boolean(getClientState().room),
           )
         ) {
+          await acceptStatistics(expectedToken, statisticsConfig);
+          if (
+            !live.current ||
+            !canCompleteEntry(
+              expectedToken,
+              getClientState().session?.token,
+              Boolean(getClientState().room),
+            )
+          )
+            return;
           controller.current?.dispose();
           enter.current(expectedToken);
         }
       } else if (chosenPurpose) {
+        await acceptStatistics(expectedToken, statisticsConfig);
+        if (
+          !live.current ||
+          !canCompleteEntry(
+            expectedToken,
+            getClientState().session?.token,
+            Boolean(getClientState().room),
+          )
+        )
+          return;
         setVerified(null);
         setMessage("");
         pending.current = { token: expectedToken, purpose: chosenPurpose };
@@ -242,7 +289,7 @@ export default function WelcomeEntry({
       }
     } catch {
       if (live.current && getClientState().session?.token === expectedToken) {
-        setMessage("尚無法確認身分狀態，請重試；目前仍停留在入口。");
+        setMessage("尚無法確認身分或資料使用同意，請重試；目前仍停留在入口。");
       }
     } finally {
       choiceFlight.current = false;
@@ -296,7 +343,10 @@ export default function WelcomeEntry({
     void choose("guest");
   };
   const disabled =
-    busy || preparing || (!session && (composing || Boolean(nickname.error)));
+    !statisticsConfig ||
+    busy ||
+    preparing ||
+    (!session && (composing || Boolean(nickname.error)));
   return (
     <div className="welcome-grid">
       <section
@@ -306,6 +356,23 @@ export default function WelcomeEntry({
         <span className="eyebrow">WELCOME TO THE TABLE</span>
         <h2>{session ? `你好，${session.displayName}` : "先認識一下你。"}</h2>
         <p>選用 Google 帳號，或直接當訪客遊玩。</p>
+        {statisticsConfig?.enabled && (
+          <p className="fine entry-statistics-notice">
+            {statisticsNotice} <a href="#help">資料保存與刪除說明</a>
+          </p>
+        )}
+        {!statisticsConfig && (
+          <p role="status">
+            {statisticsFailed
+              ? "統計與資料使用設定暫時無法確認，請重試後再進入。"
+              : "正在確認資料使用設定…"}
+            {statisticsFailed && (
+              <button className="text-button" onClick={loadStatistics}>
+                重試設定
+              </button>
+            )}
+          </p>
+        )}
         {!session && (
           <form onSubmit={submit}>
             <label htmlFor="guest-name">遊戲暱稱</label>

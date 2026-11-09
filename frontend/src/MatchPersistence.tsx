@@ -57,7 +57,7 @@ export default function MatchPersistence({
     <section className="match-persistence" aria-label="本場保存狀態">
       <p role="status">{persistenceLabels[status]}</p>
       <p className="fine">
-        只有全場真人皆已登入並同意的合資格場次才保存；只要有訪客，整場不保存。保存採盡力而為，沒有保證不遺失的持久佇列，服務重啟或寫入失敗可能遺失紀錄。此狀態不改變本場勝負，也不表示先前訪客場次已補登至
+        統計開放時，所有玩家先同意資料使用、正常完成計分且結算時為四位不同真人的場次可保存，包含訪客；不保存訪客名稱或識別碼。統計未開放時沿用原模式的保存範圍。是否保存仍以本場狀態為準。保存採盡力而為，沒有保證不遺失的持久佇列，服務重啟或寫入失敗可能遺失紀錄。此狀態不改變本場勝負，也不表示先前訪客場次已補登至
         Google 帳號。
       </p>
       {status !== "CONFIRMED" && status !== "PENDING" && (
