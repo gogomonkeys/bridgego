@@ -31,10 +31,12 @@ public final class ManualQuarterMaintenance {
       "ew_base", "ew_exact_bonus", "ew_penalty", "ew_privilege_adjustment", "ew_total");
 
   /** Binding is an explicit input from an authorized operator host, never inferred from observed content. */
-  public record Binding(String spreadsheetId, String datasetId) {
+  public record Binding(String spreadsheetId, String datasetId, String purpose) {
+    public Binding(String spreadsheetId, String datasetId) { this(spreadsheetId,datasetId,"bridgego-restricted-test"); }
     public Binding {
       if (spreadsheetId == null || !spreadsheetId.matches("[A-Za-z0-9_-]{10,160}")) reject();
       uuid(datasetId);
+      if (purpose == null || !Set.of("bridgego-restricted-test","bridgego-managed").contains(purpose)) reject();
     }
     public String stoppedConfirmation() {
       return "STOPPED ALL WRITERS SHEET " + spreadsheetId + " DATASET " + datasetId;
@@ -235,7 +237,7 @@ public final class ManualQuarterMaintenance {
       }
     }
     if (!snapshot.tables.get("dataset").equals(List.of(HEADERS.get("dataset"),
-        List.of("bridgego-restricted-test", binding.datasetId)))) reject();
+        List.of(binding.purpose, binding.datasetId)))) reject();
     var tombstones = snapshot.tables.get("erasure_ledger");
     if (new HashSet<>(tombstones).size() != tombstones.size()) reject();
     ErasureLedger erasures = new ErasureLedger(tombstones);

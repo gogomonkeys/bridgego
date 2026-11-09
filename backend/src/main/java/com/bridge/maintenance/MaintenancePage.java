@@ -3,9 +3,9 @@ package com.bridge.maintenance;
 /** Deliberately separate from the game frontend and service worker. No third-party code before consent. */
 final class MaintenancePage {
   static final String HTML="""
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>測試資料刪除維護</title>
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>帳號資料刪除維護</title>
 <style>body{font:18px system-ui;max-width:760px;margin:40px auto;padding:20px;line-height:1.65}button,input{font:inherit;padding:8px}button{margin:10px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}fieldset{margin:20px 0}#status{font-weight:bold}label{display:block}</style></head><body>
-<h1>測試資料刪除維護</h1><p>此模式不提供遊戲或新增帳號。僅處理你透過 Google 驗證的本人帳號，不接受他人的帳號 ID。</p>
+<h1>帳號資料刪除維護</h1><p>此模式不提供遊戲或新增帳號。僅處理你透過 Google 驗證的本人帳號，不接受他人的帳號 ID。</p>
 <p>必須先由管理者實際停止所有遊戲及帳號資料寫入程序。系統開關只是管理者聲明，無法證明其他程序已停止。</p>
 <label><input id="consent" type="checkbox">我同意載入 Google 登入服務，將這次驗證憑證傳給本站以確認本人身分並讀取刪除預覽。憑證不會儲存或顯示。</label>
 <button id="preview">驗證本人並預覽</button><div id="google"></div><p id="status" role="status"></p>

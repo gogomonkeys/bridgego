@@ -2,6 +2,13 @@ import { canCompleteEntry } from "./entry-flow";
 import type { AuthConfig, LoginPurpose } from "./google-login";
 import { privacyReady } from "./PrivacyNotice";
 
+export function isManagedCollection(config: AuthConfig | null): boolean {
+  return config?.collectionMode === "managed";
+}
+
+export const managedLoginConsent =
+  "登入表示同意將 Google 識別碼、遊戲帳號及合資格戰績存入營運者的私人 Google 試算表。帳號保留，個人戰績每季人工清理；解除連結不是刪除。";
+
 export function isSingleTesterExperiment(config: AuthConfig | null): boolean {
   return config?.collectionMode === "single_tester_experiment";
 }
@@ -45,7 +52,7 @@ export function canLinkAccount(
     config.verificationEnabled === true &&
     typeof config.clientId === "string" &&
     config.clientId.trim() &&
-    ((config.collectionMode === "restricted" &&
+    (((config.collectionMode === "restricted" || isManagedCollection(config)) &&
       config.collectionReady === true) ||
       (isSingleTesterExperiment(config) &&
         config.collectionReady === false &&
@@ -77,6 +84,8 @@ export function entryAccountPurpose(
 ): LoginPurpose | null {
   if (canRecoverAccount(config, now)) return "recover";
   if (canLinkAccount(config, now)) return "link";
+  // Normal collection never falls back to a subject-display testing flow.
+  if (isManagedCollection(config)) return null;
   return config?.verificationEnabled === true &&
     typeof config.clientId === "string" &&
     config.clientId.trim()

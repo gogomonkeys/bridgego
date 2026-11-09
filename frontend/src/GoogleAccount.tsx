@@ -4,6 +4,8 @@ import {
   canRecoverAccount,
   experimentNotice,
   isSingleTesterExperiment,
+  isManagedCollection,
+  managedLoginConsent,
 } from "./entry-account";
 export { canLinkAccount } from "./entry-account";
 import { getClientState } from "./client";
@@ -23,6 +25,7 @@ export default function GoogleAccount({ token }: { token: string }) {
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const experimentNow = useExperimentClock(config);
   const experiment = isSingleTesterExperiment(config);
+  const managed = isManagedCollection(config);
   const experimentMessage = experimentNotice(config, experimentNow);
   const canRecover = canRecoverAccount(config, experimentNow);
   const canLink = canLinkAccount(config, experimentNow) && !canRecover;
@@ -173,7 +176,9 @@ export default function GoogleAccount({ token }: { token: string }) {
           ? experiment
             ? "已連結 Google（單人一場實驗）"
             : canLink
-              ? "已連結 Google（封閉測試）"
+              ? managed
+                ? "已連結 Google"
+                : "已連結 Google（封閉測試）"
               : "已連結 Google（收集尚未開放）"
           : "訪客也能完整遊玩"}
       </h3>
@@ -193,7 +198,7 @@ export default function GoogleAccount({ token }: { token: string }) {
         <>
           <p className="fine">
             解除連結僅解除本次 Google
-            連結，原訪客身分繼續使用，不會刪除已保存的紀錄。帳號連結不保證每場可保存，仍由伺服器判斷全場是否符合測試資格。
+            連結，原訪客身分繼續使用，不會刪除已保存的紀錄。帳號連結不保證每場可保存，仍由伺服器判斷全場是否符合保存條件。
           </p>
           <button
             className="secondary"
@@ -207,32 +212,36 @@ export default function GoogleAccount({ token }: { token: string }) {
         <>
           <p className="fine">
             按下同意後才會連線至 Google
-            並載入登入元件；選擇帳號後將登入憑證送至本遊戲伺服器驗證。驗證與連結是兩個獨立選項，不會自動互相轉換。
+            並載入登入元件；選擇帳號後將登入憑證送至本遊戲伺服器驗證。
           </p>
-          <p>
-            僅驗證身分：不建立或保存帳號對應，也不連結場次。只在此頁顯示你自己的
-            Google
-            帳號識別碼（subject），不是信箱、密碼或登入憑證。你可自行決定是否複製交給測試管理者申請核准，不會自動傳送。
-          </p>
+          {!managed && (
+            <p>
+              僅驗證身分：不建立或保存帳號對應，也不連結場次。只在此頁顯示你自己的
+              Google
+              帳號識別碼（subject），不是信箱、密碼或登入憑證。你可自行決定是否複製交給測試管理者申請核准，不會自動傳送。
+            </p>
+          )}
           {phase === "idle" && (
             <>
-              <button
-                className="secondary"
-                disabled={checking || recoverySubmitted || signedIn === null}
-                onClick={() => {
-                  setPurpose("verify");
-                  setVerified(null);
-                  setCopyMessage("");
-                  if (button.current)
-                    void attempt.current?.start(
-                      config.clientId,
-                      button.current,
-                      "verify",
-                    );
-                }}
-              >
-                同意僅驗證身分，不保存帳號對應
-              </button>
+              {!managed && (
+                <button
+                  className="secondary"
+                  disabled={checking || recoverySubmitted || signedIn === null}
+                  onClick={() => {
+                    setPurpose("verify");
+                    setVerified(null);
+                    setCopyMessage("");
+                    if (button.current)
+                      void attempt.current?.start(
+                        config.clientId,
+                        button.current,
+                        "verify",
+                      );
+                  }}
+                >
+                  同意僅驗證身分，不保存帳號對應
+                </button>
+              )}
               {canRecover && (
                 <>
                   <p>
@@ -264,7 +273,9 @@ export default function GoogleAccount({ token }: { token: string }) {
                   <p>
                     {experiment
                       ? "僅指定帳號可參與。連結表示同意將你的 Google 識別碼、遊戲帳號及最多一場戰績存入私人試算表；刪除仍待驗收，版本歷史或副本可能保留。取消或失敗也可能用掉名額。"
-                      : "已獲核准的測試者可選擇下方連結，表示同意上述資料範圍、保存期限與刪除處理方式。伺服器會檢查測試資格；未核准者不建立帳號對應。"}
+                      : managed
+                        ? managedLoginConsent
+                        : "已獲核准的測試者可選擇下方連結，表示同意上述資料範圍、保存期限與刪除處理方式。伺服器會檢查測試資格；未核准者不建立帳號對應。"}
                   </p>
                   <button
                     className="secondary"
@@ -285,12 +296,16 @@ export default function GoogleAccount({ token }: { token: string }) {
                   >
                     {experiment
                       ? "同意單人一場實驗並登入"
-                      : "同意測試資料收集並連結 Google"}
+                      : managed
+                        ? "同意並使用 Google 登入"
+                        : "同意測試資料收集並連結 Google"}
                   </button>
                 </>
               ) : (
                 <p role="status">
-                  資料收集尚未開放。僅可驗證自己的識別碼或繼續當訪客，不會因驗證而開始保存。
+                  {managed
+                    ? "帳號保存服務目前無法確認，請繼續當訪客。"
+                    : "資料收集尚未開放。僅可驗證自己的識別碼或繼續當訪客，不會因驗證而開始保存。"}
                 </p>
               )}
             </>
@@ -324,7 +339,7 @@ export default function GoogleAccount({ token }: { token: string }) {
             : "正在確認選用登入服務…"}
         </p>
       )}
-      {verified && (
+      {!managed && verified && (
         <section aria-label="僅驗證身分結果">
           <h4>已驗證，尚未連結</h4>
           <p>

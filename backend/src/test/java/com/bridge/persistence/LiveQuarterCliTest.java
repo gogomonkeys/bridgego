@@ -112,6 +112,19 @@ class LiveQuarterCliTest {
     assertThrows(IllegalStateException.class,()->LiveQuarterCli.parseManifest(new byte[8193]));
     assertThrows(IllegalStateException.class,()->LiveQuarterCli.parseManifest(null));
   }
+  @Test void optionalDatasetPurposeIsExplicitAndNeverInferred() throws Exception {
+    var scenario=new Scenario();var json=new ObjectMapper();
+    var manifest=(com.fasterxml.jackson.databind.node.ObjectNode)json.readTree(scenario.manifest("test"));
+    assertEquals("bridgego-restricted-test",LiveQuarterCli.parseManifest(json.writeValueAsBytes(manifest)).purpose());
+    for(String purpose:List.of("bridgego-managed","bridgego-restricted-test")){
+      manifest.put("dataset_purpose",purpose);assertEquals(purpose,LiveQuarterCli.parseManifest(json.writeValueAsBytes(manifest)).purpose());
+    }
+    for(String invalid:List.of("","managed","*","bridgego-managed ")){
+      manifest.put("dataset_purpose",invalid);byte[] bytes=json.writeValueAsBytes(manifest);
+      assertThrows(IllegalStateException.class,()->LiveQuarterCli.parseManifest(bytes));
+    }
+    manifest.put("dataset_purpose",true);byte[] bool=json.writeValueAsBytes(manifest);assertThrows(IllegalStateException.class,()->LiveQuarterCli.parseManifest(bool));
+  }
   @Test void launchRefusesArgumentsAndEveryExternalConfigurationCategory(){
     assertTrue(LiveQuarterCli.launchAllowed(new String[0],Set.of("PATH"),Set.of("java.version")));
     assertFalse(LiveQuarterCli.launchAllowed(new String[]{"anything"},Set.of(),Set.of()));

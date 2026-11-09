@@ -47,7 +47,7 @@ class MaintenanceRuntimeTest {
           assertFalse(context.containsBean("org.springframework.context.annotation.internalScheduledAnnotationProcessor"));
           var settings=context.getBean(ErasureMaintenanceApplication.MaintenanceSettings.class);assertFalse(settings.executionEnabled());assertFalse(settings.writerStoppedAcknowledged());
           var mvc=MockMvcBuilders.webAppContextSetup(context).addFilters(context.getBean(MaintenanceGuard.class)).build();
-          mvc.perform(get("/maintenance")).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("測試資料刪除維護")));
+          mvc.perform(get("/maintenance")).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("帳號資料刪除維護")));
           mvc.perform(get("/health/ready")).andExpect(status().isOk()).andExpect(jsonPath("$.mode").value("erasure"));
           mvc.perform(get("/api/rooms")).andExpect(status().isNotFound());
           mvc.perform(get("/index.html")).andExpect(status().isNotFound());mvc.perform(get("/sw.js")).andExpect(status().isNotFound());

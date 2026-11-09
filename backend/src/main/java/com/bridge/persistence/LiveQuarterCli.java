@@ -49,10 +49,10 @@ public final class LiveQuarterCli {
     boolean markerCreated = false;
     try {
       terminal.print("Manual quarter maintenance. Default: read-only preview. A preview may issue a Google token POST, but does not write Sheet cells.");
-      terminal.print("Use only a separately approved isolated target. The manifest is a carrier of that approval, not proof or permission by itself.");
+      terminal.print("Use only a separately approved bound target. The manifest is a carrier of that approval, not proof or permission by itself.");
       String manifestPath = path(terminal.path("Approved target manifest path (input hidden): "));
       ManualQuarterMaintenance.Binding binding = parseManifest(files.manifest(manifestPath));
-      terminal.print("Target Sheet: " + binding.spreadsheetId() + "; dataset: " + binding.datasetId());
+      terminal.print("Target Sheet: " + binding.spreadsheetId() + "; dataset: " + binding.datasetId() + "; purpose: " + binding.purpose());
       terminal.print("Stop all game, identity, import, maintenance, connector and manual writers; prevent restart. A digest is not a lock.");
       terminal.print("Backups and Google revision history are not erased. Type exactly: " + binding.stoppedConfirmation());
       if (!binding.stoppedConfirmation().equals(terminal.line("Stopped-writers confirmation: "))) return cancelled(terminal);
@@ -93,7 +93,7 @@ public final class LiveQuarterCli {
         if (!wholeConfirmation.equals(terminal.line("Execute this plan: "))) return cancelled(terminal);
         // CREATE_NEW is mandatory. A partial marker after a crash still blocks future execution.
         byte[] receipt = JSON.writeValueAsBytes(Map.of("version", 1, "state", "ATTEMPT_STARTED_OR_OUTCOME_REQUIRES_REVIEW",
-            "spreadsheet_id", binding.spreadsheetId(), "dataset_id", binding.datasetId(), "plan_id", preview.planId(),
+            "spreadsheet_id", binding.spreadsheetId(), "dataset_id", binding.datasetId(), "dataset_purpose", binding.purpose(), "plan_id", preview.planId(),
             "before_sha256", preview.beforeDigest(), "workbook_sha256", wholeFingerprint,
             "cutoff", preview.cutoff().toString(), "created_at", clock.instant().toString()));
         files.createAttempt(manifestPath, receipt); markerCreated = true;
@@ -120,12 +120,15 @@ public final class LiveQuarterCli {
       if (bytes == null || bytes.length < 1 || bytes.length > MANIFEST_BYTES) throw new IllegalStateException();
       JsonNode root = JSON.readTree(bytes);
       Set<String> fields = new HashSet<>(); root.fieldNames().forEachRemaining(fields::add);
-      if (!root.isObject() || !fields.equals(Set.of("manifest_version", "purpose", "spreadsheet_id", "dataset_id"))
+      if (!root.isObject() || !(fields.equals(Set.of("manifest_version", "purpose", "spreadsheet_id", "dataset_id"))
+              || fields.equals(Set.of("manifest_version", "purpose", "spreadsheet_id", "dataset_id", "dataset_purpose")))
           || !root.path("manifest_version").isIntegralNumber() || !root.path("manifest_version").canConvertToInt()
           || root.path("manifest_version").intValue() != 1
           || !root.path("purpose").asText().equals("bridgego-manual-quarter-maintenance-v1")
           || !root.path("spreadsheet_id").isTextual() || !root.path("dataset_id").isTextual()) throw new IllegalStateException();
-      return new ManualQuarterMaintenance.Binding(root.get("spreadsheet_id").asText(), root.get("dataset_id").asText());
+      if (root.has("dataset_purpose") && !root.get("dataset_purpose").isTextual()) throw new IllegalStateException();
+      return new ManualQuarterMaintenance.Binding(root.get("spreadsheet_id").asText(), root.get("dataset_id").asText(),
+          root.has("dataset_purpose") ? root.get("dataset_purpose").asText() : "bridgego-restricted-test");
     } catch (Exception failure) { throw new IllegalStateException("Target manifest rejected"); }
   }
   private static String path(String value) {

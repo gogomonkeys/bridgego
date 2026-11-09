@@ -43,7 +43,7 @@ public final class GoogleAuthService {
     boolean experimentReady = policy.experimentActive(clock) && store != null && store.enabled();
     boolean enabled = verificationEnabled && store != null && store.enabled() && (policy.ready() || experimentReady);
     return new Config(enabled, verificationEnabled ? clientId : "", verificationEnabled,
-        policy.experiment() ? "single_tester_experiment" : "restricted", policy.ready(), policy.privacyContact(), policy.retention(),
+        policy.experiment() ? "single_tester_experiment" : policy.managed() ? "managed" : "restricted", policy.ready(), policy.privacyContact(), policy.retention(),
         experimentReady, policy.experiment() ? policy.experimentExpiresAt().toString() : null, policy.experiment() ? 1 : null, recovery != null && enabled && experimentReady);
   }
   public Status status(RoomService.Identity who) { return new Status(rooms.accountId(who) != null); }

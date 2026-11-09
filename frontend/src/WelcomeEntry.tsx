@@ -10,6 +10,8 @@ import {
   entryAccountPurpose,
   experimentNotice,
   isSingleTesterExperiment,
+  isManagedCollection,
+  managedLoginConsent,
 } from "./entry-account";
 import {
   accountRequest,
@@ -59,6 +61,7 @@ export default function WelcomeEntry({
   const experimentNow = useExperimentClock(config);
   const availablePurpose = entryAccountPurpose(config, experimentNow);
   const experiment = isSingleTesterExperiment(config);
+  const managed = isManagedCollection(config);
   const experimentRef = useRef(experiment);
   experimentRef.current = experiment;
   const experimentMessage = experimentNotice(config, experimentNow);
@@ -369,7 +372,9 @@ export default function WelcomeEntry({
             : availablePurpose === "link"
               ? experiment
                 ? "登入表示同意將你的 Google 識別碼、遊戲帳號及最多一場戰績存入私人試算表；刪除仍在測試，歷史副本可能保留。重新登入會解除原連結。"
-                : "登入表示同意 Google 驗證、帳號連結及核准測試場次保存；重新登入會解除原連結。"
+                : managed
+                  ? managedLoginConsent
+                  : "登入表示同意 Google 驗證、帳號連結及核准測試場次保存；重新登入會解除原連結。"
               : availablePurpose === "verify"
                 ? "按下驗證表示同意連線至 Google；目前僅驗證身分，不建立帳號連結或保存對局。"
                 : "Google 為選用服務，不影響訪客遊玩。"}{" "}

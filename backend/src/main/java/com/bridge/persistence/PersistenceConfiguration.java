@@ -8,13 +8,8 @@ import java.util.List;
 public class PersistenceConfiguration {
     @Bean public SheetsGateway sheetsGateway(Environment env) {
         if("single_tester_experiment".equals(env.getProperty("BRIDGE_COLLECTION_MODE")) || !Boolean.parseBoolean(env.getProperty("BRIDGE_SHEETS_ENABLED","false")))return new SheetsGateway(){public List<List<String>> read(String tab){throw new IllegalStateException("Sheets disabled");}public void appendAtomic(java.util.Map<String,List<List<Object>>> rows){throw new IllegalStateException("Sheets disabled");}};
-        String testSheet = env.getRequiredProperty("BRIDGE_TEST_SPREADSHEET_ID");
-        String productionSheet = env.getProperty("BRIDGE_SHEETS_SPREADSHEET_ID", "");
-        if (testSheet.isBlank() || testSheet.equals(productionSheet))
-            throw new IllegalArgumentException("Test dataset must be distinct from the production spreadsheet");
-        return new TestDatasetGateway(new GoogleSheetsGateway(testSheet,
-            env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")),
-            env.getRequiredProperty("BRIDGE_TEST_DATASET_ID"));
+        return DatasetBinding.open(env, sheet -> new GoogleSheetsGateway(sheet,
+            env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")));
     }
     @Bean public StatsStore statsStore(Environment env,SheetsGateway gateway,org.springframework.beans.factory.ObjectProvider<ExperimentRuntimeConfiguration.Handle> experiment) {
         if("single_tester_experiment".equals(env.getProperty("BRIDGE_COLLECTION_MODE"))) {

@@ -34,10 +34,10 @@ public class ErasureMaintenanceApplication {
   }
   @Bean @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(SheetsGateway.class)
   SheetsGateway maintenanceGateway(Environment env) {
-    String sheet=env.getRequiredProperty("BRIDGE_TEST_SPREADSHEET_ID");
-    if(sheet.isBlank() || sheet.equals(env.getProperty("BRIDGE_SHEETS_SPREADSHEET_ID", "")))
-      throw new IllegalArgumentException("A separate test dataset is required");
     if ("single_tester_experiment".equals(env.getProperty("BRIDGE_COLLECTION_MODE"))) {
+      String sheet=env.getRequiredProperty("BRIDGE_TEST_SPREADSHEET_ID");
+      if(sheet.isBlank() || sheet.equals(env.getProperty("BRIDGE_SHEETS_SPREADSHEET_ID", "")))
+        throw new IllegalArgumentException("A separate test dataset is required");
       if (Boolean.parseBoolean(env.getProperty("BRIDGE_ERASURE_WORKFLOW_VERIFIED","false"))
           || Boolean.parseBoolean(env.getProperty("BRIDGE_QUARTER_POLICY_VERIFIED","false")))
         throw new IllegalStateException("Experiment does not establish production readiness");
@@ -49,8 +49,8 @@ public class ErasureMaintenanceApplication {
       var settings = new ExperimentStorage.Settings(sheet,policy.experimentDataset(),p.issuer(),p.subject(),policy.experimentExpiresAt());
       return new GoogleExperimentGateway(new GoogleSheetsGateway(sheet,env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")),settings,Clock.systemUTC()).asMaintenanceGateway();
     }
-    return new TestDatasetGateway(new GoogleSheetsGateway(sheet,
-        env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")), env.getRequiredProperty("BRIDGE_TEST_DATASET_ID"));
+    return DatasetBinding.open(env, sheet -> new GoogleSheetsGateway(sheet,
+        env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")));
   }
   @Bean @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(GoogleCredentialVerifier.class)
   GoogleCredentialVerifier maintenanceVerifier(ObjectMapper json) { return new GoogleJwtVerifier(json); }

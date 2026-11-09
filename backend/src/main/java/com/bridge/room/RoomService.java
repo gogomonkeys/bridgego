@@ -140,10 +140,12 @@ public class RoomService {
   public synchronized void experimentPolicy(CollectionPolicy policy) { this.experimentPolicy = Objects.requireNonNull(policy); }
 
   @Autowired
-  public synchronized void quarterRetentionEnabled(
-      @org.springframework.beans.factory.annotation.Value("${BRIDGE_QUARTER_POLICY_VERIFIED:false}") boolean enabled) {
-    quarterRetentionEnabled = enabled;
+  public synchronized void quarterRetentionPolicy(CollectionPolicy policy,
+      @org.springframework.beans.factory.annotation.Value("${BRIDGE_QUARTER_POLICY_VERIFIED:false}") boolean verified) {
+    // Enforcing the retention rule is distinct from certifying its operational acceptance.
+    quarterRetentionEnabled = policy.managed() || verified;
   }
+  public synchronized void quarterRetentionEnabled(boolean enabled) { quarterRetentionEnabled = enabled; }
 
   @Autowired
   public synchronized void statsStore(com.bridge.persistence.StatsStore store) { this.statsStore = store; }

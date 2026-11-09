@@ -9,7 +9,7 @@ export interface AuthConfig {
   enabled: boolean;
   clientId: string;
   verificationEnabled?: boolean;
-  collectionMode?: "restricted" | "single_tester_experiment";
+  collectionMode?: "restricted" | "single_tester_experiment" | "managed";
   experimentReady?: boolean;
   experimentRecoveryEnabled?: boolean;
   experimentExpiresAt?: string | null;

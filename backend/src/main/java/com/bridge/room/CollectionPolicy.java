@@ -6,13 +6,14 @@ import java.util.HashSet;
 import java.util.Set;
 import java.time.*;
 
-/** Immutable deployment admission policy. No public-collection mode exists in this candidate. */
+/** Explicit deployment admission policy; managed collection is opt-in and not a verification certificate. */
 public final class CollectionPolicy {
   private final Set<GoogleCredentialVerifier.Principal> testers;
   private final String privacyContact;
   private final String retention;
   private final boolean erasureWorkflowVerified;
   private final boolean quarterPolicyVerified;
+  private boolean managed;
   private Instant experimentExpiresAt;
   private String experimentDataset;
   public CollectionPolicy(Set<GoogleCredentialVerifier.Principal> testers) { this(testers, "", ""); }
@@ -28,6 +29,12 @@ public final class CollectionPolicy {
     this.retention = retention == null ? "" : retention.trim();
   }
   public static CollectionPolicy restrictedEmpty() { return new CollectionPolicy(Set.of()); }
+  public static CollectionPolicy managed(String privacyContact, String retention) {
+    CollectionPolicy value = new CollectionPolicy(Set.of(), privacyContact, retention, false, false);
+    value.managed = true;
+    return value;
+  }
+  public boolean managed() { return managed; }
   public boolean hasTesters() { return !testers.isEmpty(); }
   public String privacyContact() { return privacyContact; }
   public String retention() { return retention; }
@@ -37,7 +44,7 @@ public final class CollectionPolicy {
   public CollectionPolicy requireVerifiedQuarterPolicy(boolean verified) {
     return copy(new CollectionPolicy(testers, privacyContact, retention, erasureWorkflowVerified, verified));
   }
-  private CollectionPolicy copy(CollectionPolicy value) { value.experimentExpiresAt = experimentExpiresAt; value.experimentDataset = experimentDataset; return value; }
+  private CollectionPolicy copy(CollectionPolicy value) { value.managed = managed; value.experimentExpiresAt = experimentExpiresAt; value.experimentDataset = experimentDataset; return value; }
   public boolean experiment() { return experimentExpiresAt != null; }
   public Instant experimentExpiresAt() { return experimentExpiresAt; }
   public String experimentDataset() { return experimentDataset; }
@@ -65,11 +72,20 @@ public final class CollectionPolicy {
       return value;
     } catch (Exception invalid) { throw new IllegalStateException("Invalid bounded experiment configuration"); }
   }
-  public boolean ready() { return !experiment() && erasureWorkflowVerified && quarterPolicyVerified && hasTesters() && !privacyContact.isBlank() && !retention.isBlank(); }
+  public boolean ready() {
+    // Operational admission only. Managed mode makes no erasure/quarter verification claim;
+    // actual identity and stats writes still enforce current-quarter COMPLETE and erasure ledgers.
+    return !experiment() && !privacyContact.isBlank() && !retention.isBlank()
+        && (managed || erasureWorkflowVerified && quarterPolicyVerified && hasTesters());
+  }
   public boolean admits(String issuer, String subject) {
+    if (managed) {
+      try { validate(issuer, subject); return true; } catch (IllegalArgumentException invalid) { return false; }
+    }
     return issuer != null && subject != null && testers.contains(new GoogleCredentialVerifier.Principal(issuer, subject));
   }
   public static CollectionPolicy parse(ObjectMapper json, String mode, String configured, String privacyContact, String retention) {
+    if ("managed".equals(mode)) return managed(privacyContact, retention);
     if (!"restricted".equals(mode)) throw new IllegalStateException("Only restricted collection is supported");
     if (configured == null || configured.isBlank()) return new CollectionPolicy(Set.of(), privacyContact, retention);
     try {

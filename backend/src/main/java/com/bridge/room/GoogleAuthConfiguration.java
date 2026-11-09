@@ -53,6 +53,6 @@ public class GoogleAuthConfiguration {
       recovery = (issuer, subject) -> experiment.recoverAccount(issuer, subject, expected);
     }
     return new GoogleAuthService(rooms, store, verifier, clientId,
-        Set.of(AllowedOrigins.forProfile(production || policy.experiment(), publicOrigin)), Clock.systemUTC(), policy, recovery);
+        Set.of(AllowedOrigins.forProfile(production || policy.experiment() || policy.managed(), publicOrigin)), Clock.systemUTC(), policy, recovery);
   }
 }
