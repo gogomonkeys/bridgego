@@ -29,9 +29,22 @@ class SettlementStatisticsTest {
         SettlementEligibility.Result.ELIGIBLE, "NO_CONTEST", null, 0, 0);
     var result = summary(List.of(ns, ew, draw, ns, forfeit, none));
     assertEquals(5, result.matches()); assertEquals(4, result.completedDeals());
-    assertEquals(3, result.scoredMatches()); assertEquals(1, result.nsWins());
+    assertEquals(3, result.scoredMatches()); assertEquals(2, result.nsWins());
     assertEquals(1, result.ewWins()); assertEquals(1, result.draws());
     assertEquals(1, result.forfeits()); assertEquals(1, result.noContests());
+  }
+
+  @Test void forfeitsCountDeclaredWinnersEvenWhenCompletedScoresFavorTheOtherTeam() {
+    var ns = facts(UUID.randomUUID().toString(), NOW, MatchPersistence.SCORE_VERSION,
+        SettlementEligibility.Result.ELIGIBLE, "FORFEIT", "NS", -5, 10);
+    var ew = facts(UUID.randomUUID().toString(), NOW, MatchPersistence.SCORE_VERSION,
+        SettlementEligibility.Result.ELIGIBLE, "FORFEIT", "EW", 10, -5);
+    var none = facts(UUID.randomUUID().toString(), NOW, MatchPersistence.SCORE_VERSION,
+        SettlementEligibility.Result.ELIGIBLE, "NO_CONTEST", null, 7, 2);
+    var result = summary(List.of(ns, ew, none));
+    assertEquals(3, result.matches()); assertEquals(2, result.forfeits()); assertEquals(1, result.noContests());
+    assertEquals(1, result.nsWins()); assertEquals(1, result.ewWins());
+    assertEquals(0, result.draws()); assertEquals(0, result.scoredMatches());
   }
 
   @Test void conflictingMatchSnapshotsFailRatherThanDoubleCount() {

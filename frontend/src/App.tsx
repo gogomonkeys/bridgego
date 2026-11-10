@@ -1,3 +1,5 @@
+import RoomTypeChoice, { RoomTypeBadge, roomTypeLabel } from "./RoomTypeChoice";
+import type { RoomType } from "./model";
 import StatisticsPanel from "./StatisticsPanel";
 import { accountRequest, type AuthStatus } from "./google-login";
 import { readStatisticsConfig } from "./statistics";
@@ -18,6 +20,10 @@ export default function App() {
   const state = useClient();
   const [enteredToken, setEnteredToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [roomType, setRoomType] = useState<RoomType>("CASUAL");
+  const visibleRooms = state.rooms.filter(
+    (room) => (room.roomType ?? "CASUAL") === roomType,
+  );
   const [plannedDeals, setPlannedDeals] = useState<1 | 3 | 5>(3);
   const [route, setPage] = useState<"room" | "help" | "statistics">(() =>
     typeof window !== "undefined" && window.location?.hash === "#help"
@@ -104,7 +110,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.12.2", disconnects: diagnostics },
+    { version: "0.13.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -160,7 +166,7 @@ export default function App() {
       <main className={page === "help" ? "help-page" : undefined}>
         {page === "help" && (
           <div className="help-version">
-            <span className="eyebrow">v0.12.2</span>
+            <span className="eyebrow">v0.13.0</span>
           </div>
         )}
         <PwaStatus
@@ -190,7 +196,7 @@ export default function App() {
         {page !== "help" && (!state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.12.2</span>
+              <span className="eyebrow">v0.13.0</span>
               <h1>
                 {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
               </h1>
@@ -319,6 +325,7 @@ export default function App() {
                   <h2>
                     房間{" "}
                     <span data-testid="room-code">{state.room.roomId}</span>
+                    <RoomTypeBadge type={state.room.roomType} />
                   </h2>
                 </div>
                 <button
@@ -340,7 +347,11 @@ export default function App() {
                   <h3>{state.room.players.length} / 4 位玩家</h3>
                   <p>你在下方，隊友在對面。</p>
                   <p>本場 {state.room.plannedDeals ?? 3} 局 · 尚未開局</p>
-                  <p>全部準備後，由房主手動開局。</p>
+                  <p>
+                    {state.room.roomType === "FORMAL"
+                      ? "四位真人準備後，由房主開局。"
+                      : "全部準備後，由房主手動開局。"}
+                  </p>
                 </div>
               </div>
               <div className="table-bottom">
@@ -369,6 +380,12 @@ export default function App() {
                 <br />
                 人到齊，再一起準備。
               </p>
+              {state.room.roomType === "FORMAL" && (
+                <p className="room-type-note">
+                  正式場僅限四位真人。開局後主動離開或斷線超過 10
+                  秒，依規則判負；雙方皆失敗可能不計勝負。
+                </p>
+              )}
               <ComputerPlayers
                 room={state.room}
                 playerId={state.session!.playerId}
@@ -471,11 +488,16 @@ export default function App() {
                     >
                       <path d="M3 16.5h14M5 13V9m5 4V3.5m5 9.5V6" />
                     </svg>
-                    <span>本季戰績統計</span>
+                    <span>戰績統計</span>
                   </button>
                 )}
               </div>
               <p>開一個新房間，或加入朋友的邀請。</p>
+              <RoomTypeChoice
+                value={roomType}
+                disabled={state.busy}
+                onChange={setRoomType}
+              />
               <fieldset className="deal-count-choice" disabled={state.busy}>
                 <legend>本場局數</legend>
                 {[1, 3, 5].map((count) => (
@@ -494,9 +516,9 @@ export default function App() {
               <button
                 className="primary create-room"
                 disabled={state.busy}
-                onClick={() => void client.create(plannedDeals)}
+                onClick={() => void client.create(plannedDeals, roomType)}
               >
-                ＋ 建立四人房間
+                ＋ 建立{roomTypeLabel(roomType)}房間
               </button>
               <div className="divider">或使用房間代碼</div>
               <form
@@ -534,7 +556,7 @@ export default function App() {
               <div className="list-heading">
                 <div>
                   <span className="eyebrow">AVAILABLE TABLES</span>
-                  <h2>目前的房間</h2>
+                  <h2>目前的{roomTypeLabel(roomType)}房間</h2>
                 </div>
                 <button
                   className="secondary"
@@ -544,12 +566,13 @@ export default function App() {
                   重新整理
                 </button>
               </div>
-              {state.rooms.length ? (
+              {visibleRooms.length ? (
                 <ul className="room-list">
-                  {state.rooms.map((room) => (
+                  {visibleRooms.map((room) => (
                     <li key={room.roomId}>
                       <div>
                         <strong>{room.roomId}</strong>
+                        <RoomTypeBadge type={room.roomType} />
                         <small>
                           {room.playerCount} / 4 位玩家 ·{" "}
                           {room.plannedDeals ?? 3} 局 ·{" "}
@@ -579,7 +602,9 @@ export default function App() {
               ) : (
                 <div className="empty">
                   <span>♧</span>
-                  <p>還沒有房間，開一桌邀請朋友吧。</p>
+                  <p>
+                    目前沒有{roomTypeLabel(roomType)}房間，開一桌邀請朋友吧。
+                  </p>
                 </div>
               )}
             </section>

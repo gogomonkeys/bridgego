@@ -109,6 +109,12 @@ public final class GoogleSheetsGateway implements SheetsGateway {
         if (row < 0 || row == 1 || account.size() != 4 || !"2".equals(account.get(1))
             || (row == 0 ? identity == null || identity.size() != 4 : identity != null)) throw new IllegalArgumentException();
         ensureSheetIds();
+        request(":batchUpdate", profileBody(row, account, identity, sheetIds));
+    }
+    /** Pure narrow write builder, tested without credentials or network. */
+    static Map<String,Object> profileBody(int row, List<String> account, List<String> identity, Map<String,Integer> sheetIds) {
+        if (row < 0 || row == 1 || account.size() != 4 || !"2".equals(account.get(1))
+            || (row == 0 ? identity == null || identity.size() != 4 : identity != null)) throw new IllegalArgumentException();
         int accountSheet = sheetIds.get("accounts");
         List<Object> requests = new ArrayList<>();
         requests.add(Map.of("updateCells", Map.of("start",Map.of("sheetId",accountSheet,"rowIndex",0,"columnIndex",2),
@@ -118,7 +124,7 @@ public final class GoogleSheetsGateway implements SheetsGateway {
             requests.add(Map.of("appendCells",Map.of("sheetId",sheetIds.get("auth_identities"),"rows",List.of(profileRow(identity)),"fields","userEnteredValue")));
         } else requests.add(Map.of("updateCells",Map.of("start",Map.of("sheetId",accountSheet,"rowIndex",row-1,"columnIndex",0),
             "rows",List.of(profileRow(account)),"fields","userEnteredValue")));
-        request(":batchUpdate",Map.of("requests",requests));
+        return Map.of("requests",requests);
     }
     private static Map<String,Object> profileRow(List<String> values) {
         // Explicit stringValue prevents spreadsheet formula injection from user nicknames.

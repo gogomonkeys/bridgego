@@ -1,3 +1,4 @@
+import { RoomTypeBadge } from "./RoomTypeChoice";
 import type {
   DealResult,
   Game,
@@ -100,6 +101,37 @@ export function TrickRecord({
     </div>
   );
 }
+/** Never substitute zero for absent or malformed historical timing. */
+export function dealDurationLabel(elapsedMs: unknown): string {
+  if (
+    typeof elapsedMs !== "number" ||
+    !Number.isSafeInteger(elapsedMs) ||
+    elapsedMs < 0
+  )
+    return "無紀錄";
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const seconds = totalSeconds % 60;
+  const minutes = Math.floor(totalSeconds / 60) % 60;
+  const hours = Math.floor(totalSeconds / 3600);
+  if (hours > 0) return `${hours} 小時 ${minutes} 分 ${seconds} 秒`;
+  if (minutes > 0) return `${minutes} 分 ${seconds} 秒`;
+  return `${seconds} 秒`;
+}
+
+function DealTimings({ deals }: { deals: DealResult[] }) {
+  if (!deals.length) return null;
+  return (
+    <p className="fine deal-timings" aria-label="各局耗時">
+      {deals
+        .map(
+          (deal) =>
+            `第 ${deal.dealIndex} 局：${dealDurationLabel(deal.elapsedMs)}`,
+        )
+        .join(" · ")}
+    </p>
+  );
+}
+
 export function DealBreakdown({
   result,
   roster = [],
@@ -110,6 +142,9 @@ export function DealBreakdown({
   return (
     <div className="deal-breakdown">
       <h3>第 {result.dealIndex} 局結算</h3>
+      <p className="deal-duration">
+        本局耗時：{dealDurationLabel(result.elapsedMs)}
+      </p>
       <p>
         定約 {result.contract.level} {symbols[result.contract.strain]} ·{" "}
         {teamNames[result.contract.teamId]} ·{" "}
@@ -170,6 +205,7 @@ export function MatchSummary({
 }: {
   game: Pick<
     Game,
+    | "roomType"
     | "matchResult"
     | "completedDeals"
     | "plannedDeals"
@@ -182,8 +218,8 @@ export function MatchSummary({
   const reason = {
     THREE_DEALS_COMPLETE: "三局皆已完成",
     PLANNED_DEALS_COMPLETE: `${game.plannedDeals} 局皆已完成`,
-    MANUAL_EXIT: "有玩家主動退出",
-    RECONNECT_TIMEOUT: "重連期限屆滿",
+    MANUAL_EXIT: "主動離開判負",
+    RECONNECT_TIMEOUT: "斷線逾時判負",
     NO_HUMANS_CONNECTED: "所有真人皆未在 10 秒內恢復連線",
     NO_HUMANS_REMAIN: "所有真人皆已離開",
     BOTH_TEAMS_FAILED: "兩隊均未完成有效重連／退出",
@@ -191,6 +227,7 @@ export function MatchSummary({
   return (
     <section className="contract-result" aria-label="整場結果" role="status">
       <span className="eyebrow">MATCH RESULT</span>
+      <RoomTypeBadge type={game.roomType} />
       <h3>
         {result.outcome === "NO_CONTEST"
           ? "本場無勝負"
@@ -213,6 +250,7 @@ export function MatchSummary({
         已完成 {game.completedDeals} / {game.plannedDeals} 局 · 南北{" "}
         {game.teamTotals.NS} 分 · 東西 {game.teamTotals.EW} 分
       </p>
+      <DealTimings deals={game.completedDealResults} />
       <p>已完成的分數保留；未完成的局不計分。之後離開或斷線不改變此結果。</p>
     </section>
   );
@@ -249,15 +287,23 @@ export function PreviousMatchSummary({ match }: { match: MatchArchive }) {
   return (
     <section className="last-match-archive" aria-label="上一場結果">
       <span className="eyebrow">上一場結果</span>
+      <RoomTypeBadge type={match.roomType} />
       <strong>
         {result.outcome === "NO_CONTEST"
           ? "無勝負"
           : result.winnerTeamId
             ? `${teamNames[result.winnerTeamId]}獲勝`
             : "平手"}
-        {result.outcome === "FORFEIT" && <small> · 棄權判定</small>}
+        {result.outcome === "FORFEIT" && (
+          <small>
+            {" "}
+            ·{" "}
+            {result.reason === "MANUAL_EXIT" ? "主動離開判負" : "斷線逾時判負"}
+          </small>
+        )}
       </strong>
       <p>保留當時已記錄的分數，不以新規則重算。</p>
+      <DealTimings deals={match.completedDealResults} />
       <div className="previous-totals">
         <span>
           南北 <b>{match.teamTotals.NS}</b> 分

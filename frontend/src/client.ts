@@ -7,6 +7,7 @@ import {
   type Session,
   type Room,
   type RoomSummary,
+  type RoomType,
   type Call,
   type Card,
   type CommandResult,
@@ -762,8 +763,10 @@ export const client = {
     });
     return created;
   },
-  create: (plannedDeals: 1 | 3 | 5 = 3) =>
-    run(async () => enter(await api<Room>("/rooms", "POST", { plannedDeals }))),
+  create: (plannedDeals: 1 | 3 | 5 = 3, roomType: RoomType = "CASUAL") =>
+    run(async () =>
+      enter(await api<Room>("/rooms", "POST", { plannedDeals, roomType })),
+    ),
   join: (id: string) =>
     run(async () =>
       enter(

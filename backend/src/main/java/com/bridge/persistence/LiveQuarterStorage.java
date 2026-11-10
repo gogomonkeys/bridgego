@@ -82,6 +82,10 @@ final class LiveQuarterStorage implements ManualQuarterMaintenance.Storage, Auto
           }
         });
         if (!keep.equals(after.keySet())) reject();
+        var expired = prior.values().stream()
+            .filter(envelope -> QuarterlyRetention.finishedAt(envelope).isBefore(authorization.cutoff())).toList();
+        if (!LifetimeStatistics.fold(fresh.tables().get("accounts"), expired, authorization.cutoff())
+            .equals(candidate.tables().get("accounts"))) reject();
         pending = candidate;
       } else {
         if (pending == null || !fresh.equals(pending) || !ledger.complete()) reject();

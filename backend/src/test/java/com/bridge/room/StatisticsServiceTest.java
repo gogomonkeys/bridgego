@@ -44,7 +44,10 @@ class StatisticsServiceTest {
   @Test void legacyDataNeverBackfillsAndRepeatedExactCommitCountsOnce() {
     var store = new MatchPersistenceTest.RecordingStore(); var f = StatisticsCollectionFlowTest.fixture(1, 4, store); f.playRemainingDeal();
     var original = store.writes.get(0); String account = f.service.accountId(f.players[0]);
-    var legacy = changed(original, p -> ((ObjectNode)p.path("match")).remove("statistics_rule"));
+    var legacy = changed(original, p -> {
+      ((ObjectNode)p.path("match")).remove(List.of("statistics_rule", "match_category", "room_type", "lifetime_rule"));
+      p.path("participants").forEach(person -> ((ObjectNode) person).remove("settlement_control"));
+    });
     assertEquals(0, StatisticsService.project(List.of(legacy), account, f.clock.instant()).overall().matches());
     assertEquals(1, StatisticsService.project(List.of(original, original), account, f.clock.instant()).overall().matches());
     assertThrows(IllegalArgumentException.class, () -> StatisticsService.project(List.of(original, legacy), account, f.clock.instant()));

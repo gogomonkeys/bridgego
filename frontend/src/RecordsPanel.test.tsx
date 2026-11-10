@@ -152,7 +152,7 @@ describe("v0.5 capture and records presentation", () => {
     };
     const html = renderToStaticMarkup(<PreviousMatchSummary match={match} />);
     expect(html).toContain("東西隊獲勝");
-    expect(html).toContain("棄權判定");
+    expect(html).toContain("主動離開判負");
     expect(html).not.toContain("基本分");
     expect(html).not.toContain("13 回合");
   });

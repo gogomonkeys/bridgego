@@ -19,13 +19,13 @@ public final class ManualQuarterMaintenance {
       "quarterly_aggregates", QuarterlyRetention.AGGREGATE_HEADER);
   static final Set<String> MUTABLE = Set.of("accounts", "auth_identities", "envelopes", "commits",
       "erasure_ledger", "retention_ledger", "quarterly_aggregates");
-  static final Set<String> PRESERVED = Set.of("dataset", "accounts", "auth_identities", "erasure_ledger");
-  private static final Set<String> MATCH_FIELDS = Set.of("statistics_rule", "match_id", "revision", "schema_version", "score_version",
+  static final Set<String> PRESERVED = Set.of("dataset", "auth_identities", "erasure_ledger");
+  private static final Set<String> MATCH_FIELDS = Set.of("lifetime_rule", "room_type", "deal_timing_rule", "match_category", "statistics_rule", "match_id", "revision", "schema_version", "score_version",
       "app_version", "started_at", "finished_at", "planned_deals", "completed_deals", "outcome", "winner_team_id",
       "reason", "ns_total", "ew_total");
   private static final Set<String> PERSON_FIELDS = Set.of("match_id", "seat", "team_id", "player_type",
-      "control_type", "account_id", "guest_id", "erased_marker");
-  private static final Set<String> DEAL_FIELDS = Set.of("match_id", "deal_id", "deal_index", "contract_type",
+      "settlement_control", "control_type", "account_id", "guest_id", "erased_marker");
+  private static final Set<String> DEAL_FIELDS = Set.of("elapsed_ms", "match_id", "deal_id", "deal_index", "contract_type",
       "contract_level", "contract_strain", "attacking_team_id", "ns_tricks", "ew_tricks", "ns_privilege_used",
       "ns_base", "ns_exact_bonus", "ns_penalty", "ns_privilege_adjustment", "ns_total", "ew_privilege_used",
       "ew_base", "ew_exact_bonus", "ew_penalty", "ew_privilege_adjustment", "ew_total");
@@ -193,6 +193,9 @@ public final class ManualQuarterMaintenance {
       for (String tab : PRESERVED) if (!before.tables.get(tab).equals(candidate.tables.get(tab))) reject();
       // Raw current-quarter payloads, scores and canonical hashes must remain byte-for-byte identical.
       Map<String,FinalMatchEnvelope> prior = decoded(before.tables), after = decoded(candidate.tables);
+      var expiredForCarry = prior.values().stream().filter(e -> QuarterlyRetention.finishedAt(e).isBefore(cutoff)).toList();
+      var expectedAccounts = LifetimeStatistics.fold(before.tables.get("accounts"), expiredForCarry, cutoff);
+      if (!expectedAccounts.equals(candidate.tables.get("accounts"))) reject();
       Set<String> retained = new HashSet<>();
       prior.forEach((id, envelope) -> {
         if (!QuarterlyRetention.finishedAt(envelope).isBefore(cutoff)) {
@@ -260,6 +263,10 @@ public final class ManualQuarterMaintenance {
     for (var row : data(snapshot, "envelopes")) if (!chunks.add(row.get(0) + ":" + row.get(2))) reject();
     RetentionLedger retention = new RetentionLedger(snapshot.tables.get("retention_ledger"));
     if (retention.cutoff().isAfter(QuarterlyRetention.currentQuarterStart(clock.instant()))) reject();
+    for (var row : data(snapshot, "accounts")) {
+      var carry = row.size() == 5 ? LifetimeStatistics.decode(row.get(4)) : LifetimeStatistics.empty();
+      if (carry.through() != null && carry.through().isAfter(retention.cutoff())) reject();
+    }
     for (var row : data(snapshot, "retention_ledger"))
       if (row.get(2).equals("COMPLETE") && Instant.parse(row.get(3)).isAfter(clock.instant())) reject();
     Set<String> quarters = new HashSet<>();
@@ -274,7 +281,7 @@ public final class ManualQuarterMaintenance {
       if (!rootNames.equals(Set.of("match", "participants", "completed_deals"))) reject();
       var match = root.path("match"); fields(match, MATCH_FIELDS);
       typedScalars(match, Set.of("revision", "schema_version", "planned_deals", "completed_deals", "ns_total", "ew_total"), Set.of());
-      if (!Set.of("0.12.1", "0.12.2").contains(match.path("app_version").asText())
+      if (!Set.of("0.12.1", "0.12.2", "0.13.0").contains(match.path("app_version").asText())
           || !match.path("score_version").asText().equals("bridgego-custom-v0.11-1")) reject();
       Instant started = Instant.parse(match.path("started_at").asText()), finished = QuarterlyRetention.finishedAt(envelope);
       if (started.isAfter(finished) || finished.isAfter(clock.instant())) reject();
@@ -300,7 +307,7 @@ public final class ManualQuarterMaintenance {
       }
       for (var deal : root.path("completed_deals")) {
         fields(deal, DEAL_FIELDS);
-        typedScalars(deal, Set.of("deal_index", "contract_level", "ns_tricks", "ew_tricks", "ns_base", "ns_exact_bonus",
+        typedScalars(deal, Set.of("elapsed_ms", "deal_index", "contract_level", "ns_tricks", "ew_tricks", "ns_base", "ns_exact_bonus",
             "ns_penalty", "ns_privilege_adjustment", "ns_total", "ew_base", "ew_exact_bonus", "ew_penalty",
             "ew_privilege_adjustment", "ew_total"), Set.of("ns_privilege_used", "ew_privilege_used"));
       }

@@ -163,7 +163,7 @@ final class LiveQuarterWorkbook {
           assigned[rr][cc] = true;
           JsonNode cell = values.get(c);
           String value = parseCell(cell, title, rr, cc, carlitoTheme);
-          if (cc >= (title.equals("accounts") ? AccountProfileRows.HEADER.size() : schemaWidth) && !value.isEmpty()) throw failure();
+          if (cc >= (title.equals("accounts") ? AccountProfileRows.LIFETIME_HEADER.size() : schemaWidth) && !value.isEmpty()) throw failure();
           cells[rr][cc] = value;
           // The top-level hyperlink is derived from the exact literal. All accepted user/effective
           // link formatting remains in metadata and must survive value-only readback unchanged.
@@ -181,9 +181,10 @@ final class LiveQuarterWorkbook {
     int end = grid.rowCount();
     while (end > 0 && Arrays.stream(cells[end - 1]).allMatch(String::isEmpty)) end--;
     if (title.equals("accounts")) {
+      boolean lifetime = grid.columnCount() >= 5 && AccountProfileRows.LIFETIME_HEADER.equals(Arrays.asList(cells[0]).subList(0, 5));
       boolean profile = grid.columnCount() >= 4 && AccountProfileRows.HEADER.equals(
           Arrays.asList(cells[0]).subList(0, 4));
-      schemaWidth = profile ? 4 : 2;
+      schemaWidth = lifetime ? 5 : profile ? 4 : 2;
       // Reject data outside the selected, exact header rather than discarding it.
       for (String[] row : cells) for (int c = schemaWidth; c < row.length; c++)
         if (!row[c].isEmpty()) throw failure();

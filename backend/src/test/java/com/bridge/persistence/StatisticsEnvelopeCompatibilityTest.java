@@ -13,10 +13,10 @@ class StatisticsEnvelopeCompatibilityTest {
 
     private static ObjectNode marked(FinalMatchEnvelope original) {
         ObjectNode root = (ObjectNode) original.payload();
-        ((ObjectNode) root.path("match")).put("statistics_rule", FinalMatchEnvelope.STATISTICS_RULE).put("outcome", "SCORED");
+        ((ObjectNode) root.path("match")).put("statistics_rule", FinalMatchEnvelope.SETTLEMENT_STATISTICS_RULE).put("outcome", "SCORED").put("match_category", "FORMAL");
         for (var node : root.path("participants")) {
             ObjectNode person = (ObjectNode) node;
-            person.put("player_type", "HUMAN").put("control_type", "HUMAN")
+            person.put("player_type", "HUMAN").put("control_type", "HUMAN").put("settlement_control", "HUMAN")
                 .put("team_id", person.path("seat").asInt() % 2 == 0 ? "NS" : "EW").putNull("guest_id");
         }
         return root;
@@ -37,7 +37,7 @@ class StatisticsEnvelopeCompatibilityTest {
         var root = marked(f.expired);
         person(root, 0).put("control_type", "MIXED");
         var saved = assertDoesNotThrow(() -> envelope(root));
-        assertEquals(FinalMatchEnvelope.STATISTICS_RULE, saved.payload().path("match").path("statistics_rule").asText());
+        assertEquals(FinalMatchEnvelope.SETTLEMENT_STATISTICS_RULE, saved.payload().path("match").path("statistics_rule").asText());
         assertTrue(saved.payload().path("participants").get(2).has("erased_marker"));
         assertTrue(saved.payload().path("participants").get(3).path("account_id").isNull());
     }

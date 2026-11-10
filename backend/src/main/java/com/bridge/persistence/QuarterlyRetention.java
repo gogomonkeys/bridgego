@@ -49,6 +49,8 @@ public final class QuarterlyRetention {
             if(finished.isAfter(clock.instant()))throw new SheetsGateway.Conflict();
             if(finished.isBefore(boundary)){expired.add(envelope.commitId());grouped.computeIfAbsent(quarter(finished),k->new ArrayList<>()).add(envelope);}
         }
+        List<FinalMatchEnvelope> expiredRecords = raw.values().stream().filter(e -> expired.contains(e.commitId())).toList();
+        after.put("accounts", new ArrayList<>(LifetimeStatistics.fold(before.get("accounts"), expiredRecords, boundary)));
         after.get("envelopes").removeIf(r->!r.isEmpty()&&expired.contains(r.get(0)));after.get("commits").removeIf(r->!r.isEmpty()&&expired.contains(r.get(0)));
         for(var group:grouped.entrySet()){
             if(after.get("quarterly_aggregates").stream().skip(1).anyMatch(r->r.get(0).equals(group.getKey())))throw new SheetsGateway.Conflict();

@@ -258,6 +258,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "FORMAL_COMPUTER_FORBIDDEN",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Formal rooms cannot add computer players",
+      "category": "domain",
+      "meaning": "正式場不允許加入電腦",
+      "handling": "等待四位真人，或另開休閒房間。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "GAME_IN_PROGRESS",
       "httpStatuses": [
         409
@@ -548,6 +562,21 @@
       "category": "validation",
       "meaning": "輸入或目前席位/流程不符合要求",
       "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_ROOM_TYPE",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java",
+        "backend/src/main/java/com/bridge/room/RoomController.java"
+      ],
+      "exampleMessage": "roomType must be FORMAL or CASUAL",
+      "category": "validation",
+      "meaning": "房間類型不是 FORMAL 或 CASUAL",
+      "handling": "選擇正式或休閒再開房；舊客戶端省略時使用休閒。",
       "automaticMutationRetry": false
     },
     {

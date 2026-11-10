@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "BridgeGo HTTP API",
-    "version": "0.9.1",
+    "version": "0.13.0",
     "description": "訪客Bearer、伺服器權威。無帳號密碼。此檔涵蓋HTTP，WS見websocket.zh-TW.md；完整遊戲投影見CONTRACT.md。回應中的GameSnapshot/MatchArchive刻意為可擴充摘要，不是完整程式碼產生契約。"
   },
   "servers": [
@@ -266,7 +266,7 @@
       "post": {
         "operationId": "createRoom",
         "summary": "建立房間",
-        "description": "最多兩桌；建立者成為房主。HTTP建房後須在5秒內WS訂閱；不等於遊戲中的10秒重連期限。 可選plannedDeals=1、3、5；省略body、欄位或null預設3。其他值或型別回400 INVALID_PLANNED_DEALS。房內設定固定，再玩一場沿用。",
+        "description": "最多兩桌；建立者成為房主。HTTP建房後須在5秒內WS訂閱；不等於遊戲中的10秒重連期限。 可選plannedDeals=1、3、5；省略body、欄位或null預設3。其他值或型別回400 INVALID_PLANNED_DEALS。房內設定固定，再玩一場沿用。 roomType=FORMAL/CASUAL 開房固定，再戰沿用；省略預設CASUAL，null或未知型別回400 INVALID_ROOM_TYPE。正式禁止電腦，只能四真人開始。",
         "tags": [
           "rooms"
         ],
@@ -377,6 +377,15 @@
                     ],
                     "default": 3,
                     "nullable": true
+                  },
+                  "roomType": {
+                    "type": "string",
+                    "enum": [
+                      "FORMAL",
+                      "CASUAL"
+                    ],
+                    "description": "Immutable room mode, retained on rematch. Legacy create requests default to CASUAL.",
+                    "default": "CASUAL"
                   }
                 }
               }
@@ -4185,6 +4194,14 @@
               5
             ],
             "default": 3
+          },
+          "roomType": {
+            "type": "string",
+            "enum": [
+              "FORMAL",
+              "CASUAL"
+            ],
+            "description": "Immutable room mode, retained on rematch. Legacy create requests default to CASUAL."
           }
         }
       },
@@ -4365,6 +4382,20 @@
               5
             ],
             "default": 3
+          },
+          "completedDealResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DealResult"
+            }
+          },
+          "roomType": {
+            "type": "string",
+            "enum": [
+              "FORMAL",
+              "CASUAL"
+            ],
+            "description": "Immutable room mode, retained on rematch. Legacy create requests default to CASUAL."
           }
         }
       },
@@ -4376,6 +4407,20 @@
         "properties": {
           "matchResult": {
             "$ref": "#/components/schemas/MatchResult"
+          },
+          "completedDealResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DealResult"
+            }
+          },
+          "roomType": {
+            "type": "string",
+            "enum": [
+              "FORMAL",
+              "CASUAL"
+            ],
+            "description": "Immutable room mode, retained on rematch. Legacy create requests default to CASUAL."
           }
         }
       },
@@ -4454,6 +4499,14 @@
               5
             ],
             "default": 3
+          },
+          "roomType": {
+            "type": "string",
+            "enum": [
+              "FORMAL",
+              "CASUAL"
+            ],
+            "description": "Immutable room mode, retained on rematch. Legacy create requests default to CASUAL."
           }
         }
       },
@@ -4915,7 +4968,7 @@
           "consentVersion": {
             "type": "string",
             "enum": [
-              "statistics-v1"
+              "statistics-v4"
             ]
           }
         }
@@ -4933,7 +4986,7 @@
           "version": {
             "type": "string",
             "enum": [
-              "statistics-v1"
+              "statistics-v4"
             ]
           }
         }
@@ -4947,18 +5000,23 @@
           "wins",
           "losses",
           "draws",
-          "totalScore"
+          "totalScore",
+          "scoredMatches",
+          "forfeitMatches",
+          "interruptedMatches"
         ],
         "properties": {
           "matches": {
             "type": "integer",
             "format": "int64",
-            "minimum": 0
+            "minimum": 0,
+            "description": "已結束場次總數，包含正常完成、判負及中止。"
           },
           "completedDeals": {
             "type": "integer",
             "format": "int64",
-            "minimum": 0
+            "minimum": 0,
+            "description": "所有已結束場次中實際完成局數；未完成局不計。"
           },
           "wins": {
             "type": "integer",
@@ -4978,7 +5036,25 @@
           "totalScore": {
             "type": "integer",
             "format": "int64",
-            "description": "登入者隊伍在本季合資格正常完成場次中的累計分數。"
+            "description": "各已結束場次之實際已完成局我方分數總和；判負不虛構分數，未完成局忽略。生涯為所有已保存跨季累計與本季新標記紀錄之和。"
+          },
+          "scoredMatches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "正常完成場次"
+          },
+          "forfeitMatches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "退出或斷線逾時判負場次"
+          },
+          "interruptedMatches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "中止且無勝負場次"
           }
         }
       },
@@ -4988,23 +5064,46 @@
         "required": [
           "matches",
           "completedDeals",
-          "draws"
+          "draws",
+          "scoredMatches",
+          "forfeitMatches",
+          "interruptedMatches"
         ],
         "properties": {
           "matches": {
             "type": "integer",
             "format": "int64",
-            "minimum": 0
+            "minimum": 0,
+            "description": "已結束場次總數，包含正常完成、判負及中止。"
           },
           "completedDeals": {
             "type": "integer",
             "format": "int64",
-            "minimum": 0
+            "minimum": 0,
+            "description": "所有已結束場次中實際完成局數；未完成局不計。"
           },
           "draws": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "scoredMatches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "正常完成場次"
+          },
+          "forfeitMatches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "退出或斷線逾時判負場次"
+          },
+          "interruptedMatches": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "中止且無勝負場次"
           }
         }
       },
@@ -5016,7 +5115,14 @@
           "asOf",
           "ruleVersion",
           "personal",
-          "overall"
+          "overall",
+          "casualPersonal",
+          "casualOverall",
+          "quarterEndsAt",
+          "lifetimePersonal",
+          "lifetimeCasualPersonal",
+          "lifetimeCoverage",
+          "lifetimeTrackedFromQuarter"
         ],
         "properties": {
           "status": {
@@ -5038,17 +5144,106 @@
           "ruleVersion": {
             "type": "string",
             "enum": [
-              "four-humans-at-settlement-v1"
+              "fixed-room-type-v3"
             ]
           },
           "personal": {
-            "$ref": "#/components/schemas/PersonalStatistics"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonalStatistics"
+              }
+            ],
+            "nullable": true,
+            "description": "正式場彙總；不可用時為 null。"
           },
           "overall": {
-            "$ref": "#/components/schemas/OverallStatistics"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OverallStatistics"
+              }
+            ],
+            "nullable": true,
+            "description": "正式場彙總；不可用時為 null。"
+          },
+          "casualPersonal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonalStatistics"
+              }
+            ],
+            "nullable": true,
+            "description": "休閒場彙總；不可用時為 null。"
+          },
+          "casualOverall": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OverallStatistics"
+              }
+            ],
+            "nullable": true,
+            "description": "休閒場彙總；不可用時為 null。"
+          },
+          "lifetimePersonal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonalStatistics"
+              }
+            ],
+            "nullable": true,
+            "description": "正式場彙總；不可用時為 null。"
+          },
+          "lifetimeCasualPersonal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonalStatistics"
+              }
+            ],
+            "nullable": true,
+            "description": "正式場彙總；不可用時為 null。"
+          },
+          "quarterEndsAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "台灣時間下一季度起點（exclusive）；代表本季統計切換，不代表資料已自動清理。"
+          },
+          "lifetimeCoverage": {
+            "type": "string",
+            "enum": [
+              "RECORDED_SINCE_FEATURE"
+            ],
+            "description": "只涵蓋生涯功能啟用後、全場新版同意且已保存的新標記紀錄。"
+          },
+          "lifetimeTrackedFromQuarter": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-Q[1-4]$",
+            "description": "該帳號最早可證明生涯記錄季度；尚無紀錄為null，不宣稱涵蓋更早歷史。",
+            "nullable": true
           }
         },
-        "description": "僅限已登入帳號。已確認保存且有新結算規則標記的本季正常完成場次；舊紀錄不回補。DISABLED/UNAVAILABLE 時 personal/overall 為 null，不能當成 0。"
+        "description": "已確認保存的本季正式／休閒彙總，及目前帳號的生涯數字。生涯只累加新版同意的 account-career-v1 記錄；已刪除或未標記舊資料不回填。中止場次列總場數但不列勝率分母；勝率為 wins/(wins+losses+draws)，分母0顯示無紀錄。"
+      },
+      "DealResult": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Completed-deal projection; other fields normative in CONTRACT.md. Legacy snapshots may omit elapsedMs.",
+        "properties": {
+          "dealId": {
+            "type": "string"
+          },
+          "dealIndex": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "elapsedMs": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Server monotonic elapsed milliseconds from first deal to score commit. Includes redeals and disconnect wait; excludes final two-second presentation and between-deal wait. Missing/null means unknown, not zero."
+          }
+        }
       }
     }
   },

@@ -1,5 +1,7 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  INVALID_ROOM_TYPE: "場次類型不正確，請選正式場或休閒場。",
+  FORMAL_COMPUTER_FORBIDDEN: "正式場只能由四位真人參加，不能加入電腦。",
   AUTH_ORIGIN: "請從本遊戲網站重新操作。",
   STATS_ACCOUNT_CHANGED: "帳號狀態已改變，請重新登入後查看統計。",
   STATS_CONSENT_INVALID: "資料使用說明已更新，請返回入口重新確認。",

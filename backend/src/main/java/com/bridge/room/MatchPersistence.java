@@ -8,14 +8,16 @@ import java.util.*;
 /** Server-only, privacy-minimized final facts. Never serialize GameState or its card history. */
 final class MatchPersistence {
   static final String SCORE_VERSION = "bridgego-custom-v0.11-1";
-  static final String APP_VERSION = "0.12.2";
+  static final String APP_VERSION = "0.13.0";
   private final String matchId;
+  private final String roomType;
   private final int plannedDeals;
   private final Instant startedAt;
   private final boolean collectionEligible;
   private final boolean statisticsMode;
   private final boolean statisticsConsent;
   private final List<Map<String, Object>> participants;
+  private final Map<String, String> originalAccounts;
   private final Set<Integer> mixed = new HashSet<>();
   private boolean finalized;
   private Instant finishedAt;
@@ -31,12 +33,26 @@ final class MatchPersistence {
   MatchPersistence(String matchId, int plannedDeals, Instant startedAt,
       Collection<RoomService.Member> members, Map<String, String> accounts, boolean collectionEligible,
       boolean statisticsMode, boolean statisticsConsent) {
+    this(matchId, plannedDeals, startedAt, members, accounts, collectionEligible, statisticsMode, statisticsConsent, "CASUAL");
+  }
+
+  MatchPersistence(String matchId, int plannedDeals, Instant startedAt,
+      Collection<RoomService.Member> members, Map<String, String> accounts, boolean collectionEligible,
+      boolean statisticsMode, boolean statisticsConsent, String roomType) {
+    if (!Set.of("FORMAL", "CASUAL").contains(roomType)) throw new IllegalArgumentException("Invalid room type");
+    this.roomType = roomType;
     this.matchId = matchId;
     this.collectionEligible = collectionEligible;
     this.statisticsMode = statisticsMode;
     this.statisticsConsent = statisticsConsent;
     this.plannedDeals = plannedDeals;
     this.startedAt = startedAt;
+    var accountSnapshot = new HashMap<String, String>();
+    for (var member : members) {
+      String account = member.computer ? null : accounts.get(member.identity.playerId());
+      if (account != null) accountSnapshot.put(member.identity.playerId(), account);
+    }
+    originalAccounts = Map.copyOf(accountSnapshot);
     participants = members.stream().sorted(Comparator.comparingInt(m -> m.seat)).map(m -> {
       String account = m.computer ? null : accounts.get(m.identity.playerId());
       return row("seat", m.seat, "team_id", GameState.team(m.seat),
@@ -72,7 +88,7 @@ final class MatchPersistence {
     // These minimal facts remain in existing room memory only. They do not grant
     // permission to persist visitors or publish any statistics.
     try {
-      statistics = SettlementStatistics.capture(archive, finishedAt, SettlementEligibility.evaluate(members, accounts));
+      statistics = SettlementStatistics.capture(archive, finishedAt, SettlementEligibility.evaluateFixed(members, originalAccounts, roomType, archive.matchResult().outcome()));
     } catch (RuntimeException invalid) {
       // Fail closed for statistics without interrupting authoritative gameplay or
       // the existing persistence path. Never log the archive or identifiers.
@@ -83,8 +99,9 @@ final class MatchPersistence {
     // Legacy/restricted/experiment behavior remains isolated when disabled.
     if (statisticsMode) {
       if (!statisticsConsent || statistics == null
-          || statistics.eligibility() != SettlementEligibility.Result.ELIGIBLE
-          || !"SCORED".equals(statistics.outcome())) return;
+          || SettlementEligibility.category(statistics.eligibility()) == null
+          || statistics.completedDeals() > plannedDeals
+          || "SCORED".equals(statistics.outcome()) && statistics.completedDeals() != plannedDeals) return;
     } else if (!collectionEligible) return;
     var result = archive.matchResult();
     var match = row("match_id", matchId, "revision", 1, "schema_version", 1,
@@ -94,10 +111,20 @@ final class MatchPersistence {
         "outcome", result.outcome(), "winner_team_id", result.winnerTeamId(),
         "reason", result.reason(), "ns_total", archive.teamTotals().get("NS"),
         "ew_total", archive.teamTotals().get("EW"));
-    if (statisticsMode) match.put("statistics_rule", SettlementEligibility.RULE_VERSION);
+    if (statisticsMode) {
+      match.put("statistics_rule", SettlementEligibility.RULE_VERSION);
+      match.put("lifetime_rule", com.bridge.persistence.LifetimeStatistics.RULE);
+      match.put("match_category", roomType);
+      match.put("room_type", roomType);
+      match.put("deal_timing_rule", FinalMatchEnvelope.DEAL_TIMING_RULE);
+    }
+    Map<Integer, String> settlementControl = new HashMap<>();
+    if (statisticsMode) for (var member : members)
+      settlementControl.put(member.seat, member.automated() ? "BOT" : "HUMAN");
     List<Map<String, Object>> people = participants.stream().map(p -> {
       var copy = new LinkedHashMap<>(p);
       copy.put("match_id", matchId);
+      if (statisticsMode) copy.put("settlement_control", settlementControl.get((Integer) p.get("seat")));
       copy.put("control_type", p.get("player_type").equals("BOT") ? "BOT"
           : mixed.contains((Integer)p.get("seat")) ? "MIXED" : "HUMAN");
       return (Map<String, Object>)copy;
@@ -108,6 +135,7 @@ final class MatchPersistence {
           "contract_type", c.type(), "contract_level", c.level(), "contract_strain", c.strain(),
           "attacking_team_id", c.teamId(), "ns_tricks", d.tricksByTeam().get("NS"),
           "ew_tricks", d.tricksByTeam().get("EW"));
+      if (statisticsMode) data.put("elapsed_ms", d.elapsedMs());
       for (String team : List.of("NS", "EW")) {
         var score = d.scores().get(team);
         String prefix = team.toLowerCase(Locale.ROOT) + "_";

@@ -2,10 +2,7 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { chromium } = require(
-  process.env.PLAYWRIGHT_MODULE ||
-    "playwright",
-);
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const { build } = require("esbuild");
 const fixture = await build({
   entryPoints: [new URL("../src/test-fixtures.ts", import.meta.url).pathname],
@@ -18,7 +15,9 @@ const { playedRoom } = await import(
   `data:text/javascript;base64,${Buffer.from(fixture.outputFiles[0].text).toString("base64")}`
 );
 const browser = await chromium.launch({
-  ...(process.env.CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH } : {}),
+  ...(process.env.CHROMIUM_EXECUTABLE_PATH
+    ? { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH }
+    : {}),
   headless: true,
   args: ["--no-sandbox"],
 });
@@ -32,7 +31,7 @@ const stats = {
   status: "AVAILABLE",
   quarter: "2026-Q4",
   asOf: "2026-11-09T12:00:00Z",
-  ruleVersion: "four-humans-at-settlement-v1",
+  ruleVersion: "fixed-room-type-v3",
   personal: {
     matches: 2,
     completedDeals: 6,
@@ -42,6 +41,15 @@ const stats = {
     totalScore: 99,
   },
   overall: { matches: 3, completedDeals: 7, draws: 1 },
+  casualPersonal: {
+    matches: 4,
+    completedDeals: 8,
+    wins: 2,
+    losses: 1,
+    draws: 1,
+    totalScore: 42,
+  },
+  casualOverall: { matches: 5, completedDeals: 9, draws: 2 },
 };
 const reports = [];
 async function scenario(name, run, options = {}) {
@@ -106,14 +114,14 @@ async function scenario(name, run, options = {}) {
       case "/api/statistics/config":
         result = {
           enabled: options.enabled !== false,
-          consentVersion: "statistics-v1",
+          consentVersion: "statistics-v4",
         };
         break;
       case "/api/statistics/consent":
         state.consents++;
         assert.deepEqual(route.request().postDataJSON(), {
           consent: true,
-          version: "statistics-v1",
+          version: "statistics-v4",
         });
         result = { accepted: !state.consentFail };
         break;
@@ -181,9 +189,16 @@ try {
   await scenario(
     "Compact guest entry, help link, consent, no entry or tabs even direct hash",
     async (p, s) => {
-      await p.getByRole("button", { name: "使用 Google 登入", exact: true }).waitFor();
+      await p
+        .getByRole("button", { name: "使用 Google 登入", exact: true })
+        .waitFor();
       assert.equal(await p.locator(".entry-statistics-notice").count(), 0);
-      assert.equal(await p.getByRole("link", { name: "使用說明：資料保存與刪除", exact: true }).getAttribute("href"), "#help");
+      assert.equal(
+        await p
+          .getByRole("link", { name: "使用說明：資料保存與刪除", exact: true })
+          .getAttribute("href"),
+        "#help",
+      );
       assert.equal(s.consents, 0);
       await enter(p);
       assert.equal(s.consents, 1);
@@ -191,7 +206,7 @@ try {
       await p.waitForTimeout(100);
       assert.equal(
         await p
-          .getByRole("button", { name: "本季戰績統計", exact: true })
+          .getByRole("button", { name: "戰績統計", exact: true })
           .count(),
         0,
       );
@@ -204,10 +219,33 @@ try {
     async (p) => {
       await enter(p, true);
       await p
-        .getByRole("button", { name: "本季戰績統計", exact: true })
+        .getByRole("button", { name: "戰績統計", exact: true })
         .click();
       await p.getByText("我方累計分數", { exact: true }).waitFor();
+      await p.getByRole("button", { name: "休閒場", exact: true }).click();
+      await p
+        .getByRole("heading", { name: "休閒場 · 個人", exact: true })
+        .waitFor();
+      assert.equal(
+        await p
+          .locator(".statistics-counts dd")
+          .allTextContents()
+          .then((v) => v.at(-1)),
+        "42",
+      );
       await p.getByRole("button", { name: "整體", exact: true }).click();
+      await p
+        .getByRole("heading", { name: "休閒場 · 整體", exact: true })
+        .waitFor();
+      assert.equal(
+        await p.locator(".statistics-counts dd").first().textContent(),
+        "5",
+      );
+      await p.getByRole("button", { name: "正式場", exact: true }).click();
+      assert.equal(
+        await p.locator(".statistics-counts dd").first().textContent(),
+        "3",
+      );
       assert.equal(
         await p.getByText("我方累計分數", { exact: true }).count(),
         0,
@@ -261,9 +299,16 @@ try {
   await scenario(
     "Restored session keeps compact entry and never silently acknowledges",
     async (p, s) => {
-      await p.getByRole("button", { name: "使用 Google 登入", exact: true }).waitFor();
+      await p
+        .getByRole("button", { name: "使用 Google 登入", exact: true })
+        .waitFor();
       assert.equal(await p.locator(".entry-statistics-notice").count(), 0);
-      assert.equal(await p.getByRole("link", { name: "使用說明：資料保存與刪除", exact: true }).getAttribute("href"), "#help");
+      assert.equal(
+        await p
+          .getByRole("link", { name: "使用說明：資料保存與刪除", exact: true })
+          .getAttribute("href"),
+        "#help",
+      );
       assert.equal(s.consents, 0);
       await enter(p);
       assert.equal(s.consents, 1);
@@ -275,7 +320,7 @@ try {
     async (p, s) => {
       await enter(p, true);
       await p
-        .getByRole("button", { name: "本季戰績統計", exact: true })
+        .getByRole("button", { name: "戰績統計", exact: true })
         .waitFor();
       s.authFail = true;
       await p.evaluate(() =>
@@ -287,7 +332,7 @@ try {
       assert.equal(await p.locator(".statistics-tabs").count(), 0);
       assert.equal(
         await p
-          .getByRole("button", { name: "本季戰績統計", exact: true })
+          .getByRole("button", { name: "戰績統計", exact: true })
           .count(),
         0,
       );
@@ -299,7 +344,7 @@ try {
       await enter(p, true);
       s.statsFail = true;
       await p
-        .getByRole("button", { name: "本季戰績統計", exact: true })
+        .getByRole("button", { name: "戰績統計", exact: true })
         .click();
       await p
         .getByRole("alert")
@@ -323,7 +368,7 @@ try {
     async (p, s) => {
       await enter(p, true);
       await p
-        .getByRole("button", { name: "本季戰績統計", exact: true })
+        .getByRole("button", { name: "戰績統計", exact: true })
         .click();
       await p.getByText("正在讀取本季統計…").waitFor();
       s.signedIn = false;

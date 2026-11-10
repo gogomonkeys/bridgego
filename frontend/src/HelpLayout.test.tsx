@@ -29,7 +29,7 @@ describe("help page layout", () => {
       html.indexOf('class="pwa-help"'),
     );
     for (const text of [
-      "v0.12.2",
+      "v0.13.0",
       "加入主畫面",
       "保持螢幕開啟",
       "使用說明",

@@ -43,7 +43,9 @@ public final class SheetsIdentityStore implements IdentityStore {
         if(id!=null&&row==0)throw new SheetsGateway.Conflict();
         if(id==null)id=UUID.randomUUID().toString();
         List<String> desired=List.of(id,"2",nickname,email);
-        if(row>0){var current=new ArrayList<>(rows.get(row-1));while(current.size()<4)current.add("");if(current.equals(desired))return id;}
+        if(row>0){var current=new ArrayList<>(rows.get(row-1));while(current.size()<4)current.add("");if(current.subList(0,4).equals(desired))return id;}
+        String priorLifetime = row > 0 && rows.get(row-1).size() == 5 ? rows.get(row-1).get(4) : "";
+        boolean lifetimeHeader = AccountProfileRows.LIFETIME_HEADER.equals(rows.get(0));
         QuarterlyRetention.requireCollectionReady(gateway,clock);
         // One write attempt only. Uncertain responses are reconciled by later reads, never replayed here.
         gateway.saveAccountProfile(row,desired,row==0?List.of(issuer,subject,id,"1"):null);
@@ -53,7 +55,11 @@ public final class SheetsIdentityStore implements IdentityStore {
         boolean matched=false;
         for(int i=1;i<saved.size();i++)if(saved.get(i).get(0).equals(id)) {
             List<String> value=new ArrayList<>(saved.get(i));while(value.size()<4)value.add("");
-            if(!value.equals(desired)||matched)throw new SheetsGateway.Conflict();matched=true;
+            String savedLifetime = value.size() == 5 ? value.get(4) : "";
+            if(!value.subList(0,4).equals(desired) || !priorLifetime.equals(savedLifetime)
+                || lifetimeHeader && !AccountProfileRows.LIFETIME_HEADER.equals(saved.get(0)) || matched)
+              throw new SheetsGateway.Conflict();
+            matched=true;
         }
         if(!matched)throw new SheetsGateway.Conflict();
         return id;

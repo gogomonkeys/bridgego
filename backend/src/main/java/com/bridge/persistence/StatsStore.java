@@ -5,4 +5,12 @@ public interface StatsStore {
     SaveStatus submit(FinalMatchEnvelope envelope);
     SaveStatus status(String commitId);
     List<FinalMatchEnvelope> exportCommitted();
+    /** One validated account-scoped statistics read; carry contains no raw identities or match detail. */
+    record StatisticsData(List<FinalMatchEnvelope> current, LifetimeStatistics.Carry lifetime, java.time.Instant asOf) {
+        public StatisticsData { current = List.copyOf(current); }
+        public StatisticsData(List<FinalMatchEnvelope> current, LifetimeStatistics.Carry lifetime) { this(current, lifetime, null); }
+    }
+    default StatisticsData exportStatistics(String accountId) {
+        return new StatisticsData(exportCommitted(), null);
+    }
 }

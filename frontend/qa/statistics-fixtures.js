@@ -79,7 +79,7 @@
         };
         break;
       case "/api/statistics/config":
-        value = { enabled: state.enabled, consentVersion: "statistics-v1" };
+        value = { enabled: state.enabled, consentVersion: "statistics-v4" };
         break;
       case "/api/statistics/consent":
         state.consents++;
@@ -112,8 +112,46 @@
           : response({
               status: "AVAILABLE",
               quarter: "2026-Q4",
+              quarterEndsAt: "2026-12-31T16:00:00Z",
+              lifetimeCoverage: "RECORDED_SINCE_FEATURE",
+              lifetimeTrackedFromQuarter: state.empty ? null : "2026-Q4",
+              lifetimePersonal: {
+                matches: state.empty ? 0 : 10,
+                scoredMatches: state.empty ? 0 : 7,
+                forfeitMatches: state.empty ? 0 : 2,
+                interruptedMatches: state.empty ? 0 : 1,
+                completedDeals: state.empty ? 0 : 24,
+                wins: state.empty ? 0 : 6,
+                losses: state.empty ? 0 : 2,
+                draws: state.empty ? 0 : 1,
+                totalScore: state.empty ? 0 : 123,
+              },
+              lifetimeCasualPersonal: {
+                matches: state.empty ? 0 : 20,
+                scoredMatches: state.empty ? 0 : 16,
+                forfeitMatches: state.empty ? 0 : 2,
+                interruptedMatches: state.empty ? 0 : 2,
+                completedDeals: state.empty ? 0 : 40,
+                wins: state.empty ? 0 : 8,
+                losses: state.empty ? 0 : 8,
+                draws: state.empty ? 0 : 2,
+                totalScore: state.empty ? 0 : 456,
+              },
               asOf: "2026-11-09T12:00:00Z",
-              ruleVersion: "four-humans-at-settlement-v1",
+              ruleVersion: "fixed-room-type-v3",
+              casualPersonal: {
+                matches: state.empty ? 0 : 4,
+                completedDeals: state.empty ? 0 : 8,
+                wins: state.empty ? 0 : 2,
+                losses: state.empty ? 0 : 1,
+                draws: state.empty ? 0 : 1,
+                totalScore: state.empty ? 0 : 42,
+              },
+              casualOverall: {
+                matches: state.empty ? 0 : 5,
+                completedDeals: state.empty ? 0 : 9,
+                draws: state.empty ? 0 : 2,
+              },
               personal: {
                 matches: state.empty ? 0 : 2,
                 completedDeals: state.empty ? 0 : 6,
@@ -122,7 +160,11 @@
                 draws: state.empty ? 0 : 1,
                 totalScore: state.empty ? 0 : 99,
               },
-              overall: { matches: state.empty ? 0 : 3, completedDeals: state.empty ? 0 : 7, draws: state.empty ? 0 : 1 },
+              overall: {
+                matches: state.empty ? 0 : 3,
+                completedDeals: state.empty ? 0 : 7,
+                draws: state.empty ? 0 : 1,
+              },
             });
         if (state.hold)
           await new Promise((resolve) => {

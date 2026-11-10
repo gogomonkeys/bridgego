@@ -1,3 +1,4 @@
+export type RoomType = "FORMAL" | "CASUAL";
 export interface Session {
   token: string;
   playerId: string;
@@ -85,6 +86,8 @@ export interface TeamScore {
   total: number;
 }
 export interface DealResult {
+  /** Server-measured deal duration; absent/null for historical results. */
+  elapsedMs?: number | null;
   dealId: string;
   dealIndex: number;
   dealerSeat: number;
@@ -102,6 +105,7 @@ export interface DealResult {
   auctionRounds?: AuctionRound[];
 }
 export interface Game {
+  roomType?: RoomType;
   gameId: string;
   dealId: string;
   plannedDeals: 1 | 3 | 5;
@@ -182,6 +186,7 @@ export interface Game {
   };
 }
 export interface Room {
+  roomType?: RoomType;
   plannedDeals?: 1 | 3 | 5;
   allHumansReconnectDeadline?: number | null;
   roomId: string;
@@ -206,6 +211,7 @@ export interface Room {
   } | null;
 }
 export interface MatchArchive {
+  roomType?: RoomType;
   auctionRounds?: AuctionRound[];
   gameId: string;
   roster: Game["roster"];
@@ -215,6 +221,7 @@ export interface MatchArchive {
   forfeitEvents: Game["forfeitEvents"];
 }
 export interface RoomSummary {
+  roomType?: RoomType;
   plannedDeals?: 1 | 3 | 5;
   state: "WAITING" | "ACTIVE" | "FINISHED";
   phase: Phase;

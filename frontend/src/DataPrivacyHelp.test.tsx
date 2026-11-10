@@ -6,8 +6,9 @@ describe("help data policy", () => {
     const html = renderToStaticMarkup(<DataPrivacyHelp />);
     for (const text of [
       "資料使用說明集中於本頁",
-      "選擇繼續遊玩表示同意合資格場次保存",
-      "四位不同真人控制",
+      "選擇繼續遊玩表示同意正式場與休閒場保存",
+      "正式場限四位真人",
+      "每局耗時",
       "訪客與登入玩家可同場計算",
       "訪客不保存名稱或識別碼",
       "已驗證信箱（如有）",
@@ -17,7 +18,7 @@ describe("help data policy", () => {
       "私人 Google 試算表",
       "每季人工清理",
       "不是自動定時清除",
-      "最後一張牌前由真人接手可計入",
+      "未完成局不計分",
     ])
       expect(html).toContain(text);
     expect(html).not.toContain("入口會先顯示資料使用說明");

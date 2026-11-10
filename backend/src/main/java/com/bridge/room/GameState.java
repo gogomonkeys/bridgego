@@ -72,12 +72,12 @@ final class GameState {
       Map<String, Integer> tricksByTeam,
       Map<String, TeamScore> scores,
       List<TrickEngine.Trick> completedTricks,
-      List<AuctionRound> auctionRounds) {}
+      List<AuctionRound> auctionRounds, Long elapsedMs) {}
 
   record DealResultView(String dealId, int dealIndex, int dealerSeat, Contract contract,
       Map<String, Boolean> privilegeUsed, Map<String, Integer> tricksByTeam,
       Map<String, TeamScore> scores, List<TrickView> completedTricks,
-      List<AuctionRound> auctionRounds) {}
+      List<AuctionRound> auctionRounds, Long elapsedMs) {}
 
   record PendingForfeit(String reason, List<String> failedTeamIds, List<Integer> waitingSeats) {}
 
@@ -86,6 +86,7 @@ final class GameState {
 
   record MatchArchive(
       String gameId,
+      String roomType,
       List<PlayerInfo> roster,
       Map<String, Integer> teamTotals,
       List<DealResultView> completedDealResults,
@@ -95,6 +96,7 @@ final class GameState {
 
   record View(
       String gameId,
+      String roomType,
       String dealId,
       int plannedDeals,
       int dealIndex,
@@ -124,6 +126,8 @@ final class GameState {
   private final java.util.function.LongSupplier ticker;
   private long remainingMs;
   private long runningSince;
+  // Whole scoring-deal elapsed time is independent of operation countdown pauses.
+  private long dealStartedTick;
   private boolean timerPaused;
 
   final String id = UUID.randomUUID().toString();
@@ -150,6 +154,7 @@ final class GameState {
   private int dealerSeat;
   private int dealIndex = 1;
   private final int plannedDeals;
+  private final String roomType;
   private List<PlayerInfo> roster = List.of();
   private final List<DealResult> results = new ArrayList<>();
   private final Map<String, Integer> totals = new HashMap<>(Map.of("NS", 0, "EW", 0));
@@ -162,6 +167,7 @@ final class GameState {
     if (!terminal()) return null;
     return new MatchArchive(
         id,
+        roomType,
         roster,
         Map.copyOf(totals),
         resultViews(),
@@ -192,6 +198,7 @@ final class GameState {
     dealerSeat = (dealerSeat + 1) % 4;
     redealCount = 0;
     lastRedealReason = null;
+    dealStartedTick = ticker.getAsLong();
     deal();
   }
 
@@ -248,11 +255,18 @@ final class GameState {
   }
 
   GameState(SecureRandom random, java.util.function.LongSupplier ticker, int plannedDeals) {
+    this(random, ticker, plannedDeals, "CASUAL");
+  }
+
+  GameState(SecureRandom random, java.util.function.LongSupplier ticker, int plannedDeals, String roomType) {
+    if (!Set.of("FORMAL", "CASUAL").contains(roomType)) throw new IllegalArgumentException("Invalid room type");
+    this.roomType = roomType;
     if (plannedDeals != 1 && plannedDeals != 3 && plannedDeals != 5)
       throw new IllegalArgumentException("plannedDeals must be 1, 3 or 5");
     this.plannedDeals = plannedDeals;
     this.random = random;
     this.ticker = ticker;
+    dealStartedTick = ticker.getAsLong();
     deal();
   }
 
@@ -577,7 +591,8 @@ final class GameState {
             tricks.tricksByTeam(),
             scores,
             tricks.completedTricks(),
-            auctionRounds().stream().filter(round -> round.dealIndex() == dealIndex).toList()));
+            auctionRounds().stream().filter(round -> round.dealIndex() == dealIndex).toList(),
+            Math.max(0L, ticker.getAsLong() - dealStartedTick)));
     scores.forEach((team, value) -> totals.put(team, totals.get(team) + value.total()));
     if (results.size() == plannedDeals) {
       int comparison = Integer.compare(totals.get("NS"), totals.get("EW"));
@@ -625,7 +640,7 @@ final class GameState {
     return results.stream().map(result -> new DealResultView(result.dealId(), result.dealIndex(),
         result.dealerSeat(), result.contract(), result.privilegeUsed(), result.tricksByTeam(),
         result.scores(), trickViews(result.completedTricks(), reviewableDeals.contains(result.dealId())),
-        result.auctionRounds())).toList();
+        result.auctionRounds(), result.elapsedMs())).toList();
   }
 
   List<LegalCall> legalCalls(Integer seat, boolean paused) {
@@ -646,6 +661,7 @@ final class GameState {
   View view(Integer viewerSeat, boolean paused, boolean controlTakenOver) {
     return new View(
         id,
+        roomType,
         dealId,
         plannedDeals,
         dealIndex,

@@ -71,6 +71,34 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
         QuarterlyRetention.requireCollectionReady(gateway,clock); // fail closed if the boundary crossed during export
         return List.copyOf(current);
     }
+    @Override public StatisticsData exportStatistics(String accountId) {
+        Instant before = clock.instant(), boundary = QuarterlyRetention.currentQuarterStart(before);
+        QuarterlyRetention.requireCollectionReady(gateway, clock);
+        var retentionBefore = gateway.read("retention_ledger");
+        var erasureBefore = gateway.read("erasure_ledger");
+        var accountsBefore = gateway.read("accounts");
+        AccountProfileRows.validateTable(accountsBefore);
+        if (new ErasureLedger(erasureBefore).contains("ACCOUNT", accountId)) throw new SheetsGateway.Conflict();
+        var accountBefore = accountsBefore.stream().skip(1).filter(r -> r.get(0).equals(accountId)).findFirst()
+            .orElseThrow(SheetsGateway.Conflict::new);
+        var lifetime = LifetimeStatistics.readAccount(accountsBefore, accountId);
+        if (lifetime != null && (lifetime.through() == null ? !lifetime.equals(LifetimeStatistics.Carry.empty()) : lifetime.through().isAfter(boundary)))
+            throw new SheetsGateway.Conflict();
+        var current = exportCommitted();
+        // Maintenance is offline-only. These checks additionally fail closed if a boundary,
+        // erasure, account replacement or cleanup transition is observed across the read.
+        var accountsAfter = gateway.read("accounts");
+        AccountProfileRows.validateTable(accountsAfter);
+        var accountAfter = accountsAfter.stream().skip(1).filter(r -> r.get(0).equals(accountId)).findFirst()
+            .orElseThrow(SheetsGateway.Conflict::new);
+        if (!accountBefore.equals(accountAfter) || !retentionBefore.equals(gateway.read("retention_ledger"))
+            || !erasureBefore.equals(gateway.read("erasure_ledger"))
+            || !boundary.equals(QuarterlyRetention.currentQuarterStart(clock.instant()))) throw new SheetsGateway.Conflict();
+        QuarterlyRetention.requireCollectionReady(gateway, clock);
+        Instant asOf = clock.instant();
+        if (!boundary.equals(QuarterlyRetention.currentQuarterStart(asOf))) throw new SheetsGateway.Conflict();
+        return new StatisticsData(current, lifetime, asOf);
+    }
     /** Read-only decoder: no writer or thread resources are created. */
     static Map<String,FinalMatchEnvelope> readVerified(SheetsGateway gateway) {
         List<List<String>> rows=gateway.read("envelopes"), commits=gateway.read("commits");

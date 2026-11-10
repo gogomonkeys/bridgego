@@ -441,7 +441,9 @@ export default function WelcomeEntry({
               : availablePurpose === "verify"
                 ? "按下驗證表示同意連線至 Google；目前僅驗證身分，不建立帳號連結或保存對局。"
                 : "Google 為選用服務，不影響訪客遊玩。"}{" "}
-          {statisticsConfig?.enabled && <>訪客遊玩表示同意合資格場次納入不含個人識別的整體統計。 </>}
+          {statisticsConfig?.enabled && (
+            <>訪客遊玩表示同意正式場與休閒場納入不含個人識別的整體統計。 </>
+          )}
           <a href="#help">使用說明：資料保存與刪除</a>
         </p>
         <div ref={button} className="google-signin-button" />

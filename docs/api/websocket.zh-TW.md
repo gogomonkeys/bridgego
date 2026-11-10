@@ -16,7 +16,7 @@ HTTP已取得原訪客token並加入房間後，開啟WebSocket立即送一次�
 {"type":"snapshot","room":{}}
 ```
 
-room為完整且個人化的RoomSnapshot，含房間固定 `plannedDeals:1|3|5`（預設3），開局後 game.plannedDeals 相同，game.dealIndex／completedDeals 表示目前／已完成局數；上例空物件只表示封包外層。別將某位訂閱者的快照廣播給其他玩家。Live四張牌是公開資料，已收走的牌面須等本局實際結算才公開；完整紅線見CONTRACT。
+room為完整且個人化的RoomSnapshot，含房間固定 `roomType: FORMAL | CASUAL` 與 `plannedDeals:1|3|5`（預設3），開局後 game.plannedDeals 相同，game.dealIndex／completedDeals 表示目前／已完成局數；上例空物件只表示封包外層。別將某位訂閱者的快照廣播給其他玩家。Live四張牌是公開資料，已收走的牌面須等本局實際結算才公開；完整紅線見CONTRACT。
 
 訂閱後唯一支援的應用JSON請求是：
 
@@ -31,6 +31,7 @@ room為完整且個人化的RoomSnapshot，含房間固定 `plannedDeals:1|3|5`�
 - 原生 WebSocket Ping/Pong 由伺服器與瀏覽器實作；目前ping間隔約2秒、probe期限6秒，帶已測試的伺服器排程延遲保護。瀏覽器JS不自行冒充原生Pong。
 - 應用JSON ping/pong不替代原生心跳。
 - HTTP加入到首次訂閱的席位期限5秒，和WS開啟到subscribe的5秒限制不同。
+- 以下電腦暫代、全員無人後關閉與永久 BOT 接手只適用休閒場。正式場同樣有 10 秒重連，但逾時／主動退出改為該隊判負、不補電腦；固定 1 秒裁定窗及已存在對手重連期限由伺服器判斷，雙方近乎同時失敗可中止、不計勝負。`FORFEIT_PENDING` 期間不能操作，客戶端不自行判輸贏。
 - active game 每位真人最後一條連線斷線後保留10秒（RECONNECTING）；期間暫停。若仍有真人在線，逾時轉BOT_TAKEOVER暫代；所有待恢復席位已恢復或暫代後才續行。WAITING斷線立即釋放席位；另一個仍連線分頁可維持presence。
 - 最後在線真人斷線後，房間另有10秒全員恢復窗口allHumansReconnectDeadline。期間任一原真人重連可續行；無人返回則NO_CONTEST / NO_HUMANS_CONNECTED。BOT不能延長此期限或維持純電腦對局。
 - 主動離開不是斷線：活躍席位立即由永久BOT取代，不能接回；若無在線真人則立即NO_CONTEST / NO_HUMANS_REMAIN。
@@ -51,7 +52,7 @@ room為完整且個人化的RoomSnapshot，含房間固定 `plannedDeals:1|3|5`�
 
 房間、座位、遊戲與牌面仍以server snapshot為準。由WebSocket斷線推測玩家輸贏、只靠JS計時器判負、或使用舊快照重新加入，均不屬此協定。
 
-## 暫代與控制權恢復
+## 休閒場暫代與控制權恢復
 
 players[].playerType仍是HUMAN，controlMode從RECONNECTING轉BOT_TAKEOVER，connected仍是false；永久BOT則兩者皆BOT且connected=true。不能單看connected判定遊戲必須暫停。原真人成功subscribe會原子恢復HUMAN控制並取得最新快照，並非只靠HTTP GET或前端按鈕改狀態。已發生的代打不可撤回，重連不重播動作。
 

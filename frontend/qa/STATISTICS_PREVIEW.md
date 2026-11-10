@@ -16,6 +16,6 @@ Visible top controls:
 
 Normal login: input nickname, click 使用 Google 登入, then Choose fixture Google account. Guest: click 以訪客身分遊玩. The entry should omit the long statistics paragraph above the nickname, retain the shorter Google consent text and help link, and keep the consent counter at zero until selection. The complete statistics and data-retention disclosure remains on the help page.
 
-The control panel collapses for screenshots. Counts are artificial: personal 2 matches/6 deals/99 score; overall 3 matches/7 deals. Browser back/forward, empty/error/retry, guest hash gating and responsive layout require visual/interaction verification.
+The control panel collapses for screenshots. Counts are artificial and separate: formal personal 2 matches/6 deals/99 score and overall 3 matches/7 deals; casual personal 4 matches/8 deals/42 score and overall 5 matches/9 deals. Switch 正式場／休閒場 within either 個人／整體 and confirm values never combine. The fixture acknowledges statistics-v4. Browser back/forward, empty/error/retry, guest hash gating and responsive layout require visual/interaction verification.
 
 Some execution tools isolate loopback networking between calls. If the browser cannot reach a server that reports ready, use a supported environment with shared browser/server networking. Do not interpret connection refusal as a client test failure. No tunnel or production deployment is required.

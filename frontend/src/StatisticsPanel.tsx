@@ -1,21 +1,70 @@
+import PersonalStatisticsSummary from "./PersonalStatisticsSummary";
+import { taiwanSettlementTime } from "./statistics-format";
 import { useEffect, useState } from "react";
 import { accountRequest, type AuthStatus } from "./google-login";
 import type { StatisticsResponse } from "./statistics";
 export function StatisticsContent({
   data,
   tab,
+  category = "formal",
+  period = "quarter",
 }: {
   data: StatisticsResponse;
   tab: "personal" | "overall";
+  category?: "formal" | "casual";
+  period?: "quarter" | "lifetime";
 }) {
   if (data.status === "DISABLED") return <p role="status">統計尚未開放。</p>;
   if (data.status !== "AVAILABLE")
     return <p role="alert">目前無法取得統計，請稍後重試。</p>;
-  const counts = data[tab];
-  if (!counts) return <p role="alert">統計資料不完整，請稍後重試。</p>;
+  const lifetime = tab === "personal" && period === "lifetime";
+  const personal = lifetime
+    ? category === "formal"
+      ? data.lifetimePersonal
+      : data.lifetimeCasualPersonal
+    : category === "formal"
+      ? data.personal
+      : data.casualPersonal;
+  const cutoff = taiwanSettlementTime(data.quarterEndsAt);
+  const counts =
+    tab === "personal"
+      ? personal
+      : category === "formal"
+        ? data.overall
+        : data.casualOverall;
+  const label = category === "formal" ? "正式場" : "休閒場";
+  if (!counts)
+    return (
+      <p role="alert">
+        {lifetime
+          ? "生涯統計目前無法取得，請稍後重試；不會以本季數字代替。"
+          : "統計資料不完整，請稍後重試。"}
+      </p>
+    );
   return (
     <>
-      <p>台灣時間本季 · {data.quarter}</p>
+      <h3>
+        {label} · {tab === "personal" ? "個人" : "整體"}
+      </h3>
+      {lifetime ? (
+        <div>
+          <p>生涯累計 · 正式／休閒分開計算</p>
+          <p className="fine">
+            {data.lifetimeTrackedFromQuarter
+              ? `已記錄範圍自 ${data.lifetimeTrackedFromQuarter} 起。`
+              : "尚無可確認的生涯起始季度。"}
+            僅含新版已同意保存的紀錄，不補算舊未同意或已清除資料。
+          </p>
+        </div>
+      ) : (
+        <>
+          <p>台灣時間本季 · {data.quarter}</p>
+          {cutoff && (
+            <p className="statistics-cutoff">結算至 {cutoff}（台灣時間）</p>
+          )}
+          <p className="fine">以上為下一季切換時間，並非自動清理時間。</p>
+        </>
+      )}
       <p className="fine">
         資料截至{" "}
         {new Date(data.asOf).toLocaleString("zh-TW", {
@@ -25,41 +74,42 @@ export function StatisticsContent({
         （台灣時間）
       </p>
       {counts.matches === 0 && (
-        <p role="status">本季尚無已確認保存的合資格場次。</p>
+        <p role="status">
+          {lifetime ? "生涯" : "本季"}尚無已確認保存的{label}。
+        </p>
       )}
-      <dl className="statistics-counts">
-        <div>
-          <dt>完成場次</dt>
-          <dd>{counts.matches}</dd>
-        </div>
-        <div>
-          <dt>完成局數</dt>
-          <dd>{counts.completedDeals}</dd>
-        </div>
-        <div>
-          <dt>平手場次</dt>
-          <dd>{counts.draws}</dd>
-        </div>
-        {tab === "personal" && data.personal && (
-          <>
-            <div>
-              <dt>獲勝場次</dt>
-              <dd>{data.personal.wins}</dd>
-            </div>
-            <div>
-              <dt>落敗場次</dt>
-              <dd>{data.personal.losses}</dd>
-            </div>
-            <div>
-              <dt>我方累計分數</dt>
-              <dd>{data.personal.totalScore}</dd>
-            </div>
-          </>
-        )}
-      </dl>
+      {tab === "personal" && personal ? (
+        <PersonalStatisticsSummary counts={personal} />
+      ) : (
+        <dl className="statistics-counts">
+          <div>
+            <dt>已定案場次</dt>
+            <dd>{counts.matches}</dd>
+          </div>
+          <div>
+            <dt>正常完成</dt>
+            <dd>{counts.scoredMatches ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>判負場次</dt>
+            <dd>{counts.forfeitMatches ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>中止（不計勝負）</dt>
+            <dd>{counts.interruptedMatches ?? "—"}</dd>
+          </div>
+          <div>
+            <dt>完成局數</dt>
+            <dd>{counts.completedDeals}</dd>
+          </div>
+          <div>
+            <dt>平手場次</dt>
+            <dd>{counts.draws}</dd>
+          </div>
+        </dl>
+      )}
       <p className="fine">
-        一場可包含 1、3 或 5
-        局。僅計入新規則下已確認保存、正常完成計分且結算時為四位不同真人的場次。訪客可計入整體，但不建立個人統計；舊紀錄缺少結算控制者資訊不補算。保存失敗或尚未確認的場次不計入。
+        僅計入已確認保存的結果；正式場與休閒場分開計算。訪客只計入整體，沒有個人統計。保存失敗或結果未確認的場次不計入，詳細規則見使用說明。
       </p>
     </>
   );
@@ -72,6 +122,8 @@ export default function StatisticsPanel({
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<"personal" | "overall">("personal");
+  const [category, setCategory] = useState<"formal" | "casual">("formal");
+  const [period, setPeriod] = useState<"quarter" | "lifetime">("quarter");
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{
     token: string;
@@ -109,8 +161,8 @@ export default function StatisticsPanel({
   }, [token, attempt]);
   const current = result?.token === token ? result : null;
   return (
-    <section className="panel statistics-panel" aria-label="本季戰績統計">
-      <h2>本季戰績統計</h2>
+    <section className="panel statistics-panel" aria-label="戰績統計">
+      <h2>戰績統計</h2>
       <div className="statistics-tabs" role="group" aria-label="統計範圍">
         <button
           className={tab === "personal" ? "primary" : "secondary"}
@@ -127,12 +179,49 @@ export default function StatisticsPanel({
           整體
         </button>
       </div>
+      <div className="statistics-tabs" role="group" aria-label="場次類型">
+        {(["formal", "casual"] as const).map((value) => (
+          <button
+            key={value}
+            className={category === value ? "primary" : "secondary"}
+            aria-pressed={category === value}
+            onClick={() => setCategory(value)}
+          >
+            {value === "formal" ? "正式場" : "休閒場"}
+          </button>
+        ))}
+      </div>
+      {tab === "personal" && (
+        <div
+          className="statistics-tabs statistics-period"
+          role="group"
+          aria-label="個人統計期間"
+        >
+          {(["quarter", "lifetime"] as const).map((value) => (
+            <button
+              key={value}
+              className={period === value ? "primary" : "secondary"}
+              aria-pressed={period === value}
+              onClick={() => setPeriod(value)}
+            >
+              {value === "quarter" ? "本季" : "生涯"}
+            </button>
+          ))}
+        </div>
+      )}
       {!current ? (
-        <p role="status">正在讀取本季統計…</p>
+        <p role="status">正在讀取戰績統計…</p>
       ) : current.error ? (
         <p role="alert">{current.error}</p>
       ) : (
-        current.data && <StatisticsContent data={current.data} tab={tab} />
+        current.data && (
+          <StatisticsContent
+            data={current.data}
+            tab={tab}
+            category={category}
+            period={period}
+          />
+        )
       )}
       <button
         className="secondary"

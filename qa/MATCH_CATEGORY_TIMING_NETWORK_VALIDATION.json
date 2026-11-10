@@ -1,0 +1,50 @@
+{
+  "scope": "local packaged HTTP, persistence off, no real account",
+  "checks": [
+    {
+      "case": "new config endpoint disabled by default",
+      "passed": true
+    },
+    {
+      "case": "statistics responses are no-store",
+      "passed": true
+    },
+    {
+      "case": "no session cannot read statistics",
+      "passed": true
+    },
+    {
+      "case": "guest gameplay session still works",
+      "passed": true
+    },
+    {
+      "case": "guest cannot read personal or overall",
+      "passed": true
+    },
+    {
+      "case": "disabled statistics cannot accept new consent",
+      "passed": true
+    },
+    {
+      "case": "consent rejects foreign origin",
+      "passed": true
+    },
+    {
+      "case": "guest lobby remains available",
+      "passed": true
+    },
+    {
+      "case": "production bundle serves app HTML",
+      "passed": true
+    },
+    {
+      "case": "test-only fixtures not published",
+      "passed": true
+    },
+    {
+      "case": "test-only auth component not published",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

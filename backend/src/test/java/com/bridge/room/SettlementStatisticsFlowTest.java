@@ -6,13 +6,16 @@ import org.junit.jupiter.api.Test;
 
 class SettlementStatisticsFlowTest {
   PlayFlowTest fixture(int linkedPlayers, MatchPersistenceTest.RecordingStore store) {
+    return fixture(linkedPlayers, store, "FORMAL");
+  }
+  PlayFlowTest fixture(int linkedPlayers, MatchPersistenceTest.RecordingStore store, String roomType) {
     var f = new PlayFlowTest(); f.clock = new RoomServiceTest.MutableClock();
     f.service = new RoomService(f.clock); f.service.statsStore(store); f.players = new RoomService.Identity[4];
     for (int i = 0; i < 4; i++) {
       f.players[i] = f.service.createSession("玩家" + i);
       if (i < linkedPlayers) f.service.linkAccountOutsideRoom(f.players[i], UUID.randomUUID().toString(), true);
     }
-    f.room = f.service.create(f.players[0], 1).roomId();
+    f.room = f.service.create(f.players[0], 1, roomType).roomId();
     for (int i = 0; i < 4; i++) {
       if (i > 0) f.service.join(f.room, f.players[i]);
       f.service.connect(f.room, f.players[i], "socket-" + i); f.service.ready(f.room, f.players[i], true);
@@ -54,7 +57,7 @@ class SettlementStatisticsFlowTest {
   }
 
   @Test void restoredHumanCountsEvenAfterAnActualComputerPlay() {
-    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(4, store);
+    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(4, store, "CASUAL");
     int seat = f.view(0).game().play().nextSeat();
     f.service.disconnect(f.room, f.players[seat].playerId(), "socket-" + seat);
     f.clock.now.addAndGet(10_000); f.service.expireInitialSubscriptions();
@@ -62,14 +65,14 @@ class SettlementStatisticsFlowTest {
     assertEquals(1, f.view(0).game().play().currentTrick().size());
     f.service.connect(f.room, f.players[seat], "returned"); f.playRemainingDeal();
     var facts = f.service.settlementStatistics(f.room, f.players[0]);
-    assertEquals(SettlementEligibility.Result.ELIGIBLE, facts.eligibility());
+    assertEquals(SettlementEligibility.Result.FIXED_CASUAL, facts.eligibility());
     assertEquals(1, store.writes.size());
     assertEquals("MIXED", store.writes.get(0).payload().path("participants").get(seat).path("control_type").asText());
     assertFalse(store.writes.get(0).canonicalJson().contains("eligibility")); // persistent schema is unchanged
   }
 
-  @Test void botAtFinalCardRemainsExcludedWhenHumanReturnsDuringTwoSecondDisplay() {
-    var f = fixture(0, new MatchPersistenceTest.RecordingStore()); beforeFinalCard(f);
+  @Test void casualRoomRemainsCasualWhenHumanReturnsDuringTwoSecondDisplay() {
+    var f = fixture(0, new MatchPersistenceTest.RecordingStore(), "CASUAL"); beforeFinalCard(f);
     int finalSeat = f.view(0).game().play().nextSeat();
     int offline = java.util.stream.IntStream.range(1, 4).filter(seat -> seat != finalSeat).findFirst().orElseThrow();
     f.service.disconnect(f.room, f.players[offline].playerId(), "socket-" + offline);
@@ -77,7 +80,7 @@ class SettlementStatisticsFlowTest {
     playNext(f);
     assertEquals("TRICK_RESULT", f.view(0).phase()); assertNotNull(f.view(0).game().matchResult());
     var frozen = f.service.settlementStatistics(f.room, f.players[0]);
-    assertEquals(SettlementEligibility.Result.COMPUTER_AT_SETTLEMENT, frozen.eligibility());
+    assertEquals(SettlementEligibility.Result.FIXED_CASUAL, frozen.eligibility());
     f.service.connect(f.room, f.players[offline], "late-return");
     f.clock.now.addAndGet(2_000); f.service.expireInitialSubscriptions();
     assertEquals("MATCH_RESULT", f.view(0).phase());
@@ -102,7 +105,7 @@ class SettlementStatisticsFlowTest {
       f.players[i] = f.service.createSession("P" + i);
       f.service.linkAccountOutsideRoom(f.players[i], i < 2 ? account : UUID.randomUUID().toString(), true);
     }
-    f.room = f.service.create(f.players[0], 1).roomId();
+    f.room = f.service.create(f.players[0], 1, "CASUAL").roomId();
     for (int i = 0; i < 4; i++) {
       if (i > 0) f.service.join(f.room, f.players[i]);
       f.service.connect(f.room, f.players[i], "socket-" + i); f.service.ready(f.room, f.players[i], true);

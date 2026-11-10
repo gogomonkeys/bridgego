@@ -14,7 +14,12 @@ export default function ComputerPlayers({
   onAdd: (seat: number) => void;
   onRemove: (playerId: string) => void;
 }) {
-  if (room.phase !== "WAITING" || room.hostPlayerId !== playerId) return null;
+  if (
+    room.roomType === "FORMAL" ||
+    room.phase !== "WAITING" ||
+    room.hostPlayerId !== playerId
+  )
+    return null;
   const ownSeat = room.you?.seat ?? 0;
   return (
     <section className="computer-controls" aria-label="電腦玩家管理">

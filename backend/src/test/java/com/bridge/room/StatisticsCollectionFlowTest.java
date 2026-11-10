@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test;
 
 class StatisticsCollectionFlowTest {
   static PlayFlowTest fixture(int linked, int consented, MatchPersistenceTest.RecordingStore store) {
+    return fixture(linked, consented, store, "FORMAL");
+  }
+  static PlayFlowTest fixture(int linked, int consented, MatchPersistenceTest.RecordingStore store, String roomType) {
     var f = new PlayFlowTest(); f.clock = new RoomServiceTest.MutableClock();
     f.clock.now.set(Instant.parse("2026-11-09T12:00:00Z").toEpochMilli());
     f.service = new RoomService(f.clock); f.service.statsStore(store);
@@ -18,7 +21,7 @@ class StatisticsCollectionFlowTest {
       if (i < consented) f.service.statisticsConsent(f.players[i], true, StatisticsService.CONSENT_VERSION);
       if (i < linked) f.service.linkAccountOutsideRoom(f.players[i], UUID.randomUUID().toString(), true);
     }
-    f.room = f.service.create(f.players[0], 1).roomId();
+    f.room = f.service.create(f.players[0], 1, roomType).roomId();
     for (int i = 0; i < 4; i++) {
       if (i > 0) f.service.join(f.room, f.players[i]);
       f.service.connect(f.room, f.players[i], "socket-" + i); f.service.ready(f.room, f.players[i], true);
@@ -56,7 +59,7 @@ class StatisticsCollectionFlowTest {
   }
 
   @Test void actualTakeoverRestoredBeforeSettlementStillSavesWithMixedHistoricalProvenance() {
-    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(1, 4, store);
+    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(1, 4, store, "CASUAL");
     int seat = f.view(0).game().play().nextSeat();
     f.service.disconnect(f.room, f.players[seat].playerId(), "socket-" + seat);
     f.clock.now.addAndGet(10_000); f.service.expireInitialSubscriptions();
@@ -67,15 +70,20 @@ class StatisticsCollectionFlowTest {
     assertEquals("MIXED", store.writes.get(0).payload().path("participants").get(seat).path("control_type").asText());
   }
 
-  @Test void takeoverAtSettlementDoesNotSaveEvenAfterLateReturn() {
-    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(4, 4, store);
+  @Test void takeoverAtSettlementSavesCasualAndLateReturnCannotChangeIt() {
+    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(4, 4, store, "CASUAL");
     var flow = new SettlementStatisticsFlowTest(); flow.beforeFinalCard(f);
     int actor = f.view(0).game().play().nextSeat();
     int offline = java.util.stream.IntStream.range(1, 4).filter(i -> i != actor).findFirst().orElseThrow();
     f.service.disconnect(f.room, f.players[offline].playerId(), "socket-" + offline);
     f.clock.now.addAndGet(10_000); f.service.expireInitialSubscriptions(); flow.playNext(f);
-    assertTrue(store.writes.isEmpty()); f.service.connect(f.room, f.players[offline], "too-late");
-    f.clock.now.addAndGet(2000); f.service.expireInitialSubscriptions(); assertTrue(store.writes.isEmpty());
+    assertEquals(1, store.writes.size());
+    var frozen = store.writes.get(0);
+    assertEquals("CASUAL", frozen.statisticsCategory());
+    assertEquals("BOT", frozen.payload().path("participants").get(offline).path("settlement_control").asText());
+    f.service.connect(f.room, f.players[offline], "too-late");
+    f.clock.now.addAndGet(2000); f.service.expireInitialSubscriptions();
+    assertEquals(List.of(frozen), store.writes);
   }
 
   @Test void featureRequiresExplicitManagedStorageConfigurationAndConsentVersion() {
@@ -84,7 +92,7 @@ class StatisticsCollectionFlowTest {
     rooms.experimentPolicy(ManagedCollectionTest.policy()); rooms.statisticsPolicy(true, false); assertFalse(rooms.statisticsEnabled());
     rooms.statisticsPolicy(false, true); assertFalse(rooms.statisticsEnabled());
     rooms.statisticsPolicy(true, true); assertTrue(rooms.statisticsEnabled());
-    for (String version : Arrays.asList(null, "", "statistics-v0", "statistics-v2"))
+    for (String version : Arrays.asList(null, "", "statistics-v0", "statistics-v1", "statistics-v2", "statistics-v3", "statistics-v5"))
       assertEquals("STATS_CONSENT_INVALID", assertThrows(RoomService.Failure.class,
           () -> rooms.statisticsConsent(who, true, version)).code);
     assertThrows(RoomService.Failure.class, () -> rooms.statisticsConsent(who, null, StatisticsService.CONSENT_VERSION));
@@ -93,12 +101,15 @@ class StatisticsCollectionFlowTest {
     assertDoesNotThrow(() -> rooms.statisticsConsent(who, false, StatisticsService.CONSENT_VERSION));
   }
 
-  @Test void computerRosterAndNoContestNeverAcquireStatisticsMarker() {
-    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(1, 4, store);
+  @Test void casualNoContestSavesOnlyCompletedDealsAndNoWinner() {
+    var store = new MatchPersistenceTest.RecordingStore(); var f = fixture(1, 4, store, "CASUAL");
     for (int i = 1; i < 4; i++) f.service.leave(f.room, f.players[i]);
     f.service.disconnect(f.room, f.players[0].playerId(), "socket-0");
     f.clock.now.addAndGet(10_001); f.service.expireInitialSubscriptions();
-    assertTrue(store.writes.isEmpty());
+    assertEquals(1, store.writes.size());
+    assertEquals("CASUAL", store.writes.get(0).statisticsCategory());
+    assertEquals(0, store.writes.get(0).payload().path("completed_deals").size());
+    assertTrue(store.writes.get(0).payload().path("match").path("winner_team_id").isNull());
     assertEquals("NO_CONTEST", f.view(0).game().matchResult().outcome());
   }
 }

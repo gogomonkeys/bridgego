@@ -32,7 +32,7 @@ final class SettlementStatistics {
     }
   }
 
-  /** Candidate counters only. No HTTP endpoint or authorization to publish them. */
+  /** Internal diagnostic counters only, not the committed statistics API. */
   record Summary(String quarter, String scoreVersion, long matches, long completedDeals,
       long scoredMatches, long nsWins, long ewWins, long draws, long forfeits, long noContests) {}
 
@@ -52,6 +52,11 @@ final class SettlementStatistics {
    * matches count once; conflicting snapshots fail closed rather than pick one.
    */
   static Summary summarizeCurrentQuarter(Collection<Facts> input, Instant now, String scoreVersion) {
+    return summarizeCurrentQuarter(input, now, scoreVersion, "FORMAL");
+  }
+
+  static Summary summarizeCurrentQuarter(Collection<Facts> input, Instant now, String scoreVersion, String category) {
+    if (!Set.of("FORMAL", "CASUAL").contains(category)) throw new IllegalArgumentException("Category required");
     Objects.requireNonNull(input); Objects.requireNonNull(now);
     if (scoreVersion == null || scoreVersion.isBlank()) throw new IllegalArgumentException("Score version required");
     Map<String, Facts> unique = new HashMap<>();
@@ -64,7 +69,7 @@ final class SettlementStatistics {
     Instant start = QuarterlyRetention.currentQuarterStart(now);
     long matches = 0, deals = 0, scored = 0, nsWins = 0, ewWins = 0, draws = 0, forfeits = 0, noContests = 0;
     for (Facts facts : unique.values()) {
-      if (facts.eligibility() != SettlementEligibility.Result.ELIGIBLE
+      if (!category.equals(SettlementEligibility.category(facts.eligibility()))
           || facts.finishedAt().isBefore(start) || !facts.scoreVersion().equals(scoreVersion)) continue;
       matches++; deals += facts.completedDeals();
       switch (facts.outcome()) {
@@ -74,7 +79,11 @@ final class SettlementStatistics {
           else if (facts.winnerTeamId().equals("NS")) nsWins++;
           else ewWins++;
         }
-        case "FORFEIT" -> forfeits++;
+        case "FORFEIT" -> {
+          forfeits++;
+          if ("NS".equals(facts.winnerTeamId())) nsWins++;
+          else ewWins++;
+        }
         case "NO_CONTEST" -> noContests++;
         default -> throw new IllegalArgumentException("Unknown outcome");
       }

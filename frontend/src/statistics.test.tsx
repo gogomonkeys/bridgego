@@ -15,7 +15,7 @@ const data: StatisticsResponse = {
   status: "AVAILABLE",
   quarter: "2026-Q4",
   asOf: "2026-11-09T12:00:00Z",
-  ruleVersion: "four-humans-at-settlement-v1",
+  ruleVersion: "fixed-room-type-v3",
   personal: {
     matches: 2,
     completedDeals: 6,
@@ -25,16 +25,98 @@ const data: StatisticsResponse = {
     totalScore: 9,
   },
   overall: { matches: 3, completedDeals: 7, draws: 1 },
+  casualPersonal: {
+    matches: 4,
+    completedDeals: 8,
+    wins: 2,
+    losses: 1,
+    draws: 1,
+    totalScore: 42,
+  },
+  casualOverall: { matches: 5, completedDeals: 9, draws: 2 },
 };
 describe("statistics consent and presentation", () => {
+  it("separates normal, forfeit and interrupted outcomes without inventing missing counts", () => {
+    const result: StatisticsResponse = {
+      ...data,
+      personal: {
+        ...data.personal!,
+        matches: 7,
+        scoredMatches: 3,
+        forfeitMatches: 2,
+        interruptedMatches: 2,
+      },
+    };
+    const html = renderToStaticMarkup(
+      <StatisticsContent data={result} tab="personal" />,
+    );
+    expect(html).toContain("<dt>正常完成</dt><dd>3</dd>");
+    expect(html).toContain("<dt>判負場次</dt><dd>2</dd>");
+    expect(html).toContain("<dt>中止（不計勝負）</dt><dd>2</dd>");
+    const legacy = renderToStaticMarkup(
+      <StatisticsContent data={data} tab="personal" />,
+    );
+    expect(legacy).toContain("<dt>正常完成</dt><dd>—</dd>");
+  });
+  it("uses independent lifetime counts and retains formal/casual separation", () => {
+    const lifetime: StatisticsResponse = {
+      ...data,
+      lifetimeCoverage: "RECORDED_SINCE_FEATURE",
+      lifetimeTrackedFromQuarter: "2026-Q4",
+      quarterEndsAt: "2026-12-31T16:00:00Z",
+      lifetimePersonal: { ...data.personal!, matches: 10, totalScore: 123 },
+      lifetimeCasualPersonal: {
+        ...data.casualPersonal!,
+        matches: 20,
+        totalScore: 456,
+      },
+    };
+    const formal = renderToStaticMarkup(
+      <StatisticsContent data={lifetime} tab="personal" period="lifetime" />,
+    );
+    expect(formal).toContain("<dt>積分</dt><dd>123</dd>");
+    expect(formal).not.toContain("<dd>456</dd>");
+    expect(formal).toContain("自 2026-Q4 起");
+    expect(formal).not.toContain("結算至");
+    const casual = renderToStaticMarkup(
+      <StatisticsContent
+        data={lifetime}
+        tab="personal"
+        category="casual"
+        period="lifetime"
+      />,
+    );
+    expect(casual).toContain("<dt>積分</dt><dd>456</dd>");
+    const quarter = renderToStaticMarkup(
+      <StatisticsContent data={lifetime} tab="personal" />,
+    );
+    expect(quarter).toContain("結算至 2027年01月01日00時");
+    expect(quarter).toContain("並非自動清理時間");
+    expect(quarter).toContain("<dt>積分</dt><dd>9</dd>");
+    const overall = renderToStaticMarkup(
+      <StatisticsContent data={lifetime} tab="overall" period="lifetime" />,
+    );
+    expect(overall).toContain("台灣時間本季");
+    expect(overall).not.toContain("<dd>123</dd>");
+  });
+  it("never falls back to current-quarter counts when lifetime data is absent", () => {
+    const html = renderToStaticMarkup(
+      <StatisticsContent data={data} tab="personal" period="lifetime" />,
+    );
+    expect(html).toContain("不會以本季數字代替");
+    expect(html).not.toContain("<dd>9</dd>");
+  });
   it("requires the supported consent version only when enabled", async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({ enabled: true, consentVersion: "unknown" }),
-      });
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ enabled: true, consentVersion: "unknown" }),
+    });
     vi.stubGlobal("fetch", fetch);
+    await expect(readStatisticsConfig()).rejects.toThrow();
+    fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ enabled: true, consentVersion: "statistics-v1" }),
+    });
     await expect(readStatisticsConfig()).rejects.toThrow();
     fetch.mockResolvedValue({
       ok: true,
@@ -49,7 +131,7 @@ describe("statistics consent and presentation", () => {
     vi.stubGlobal("fetch", fetch);
     await acceptStatistics("current", {
       enabled: false,
-      consentVersion: "statistics-v1",
+      consentVersion: "statistics-v4",
     });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -60,13 +142,13 @@ describe("statistics consent and presentation", () => {
     vi.stubGlobal("fetch", fetch);
     await acceptStatistics("current", {
       enabled: true,
-      consentVersion: "statistics-v1",
+      consentVersion: "statistics-v4",
     });
     expect(fetch).toHaveBeenCalledWith(
       "/api/statistics/consent",
       expect.objectContaining({
         method: "PUT",
-        body: JSON.stringify({ consent: true, version: "statistics-v1" }),
+        body: JSON.stringify({ consent: true, version: "statistics-v4" }),
         headers: expect.objectContaining({ Authorization: "Bearer current" }),
       }),
     );
@@ -77,44 +159,90 @@ describe("statistics consent and presentation", () => {
     await expect(
       acceptStatistics("current", {
         enabled: true,
-        consentVersion: "statistics-v1",
+        consentVersion: "statistics-v4",
       }),
     ).rejects.toThrow();
     fetch.mockClear();
     await expect(
       acceptStatistics("old", {
         enabled: true,
-        consentVersion: "statistics-v1",
+        consentVersion: "statistics-v4",
       }),
     ).rejects.toThrow();
     expect(fetch).not.toHaveBeenCalled();
   });
   it("states mixed human eligibility and manual cleanup without guest stats entry", () => {
     for (const text of [
-      "四位不同真人",
+      "四位真人",
+      "正式場",
+      "休閒場",
+      "類型在開房時固定",
       "訪客也計入整體",
       "沒有個人統計或統計入口",
       "私人 Google 試算表",
+      "每局耗時",
       "每季由營運者人工清理",
       "並非自動刪除",
-      "最後一張牌前",
+      "未完成局不計分",
     ])
       expect(statisticsNotice).toContain(text);
   });
-  it("separates personal and overall counts without percentages or identifiers", () => {
+  it("separates personal and overall counts with personal win rate but without identifiers", () => {
     const personal = renderToStaticMarkup(
       <StatisticsContent data={data} tab="personal" />,
     );
     expect(personal).toContain("2026-Q4");
-    expect(personal).toContain("完成場次");
+    expect(personal).toContain("場數");
     expect(personal).toContain("完成局數");
-    expect(personal).toContain("我方累計分數");
+    expect(personal).toContain("積分");
     const overall = renderToStaticMarkup(
       <StatisticsContent data={data} tab="overall" />,
     );
     expect(overall).not.toContain("我方累計分數");
     expect(overall).not.toContain("獲勝場次");
     expect(overall).not.toContain("%");
+  });
+  it("keeps formal and casual personal scores and overall counters separate", () => {
+    const formal = renderToStaticMarkup(
+      <StatisticsContent data={data} tab="personal" category="formal" />,
+    );
+    const casual = renderToStaticMarkup(
+      <StatisticsContent data={data} tab="personal" category="casual" />,
+    );
+    expect(formal).toContain("正式場 · 個人");
+    expect(formal).toContain("<dd>9</dd>");
+    expect(formal).not.toContain("<dd>42</dd>");
+    expect(casual).toContain("休閒場 · 個人");
+    expect(casual).toContain("<dd>42</dd>");
+    expect(casual).not.toContain("<dd>9</dd>");
+    const overall = renderToStaticMarkup(
+      <StatisticsContent data={data} tab="overall" category="casual" />,
+    );
+    expect(overall).toContain("休閒場 · 整體");
+    expect(overall).toContain("<dd>5</dd>");
+    expect(overall).not.toContain("<dd>42</dd>");
+    expect(overall).not.toContain("獲勝場次");
+    expect(
+      renderToStaticMarkup(
+        <StatisticsContent
+          data={{ ...data, casualPersonal: null }}
+          tab="personal"
+          category="casual"
+        />,
+      ),
+    ).toContain("資料不完整");
+    expect(
+      renderToStaticMarkup(
+        <StatisticsContent
+          data={{
+            ...data,
+            casualOverall: { matches: 0, completedDeals: 0, draws: 0 },
+          }}
+          tab="overall"
+          category="casual"
+        />,
+      ),
+    ).toContain("本季尚無已確認保存的休閒場");
   });
   it("distinguishes zero, unavailable, disabled and missing counts", () => {
     expect(

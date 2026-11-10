@@ -18,7 +18,7 @@ public class RoomController {
 
   record ReadyRequest(Boolean ready) {}
 
-  record CreateRequest(com.fasterxml.jackson.databind.JsonNode plannedDeals) {}
+  record CreateRequest(com.fasterxml.jackson.databind.JsonNode plannedDeals, com.fasterxml.jackson.databind.JsonNode roomType) {}
 
   private RoomService.Identity identity(String auth) {
     if (auth == null || !auth.startsWith("Bearer "))
@@ -52,7 +52,11 @@ public class RoomController {
     if (count != null && !count.isNull()
         && (!count.isIntegralNumber() || !count.canConvertToInt()))
       throw RoomService.fail(400, "INVALID_PLANNED_DEALS", "plannedDeals must be 1, 3 or 5");
-    return service.create(who, count == null || count.isNull() ? null : count.intValue());
+    var type = request == null ? null : request.roomType();
+    if (type != null && !type.isTextual())
+      throw RoomService.fail(400, "INVALID_ROOM_TYPE", "roomType must be FORMAL or CASUAL");
+    return service.create(who, count == null || count.isNull() ? null : count.intValue(),
+        type == null ? null : type.textValue());
   }
 
   @PostMapping("/rooms/{id}/join")

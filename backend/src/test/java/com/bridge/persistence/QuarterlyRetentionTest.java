@@ -19,8 +19,8 @@ class QuarterlyRetentionTest {
         Fake(){
             tabs.put("envelopes",new ArrayList<>(List.of(List.of("commit_id","payload_hash","chunk_index","chunk_count","canonical_json_chunk"))));
             tabs.put("commits",new ArrayList<>(List.of(List.of("commit_id","payload_hash","chunk_count","match_id","revision"))));
-            tabs.put("accounts",new ArrayList<>(List.of(List.of("account_id","schema_version"),List.of("keep-account","1"))));
-            tabs.put("auth_identities",new ArrayList<>(List.of(List.of("issuer","subject","account_id","schema_version"),List.of("issuer","keep-subject","keep-account","1"))));
+            tabs.put("accounts",new ArrayList<>(List.of(List.of("account_id","schema_version"),List.of("11111111-1111-1111-1111-111111111111","1"))));
+            tabs.put("auth_identities",new ArrayList<>(List.of(List.of("issuer","subject","account_id","schema_version"),List.of("issuer","keep-subject","11111111-1111-1111-1111-111111111111","1"))));
             tabs.put("erasure_ledger",new ArrayList<>(List.of(ErasureLedger.HEADER,ErasureLedger.SENTINEL)));
             tabs.put("retention_ledger",new ArrayList<>(List.of(RetentionLedger.HEADER)));
             tabs.put("quarterly_aggregates",new ArrayList<>(List.of(QuarterlyRetention.AGGREGATE_HEADER)));

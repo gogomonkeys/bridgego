@@ -49,7 +49,7 @@ class StatisticsHttpTest {
 
   @Test void consentRequiresValidOriginSessionCurrentVersionAndOutsideRoom() throws Exception {
     var rooms = rooms(); var who = rooms.createSession("Guest"); var mvc = mvc(rooms, new MatchPersistenceTest.RecordingStore());
-    String body = "{\"consent\":true,\"version\":\"statistics-v1\"}";
+    String body = "{\"consent\":true,\"version\":\"statistics-v4\"}";
     mvc.perform(put("/api/statistics/consent").contentType(MediaType.APPLICATION_JSON).content(body))
         .andExpect(status().isForbidden());
     mvc.perform(put("/api/statistics/consent").header("Origin", ORIGIN).contentType(MediaType.APPLICATION_JSON).content(body))

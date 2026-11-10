@@ -1,5 +1,7 @@
 # BridgeGo 統計實作與驗收
 
+> 2026-11-10 分類候選以 [正式場／休閒場規格](MATCH_CATEGORIES.zh-TW.md) 為準。以下保留 v1 原始實作紀錄及當時測試數量，不代表分類候選的現行規則或重新驗收。
+
 基準：`gogomonkeys/bridgego` 的 `pwa-beta-v0.7.0`，提交 `562cea6185103069cd40722f4be26c9f3f8f1a7d`。此文件記錄候選程式，不代表已推送、部署、啟用保存或完成真實 Google／Sheets 驗收。
 
 ## 已確定的產品規則

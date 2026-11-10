@@ -17,6 +17,7 @@ public class RoomService {
   public static final long INITIAL_SUBSCRIPTION_MS = 5_000;
   public static final long GAME_RECONNECT_MS = 10_000;
   static final long COMPUTER_ACTION_MS = 900;
+  static final long FORMAL_EXIT_WINDOW_MS = 1_000;
 
   public record Identity(String token, String playerId, String displayName) {}
 
@@ -35,6 +36,7 @@ public class RoomService {
 
   public record Snapshot(
       String roomId,
+      String roomType,
       long revision,
       String phase,
       int capacity,
@@ -64,7 +66,7 @@ public class RoomService {
   private record AcceptedAction(String signature, long revision) {}
 
   public record Summary(
-      String roomId, int playerCount, int capacity, String state, String phase, boolean joinable, int plannedDeals) {}
+      String roomId, int playerCount, int capacity, String state, String phase, boolean joinable, int plannedDeals, String roomType) {}
 
   public static class Failure extends RuntimeException {
     public final int status;
@@ -83,6 +85,7 @@ public class RoomService {
     boolean ready;
     boolean computer;
     boolean takeover;
+    boolean formalDeparted;
     boolean automated() { return computer || takeover; }
     boolean present() { return automated() || !connections.isEmpty(); }
     boolean humanOnline() { return !computer && !connections.isEmpty(); }
@@ -107,6 +110,10 @@ public class RoomService {
   static class Room {
     String id;
     final int plannedDeals;
+    final String roomType;
+    final Map<String, String> formalFailures = new TreeMap<>();
+    final Map<Integer, Long> formalWaitingDeadlines = new TreeMap<>();
+    Long formalDecisionDue;
     long revision;
     String hostPlayerId;
     GameState game;
@@ -124,9 +131,10 @@ public class RoomService {
     final Map<String, AcceptedAction> actions = new HashMap<>();
     Map<String, Member> members = new LinkedHashMap<>();
 
-    Room(String id, int plannedDeals) {
+    Room(String id, int plannedDeals, String roomType) {
       this.id = id;
       this.plannedDeals = plannedDeals;
+      this.roomType = roomType;
     }
   }
 
@@ -328,7 +336,7 @@ public class RoomService {
                     4,
                     r.game == null ? "WAITING" : r.game.active() ? "ACTIVE" : "FINISHED",
                     r.game == null ? "WAITING" : r.game.phase,
-                    r.game == null && r.members.size() < 4, r.plannedDeals))
+                    r.game == null && r.members.size() < 4, r.plannedDeals, r.roomType))
         .toList();
   }
 
@@ -337,6 +345,13 @@ public class RoomService {
   }
 
   public synchronized Snapshot create(Identity id, Integer plannedDeals) {
+    return create(id, plannedDeals, null);
+  }
+
+  public synchronized Snapshot create(Identity id, Integer plannedDeals, String requestedType) {
+    String roomType = requestedType == null ? "CASUAL" : requestedType;
+    if (!Set.of("FORMAL", "CASUAL").contains(roomType))
+      throw fail(400, "INVALID_ROOM_TYPE", "roomType must be FORMAL or CASUAL");
     int count = plannedDeals == null ? 3 : plannedDeals;
     if (count != 1 && count != 3 && count != 5)
       throw fail(400, "INVALID_PLANNED_DEALS", "plannedDeals must be 1, 3 or 5");
@@ -345,7 +360,7 @@ public class RoomService {
     ensureFree(id);
     if (rooms.values().stream().filter(r -> r.closedAtTick == null).count() >= limits.maxRooms())
       throw fail(409, "ROOM_LIMIT_REACHED", "The beta table limit has been reached");
-    Room room = new Room(UUID.randomUUID().toString(), count);
+    Room room = new Room(UUID.randomUUID().toString(), count, roomType);
     room.hostPlayerId = id.playerId();
     rooms.put(room.id, room);
     return add(room, id);
@@ -355,7 +370,10 @@ public class RoomService {
     requireRunning();
     expireInitialSubscriptions();
     Room room = room(roomId);
-    if (room.members.containsKey(id.playerId())) return snapshot(room, id);
+    if (room.members.containsKey(id.playerId())) {
+      member(room, id);
+      return snapshot(room, id);
+    }
     if (room.game != null)
       throw fail(409, "GAME_IN_PROGRESS", "No replacement players after a game starts");
     ensureFree(id);
@@ -392,6 +410,8 @@ public class RoomService {
     if (old != null) return replay(r, id, actionId, old);
     revision(r, expected);
     computerHost(r, id);
+    if ("FORMAL".equals(r.roomType))
+      throw fail(409, "FORMAL_COMPUTER_FORBIDDEN", "Formal rooms cannot add computer players");
     if (seat == null || seat < 0 || seat > 3)
       throw fail(400, "INVALID_SEAT", "Seat must be between 0 and 3");
     if (r.members.values().stream().anyMatch(m -> m.seat == seat))
@@ -454,6 +474,14 @@ public class RoomService {
     Room room = room(roomId);
     if (room.game != null && room.game.active()) {
       Member departing = member(room, id);
+      if ("FORMAL".equals(room.roomType)) {
+        departing.formalDeparted = true;
+        departing.connections.clear();
+        departing.disconnectedAt = clock.millis();
+        membership.remove(id.playerId());
+        formalFailure(room, departing, "MANUAL_EXIT");
+        return;
+      }
       int seat = departing.seat;
       room.members.remove(id.playerId());
       membership.remove(id.playerId());
@@ -498,6 +526,8 @@ public class RoomService {
     room.allHumansReconnectDue = null;
     if (room.game != null && room.game.active()) electConnectedHost(room);
     if (room.game != null && !paused(room)) room.game.resumeTimer();
+    if (!room.formalFailures.isEmpty() && room.game != null && room.game.active())
+      resolveFormalFailure(room, ticker.getAsLong(), false);
     if (wasDisconnected) changed(room);
     return snapshot(room, id);
   }
@@ -549,7 +579,14 @@ public class RoomService {
     long monotonicNow = ticker.getAsLong();
     for (Room r : new ArrayList<>(rooms.values())) {
       if (r.game != null && r.game.active()) {
-        if (!hasOnlineHuman(r)) {
+        if ("FORMAL".equals(r.roomType)) {
+          for (Member m : new ArrayList<>(r.members.values())) {
+            if (r.game.active() && !m.formalDeparted && m.connections.isEmpty()
+                && m.reconnectDueTick != null && monotonicNow >= m.reconnectDueTick)
+              formalFailure(r, m, "RECONNECT_TIMEOUT");
+          }
+          if (r.game.active() && !r.formalFailures.isEmpty()) resolveFormalFailure(r, monotonicNow, false);
+        } else if (!hasOnlineHuman(r)) {
           if (r.allHumansReconnectDue != null && monotonicNow >= r.allHumansReconnectDue)
             terminateNoHumans(r, "NO_HUMANS_CONNECTED");
         } else {
@@ -711,6 +748,54 @@ public class RoomService {
     return replacement;
   }
 
+  /** One fixed brief adjudication window; only reconnects already pending may delay it. */
+  private void formalFailure(Room r, Member member, String reason) {
+    if (r.game == null || !r.game.active()) return;
+    String failedTeam = GameState.team(member.seat);
+    if (r.formalDecisionDue == null) {
+      r.formalDecisionDue = ticker.getAsLong() + FORMAL_EXIT_WINDOW_MS;
+      for (Member other : r.members.values()) {
+        if (!failedTeam.equals(GameState.team(other.seat)) && !other.formalDeparted
+            && other.connections.isEmpty() && other.reconnectDueTick != null)
+          r.formalWaitingDeadlines.put(other.seat, other.reconnectDueTick);
+      }
+    }
+    r.formalFailures.putIfAbsent(failedTeam, reason);
+    r.game.recordForfeit(member.identity.playerId(), member.seat, reason);
+    member.reconnectDeadline = null;
+    member.reconnectDueTick = null;
+    member.takeover = false;
+    r.game.pauseTimer();
+    resolveFormalFailure(r, ticker.getAsLong(), true);
+  }
+
+  private void resolveFormalFailure(Room r, long now, boolean publish) {
+    if (r.game == null || !r.game.active() || r.formalDecisionDue == null) return;
+    for (var waiting : new ArrayList<>(r.formalWaitingDeadlines.entrySet())) {
+      Member member = r.members.values().stream().filter(m -> m.seat == waiting.getKey()).findFirst().orElse(null);
+      if (member == null || member.formalDeparted || r.formalFailures.containsKey(GameState.team(waiting.getKey()))
+          || member.humanOnline()) {
+        r.formalWaitingDeadlines.remove(waiting.getKey()); publish = true;
+      } else if (now >= waiting.getValue()) {
+        r.formalFailures.putIfAbsent(GameState.team(member.seat), "RECONNECT_TIMEOUT");
+        r.game.recordForfeit(member.identity.playerId(), member.seat, "RECONNECT_TIMEOUT");
+        member.reconnectDeadline = null; member.reconnectDueTick = null;
+        r.formalWaitingDeadlines.remove(waiting.getKey()); publish = true;
+      }
+    }
+    if (r.formalFailures.size() > 1 || now >= r.formalDecisionDue && r.formalWaitingDeadlines.isEmpty()) {
+      String reason = r.formalFailures.values().iterator().next();
+      r.game.finishForfeit(reason, r.formalFailures.keySet());
+      clearGameDeadlines(r);
+      r.allHumansReconnectDue = null; r.allHumansReconnectDeadline = null;
+      r.formalDecisionDue = null; r.formalWaitingDeadlines.clear();
+      changed(r);
+    } else if (publish) {
+      r.game.setPendingForfeit(r.formalFailures.keySet(), new ArrayList<>(r.formalWaitingDeadlines.keySet()));
+      changed(r);
+    }
+  }
+
   private void terminateNoHumans(Room r, String reason) {
     if (r.game == null || !r.game.active()) return;
     r.game.finishWithoutHumans(reason);
@@ -731,7 +816,7 @@ public class RoomService {
 
   private void remove(Room r, String playerId) {
     r.members.remove(playerId);
-    membership.remove(playerId);
+    membership.remove(playerId, r.id);
     if (r.members.values().stream().noneMatch(m -> !m.computer)) {
       r.members.clear();
       rooms.remove(r.id);
@@ -764,7 +849,7 @@ public class RoomService {
 
   private Member member(Room r, Identity id) {
     Member m = r.members.get(id.playerId());
-    if (m == null || m.computer) throw fail(403, "NOT_MEMBER", "Not a human member of this room");
+    if (m == null || m.computer || m.formalDeparted) throw fail(403, "NOT_MEMBER", "Not a human member of this room");
     return m;
   }
 
@@ -835,6 +920,7 @@ public class RoomService {
             .toList();
     return new Snapshot(
         r.id,
+        r.roomType,
         r.revision,
         r.game == null ? "WAITING" : r.game.phase,
         4,
@@ -946,13 +1032,16 @@ public class RoomService {
         experimentMatchStarted = true; // a failed/abandoned start never restores admission
       }
     }
-    r.game = new GameState(random, ticker, r.plannedDeals);
+    if ("FORMAL".equals(r.roomType)
+        && SettlementEligibility.evaluate(r.members.values(), accountsByPlayer) != SettlementEligibility.Result.ELIGIBLE)
+      throw fail(409, "START_NOT_READY", "Formal matches require four distinct connected humans");
+    r.game = new GameState(random, ticker, r.plannedDeals, r.roomType);
     r.persistence = new MatchPersistence(r.game.id, r.plannedDeals, clock.instant(),
         r.members.values(), accountsByPlayer, r.members.values().stream()
             .filter(m -> !m.computer).allMatch(m -> accountsByPlayer.containsKey(m.identity.playerId())
                 && admittedTesters.contains(m.identity.playerId())), statisticsEnabled(),
         r.members.values().stream().filter(m -> !m.computer)
-            .allMatch(m -> statisticsConsents.contains(m.identity.playerId())));
+            .allMatch(m -> statisticsConsents.contains(m.identity.playerId())), r.roomType);
     r.game.roster(
         r.members.values().stream()
             .sorted(Comparator.comparingInt(m -> m.seat))
@@ -1100,7 +1189,7 @@ public class RoomService {
     for (Member m : new ArrayList<>(r.members.values())) {
       if (!m.computer && !m.humanOnline()) {
         r.members.remove(m.identity.playerId());
-        membership.remove(m.identity.playerId());
+        membership.remove(m.identity.playerId(), r.id);
       } else {
         m.ready = m.computer;
         m.initialSubscriptionDeadline = null;
@@ -1114,6 +1203,9 @@ public class RoomService {
     r.computerActionKey = null;
     r.computerTargetDeal = null;
     r.computerTargets.clear();
+    r.formalFailures.clear();
+    r.formalWaitingDeadlines.clear();
+    r.formalDecisionDue = null;
     return applied(r, id, actionId, signature);
   }
 

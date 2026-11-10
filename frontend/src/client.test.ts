@@ -125,12 +125,19 @@ describe("central real-client lifecycle (mock transport, not integration)", () =
     const { client, getClientState } = await setup(false);
     client.forget();
     let refreshStarted!: () => void;
-    const started = new Promise<void>((resolve) => { refreshStarted = resolve; });
+    const started = new Promise<void>((resolve) => {
+      refreshStarted = resolve;
+    });
     let finishRefresh!: (response: Response) => void;
-    const refresh = new Promise<Response>((resolve) => { finishRefresh = resolve; });
+    const refresh = new Promise<Response>((resolve) => {
+      finishRefresh = resolve;
+    });
     fetchMock.mockImplementation((path: string) => {
       if (path === "/api/sessions") return Promise.resolve(json(identity));
-      if (path === "/api/rooms") { refreshStarted(); return refresh; }
+      if (path === "/api/rooms") {
+        refreshStarted();
+        return refresh;
+      }
       throw new Error(`Unexpected request: ${path}`);
     });
     const creation = client.login("Alice");
@@ -147,13 +154,40 @@ describe("central real-client lifecycle (mock transport, not integration)", () =
     expect(await client.login("")).toBeNull();
   });
 
-  it.each([undefined, 1, 3, 5] as const)("sends the selected deal count (%s) when creating a room", async (count) => {
+  it.each([undefined, 1, 3, 5] as const)(
+    "sends the selected deal count (%s) when creating a room",
+    async (count) => {
+      const { client, getClientState } = await setup(false);
+      fetchMock.mockResolvedValue(
+        json({ ...room(), plannedDeals: count ?? 3 }),
+      );
+      await client.create(count);
+      const request = fetchMock.mock.calls.find(
+        ([path, options]) =>
+          path === "/api/rooms" && options?.method === "POST",
+      );
+      expect(JSON.parse(request![1].body)).toEqual({
+        plannedDeals: count ?? 3,
+        roomType: "CASUAL",
+      });
+      expect(getClientState().room?.plannedDeals).toBe(count ?? 3);
+    },
+  );
+
+  it("sends explicit formal category and keeps the server room type", async () => {
     const { client, getClientState } = await setup(false);
-    fetchMock.mockResolvedValue(json({ ...room(), plannedDeals: count ?? 3 }));
-    await client.create(count);
-    const request = fetchMock.mock.calls.find(([path, options]) => path === "/api/rooms" && options?.method === "POST");
-    expect(JSON.parse(request![1].body)).toEqual({ plannedDeals: count ?? 3 });
-    expect(getClientState().room?.plannedDeals).toBe(count ?? 3);
+    fetchMock.mockResolvedValue(
+      json({ ...room(), roomType: "FORMAL", plannedDeals: 1 }),
+    );
+    await client.create(1, "FORMAL");
+    const request = fetchMock.mock.calls.find(
+      ([path, options]) => path === "/api/rooms" && options?.method === "POST",
+    );
+    expect(JSON.parse(request![1].body)).toEqual({
+      plannedDeals: 1,
+      roomType: "FORMAL",
+    });
+    expect(getClientState().room?.roomType).toBe("FORMAL");
   });
 
   it("restores stable guest on refresh and subscribes without a token in URL", async () => {

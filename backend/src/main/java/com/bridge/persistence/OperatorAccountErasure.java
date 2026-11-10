@@ -27,9 +27,9 @@ public final class OperatorAccountErasure {
         "accounts",List.of("account_id","schema_version"),
         "auth_identities",List.of("issuer","subject","account_id","schema_version"),
         "erasure_ledger",ErasureLedger.HEADER);
-    private static final Set<String> PERSON_FIELDS=Set.of("match_id","seat","team_id","player_type","control_type","account_id","guest_id","erased_marker");
-    private static final Set<String> MATCH_FIELDS=Set.of("statistics_rule","match_id","revision","schema_version","score_version","app_version","started_at","finished_at","planned_deals","completed_deals","outcome","winner_team_id","reason","ns_total","ew_total");
-    private static final Set<String> DEAL_FIELDS=Set.of("match_id","deal_id","deal_index","contract_type","contract_level","contract_strain","attacking_team_id","ns_tricks","ew_tricks","ns_privilege_used","ns_base","ns_exact_bonus","ns_penalty","ns_privilege_adjustment","ns_total","ew_privilege_used","ew_base","ew_exact_bonus","ew_penalty","ew_privilege_adjustment","ew_total");
+    private static final Set<String> PERSON_FIELDS=Set.of("match_id","seat","team_id","player_type","settlement_control", "control_type","account_id","guest_id","erased_marker");
+    private static final Set<String> MATCH_FIELDS=Set.of("lifetime_rule", "room_type", "deal_timing_rule", "match_category", "statistics_rule","match_id","revision","schema_version","score_version","app_version","started_at","finished_at","planned_deals","completed_deals","outcome","winner_team_id","reason","ns_total","ew_total");
+    private static final Set<String> DEAL_FIELDS=Set.of("elapsed_ms","match_id","deal_id","deal_index","contract_type","contract_level","contract_strain","attacking_team_id","ns_tricks","ew_tricks","ns_privilege_used","ns_base","ns_exact_bonus","ns_penalty","ns_privilege_adjustment","ns_total","ew_privilege_used","ew_base","ew_exact_bonus","ew_penalty","ew_privilege_adjustment","ew_total");
     private final SheetsGateway gateway;
     private final GoogleCredentialVerifier verifier;
     private final String audience;

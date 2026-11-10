@@ -199,8 +199,9 @@ export default function GamePanel({
         <section className="pause-banner" role="status">
           <strong>遊戲暫停 · 等候原玩家重連</strong>
           <p>
-            斷線保留 10 秒；仍有真人在線時，逾時由電腦代打。所有真人都離線時，10
-            秒內無人回來則結束本場。
+            {room.roomType === "FORMAL"
+              ? "正式場斷線保留 10 秒，逾時依規則判負，不由電腦接手；雙方皆失敗可能不計勝負。"
+              : "斷線保留 10 秒；仍有真人在線時，逾時由電腦代打。所有真人都離線時，10 秒內無人回來則結束本場。"}
           </p>
           {room.allHumansReconnectDeadline != null && (
             <p>
@@ -224,7 +225,7 @@ export default function GamePanel({
       )}
       {pending && (
         <section className="panel outcome-screen">
-          <h2>重連結果待裁定</h2>
+          <h2>離開／重連結果待裁定</h2>
           <p>
             已判定失敗：
             {game.pendingForfeit?.failedTeamIds
@@ -232,11 +233,17 @@ export default function GamePanel({
               .join("、")}
           </p>
           <p>
-            等候原期限：
-            {game.pendingForfeit?.waitingSeats
-              .map((seat) => playerLabel(game.roster, seat))
-              .join("、")}
-            。不新增 10 秒，稍後返回不撤銷已判定失敗。
+            {game.pendingForfeit?.waitingSeats.length ? (
+              <>
+                等候原期限：
+                {game.pendingForfeit.waitingSeats
+                  .map((seat) => playerLabel(game.roster, seat))
+                  .join("、")}
+                。不新增 10 秒，稍後返回不撤銷已判定失敗。
+              </>
+            ) : (
+              "正在確認雙方離開狀態，避免近同時離開造成錯誤裁定；請等候最終結果。"
+            )}
           </p>
           <ForfeitAttribution game={game} />
         </section>
@@ -569,7 +576,7 @@ export default function GamePanel({
         >
           <summary>更多</summary>
           <div className="match-more-panel">
-            <small>v0.12.2 · 狀態版本 {room.revision}</small>
+            <small>v0.13.0 · 狀態版本 {room.revision}</small>
             <button
               className="secondary"
               disabled={busy}
@@ -661,9 +668,15 @@ export default function GamePanel({
               }
             }}
           >
-            <h2 id="exit-title">確定退出並交由電腦接手？</h2>
+            <h2 id="exit-title">
+              {room.roomType === "FORMAL"
+                ? "確定退出正式場？"
+                : "確定退出並交由電腦接手？"}
+            </h2>
             <p id="exit-description">
-              主動退出會放棄本場席位，無法取回控制權；若仍有真人在線，電腦會立即接手。最後一位真人退出時，本場結束，未完成的局不計分。
+              {room.roomType === "FORMAL"
+                ? "主動退出會放棄本場席位，依規則判我方落敗，不會由電腦接手。雙方皆失敗可能不計勝負；已完成局保留，未完成局不計分。"
+                : "主動退出會放棄本場席位，無法取回控制權；若仍有真人在線，電腦會立即接手。最後一位真人退出時，本場結束，未完成的局不計分。"}
             </p>
             <div className="choice-buttons">
               <button
