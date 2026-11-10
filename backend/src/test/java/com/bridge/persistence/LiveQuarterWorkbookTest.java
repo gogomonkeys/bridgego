@@ -63,6 +63,17 @@ class LiveQuarterWorkbookTest {
       }
   }
 
+  @Test void profileHeaderSelectsFourColumnsAndRetainsLegacyPadding() {
+    var rows = fixture.tables.get("accounts");
+    rows.set(0, AccountProfileRows.HEADER);
+    rows.set(1, List.of(rows.get(1).get(0), "2", "測試玩家", "player@example.test"));
+    root = fixtureTree(fixture);
+    var parsed = parse(root).snapshot().tables().get("accounts");
+    assertEquals(rows.get(1), parsed.get(1));
+    assertEquals(List.of(rows.get(2).get(0), "1", "", ""), parsed.get(2));
+    rejectChange(x -> cell(x, "accounts", 0, 2).putObject("userEnteredValue").put("stringValue", "wrong"));
+  }
+
   @Test void exactObservedCellDisplayValuesPreserveDataAndChangeFullFingerprint() {
     var before = parse(root); applyObservedCellDisplayMetadata(root); var after = parse(root);
     assertEquals(before.snapshot(), after.snapshot());

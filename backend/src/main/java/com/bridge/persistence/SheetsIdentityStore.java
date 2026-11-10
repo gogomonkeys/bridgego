@@ -26,9 +26,41 @@ public final class SheetsIdentityStore implements IdentityStore {
         }
         throw new IllegalStateException("Identity persistence unavailable");
     }
+    @Override public synchronized String findOrCreateAccount(String issuer,String subject,String nickname,String verifiedEmail) {
+        if(!"https://accounts.google.com".equals(issuer)||subject==null||subject.isBlank()||subject.length()>255)throw new IllegalArgumentException("Invalid verified identity");
+        if(nickname==null||nickname.isBlank()||nickname.length()>256||nickname.chars().anyMatch(Character::isISOControl))throw new IllegalArgumentException("Invalid nickname");
+        String email=verifiedEmail==null?"":verifiedEmail;
+        if(!AccountProfileRows.validEmail(email))throw new IllegalArgumentException("Invalid verified email");
+        QuarterlyRetention.requireCollectionReady(gateway,clock);
+        ErasureLedger ledger=new ErasureLedger(gateway.read("erasure_ledger"));
+        if(ledger.contains("IDENTITY",ErasureLedger.identityKey(issuer,subject)))throw new SheetsGateway.Conflict();
+        AccountProfileRows.validateTable(gateway.read("accounts"));
+        String id=find(issuer,subject);
+        if(id!=null&&ledger.contains("ACCOUNT",id))throw new SheetsGateway.Conflict();
+        var rows=gateway.read("accounts");
+        int row=0;
+        if(id!=null)for(int i=1;i<rows.size();i++)if(rows.get(i).get(0).equals(id)){if(row!=0)throw new SheetsGateway.Conflict();row=i+1;}
+        if(id!=null&&row==0)throw new SheetsGateway.Conflict();
+        if(id==null)id=UUID.randomUUID().toString();
+        List<String> desired=List.of(id,"2",nickname,email);
+        if(row>0){var current=new ArrayList<>(rows.get(row-1));while(current.size()<4)current.add("");if(current.equals(desired))return id;}
+        QuarterlyRetention.requireCollectionReady(gateway,clock);
+        // One write attempt only. Uncertain responses are reconciled by later reads, never replayed here.
+        gateway.saveAccountProfile(row,desired,row==0?List.of(issuer,subject,id,"1"):null);
+        if(!id.equals(find(issuer,subject)))throw new SheetsGateway.Conflict();
+        var saved=gateway.read("accounts");
+        AccountProfileRows.validateTable(saved);
+        boolean matched=false;
+        for(int i=1;i<saved.size();i++)if(saved.get(i).get(0).equals(id)) {
+            List<String> value=new ArrayList<>(saved.get(i));while(value.size()<4)value.add("");
+            if(!value.equals(desired)||matched)throw new SheetsGateway.Conflict();matched=true;
+        }
+        if(!matched)throw new SheetsGateway.Conflict();
+        return id;
+    }
     private String find(String issuer,String subject) {
         Set<String> accounts=new HashSet<>();
-        for(List<String> row:gateway.read("accounts")){if(row.isEmpty()||row.get(0).equals("account_id"))continue;if(row.size()!=2||!row.get(1).equals("1"))throw new SheetsGateway.Conflict();try{UUID.fromString(row.get(0));}catch(Exception e){throw new SheetsGateway.Conflict();}accounts.add(row.get(0));}
+        for(List<String> row:gateway.read("accounts")){if(row.isEmpty()||row.get(0).equals("account_id"))continue;AccountProfileRows.validateRow(row);try{UUID.fromString(row.get(0));}catch(Exception e){throw new SheetsGateway.Conflict();}accounts.add(row.get(0));}
         String result=null;
         for(List<String> row:gateway.read("auth_identities")){
             if(row.isEmpty()||row.get(0).equals("issuer"))continue;

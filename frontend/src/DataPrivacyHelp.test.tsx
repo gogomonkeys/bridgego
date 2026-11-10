@@ -2,6 +2,26 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import DataPrivacyHelp from "./DataPrivacyHelp";
 describe("help data policy", () => {
+  it("keeps the entry's detailed statistics disclosure in help", () => {
+    const html = renderToStaticMarkup(<DataPrivacyHelp />);
+    for (const text of [
+      "資料使用說明集中於本頁",
+      "選擇繼續遊玩表示同意合資格場次保存",
+      "四位不同真人控制",
+      "訪客與登入玩家可同場計算",
+      "訪客不保存名稱或識別碼",
+      "已驗證信箱（如有）",
+      "信箱不向其他玩家公開",
+      "每次登入以當次遊戲暱稱",
+      "沒有個人統計或統計入口",
+      "私人 Google 試算表",
+      "每季人工清理",
+      "不是自動定時清除",
+      "最後一張牌前由真人接手可計入",
+    ])
+      expect(html).toContain(text);
+    expect(html).not.toContain("入口會先顯示資料使用說明");
+  });
   it("discloses bounded experimental collection without claiming deletion readiness", () => {
     const html = renderToStaticMarkup(<DataPrivacyHelp />);
     for (const text of [

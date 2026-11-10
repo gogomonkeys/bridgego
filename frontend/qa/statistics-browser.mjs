@@ -179,9 +179,11 @@ async function enter(page, account = false) {
 }
 try {
   await scenario(
-    "Guest notice, consent, no entry or tabs even direct hash",
+    "Compact guest entry, help link, consent, no entry or tabs even direct hash",
     async (p, s) => {
-      await p.locator(".entry-statistics-notice").waitFor();
+      await p.getByRole("button", { name: "使用 Google 登入", exact: true }).waitFor();
+      assert.equal(await p.locator(".entry-statistics-notice").count(), 0);
+      assert.equal(await p.getByRole("link", { name: "使用說明：資料保存與刪除", exact: true }).getAttribute("href"), "#help");
       assert.equal(s.consents, 0);
       await enter(p);
       assert.equal(s.consents, 1);
@@ -257,9 +259,11 @@ try {
     { enabled: false },
   );
   await scenario(
-    "Restored session shows notice and never silently acknowledges",
+    "Restored session keeps compact entry and never silently acknowledges",
     async (p, s) => {
-      await p.locator(".entry-statistics-notice").waitFor();
+      await p.getByRole("button", { name: "使用 Google 登入", exact: true }).waitFor();
+      assert.equal(await p.locator(".entry-statistics-notice").count(), 0);
+      assert.equal(await p.getByRole("link", { name: "使用說明：資料保存與刪除", exact: true }).getAttribute("href"), "#help");
       assert.equal(s.consents, 0);
       await enter(p);
       assert.equal(s.consents, 1);

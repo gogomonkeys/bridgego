@@ -14,7 +14,7 @@ Visible top controls:
 - Restore active match: reloads a synthetic active match at #statistics; the match must remain visible and no new consent is submitted.
 - Show real GoogleAccount controls: mounts the production account component. After logging in through the app, click the actual “解除 Google 連結，保留訪客” button to exercise the real logout handler and verify stats disappear.
 
-Normal login: input nickname, click 使用 Google 登入, then Choose fixture Google account. Guest: click 以訪客身分遊玩. The existing UI should display the notice before either action, and consent counter must remain zero until selection.
+Normal login: input nickname, click 使用 Google 登入, then Choose fixture Google account. Guest: click 以訪客身分遊玩. The entry should omit the long statistics paragraph above the nickname, retain the shorter Google consent text and help link, and keep the consent counter at zero until selection. The complete statistics and data-retention disclosure remains on the help page.
 
 The control panel collapses for screenshots. Counts are artificial: personal 2 matches/6 deals/99 score; overall 3 matches/7 deals. Browser back/forward, empty/error/retry, guest hash gating and responsive layout require visual/interaction verification.
 

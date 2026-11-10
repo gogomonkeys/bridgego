@@ -103,7 +103,7 @@ final class LiveQuarterStorage implements ManualQuarterMaintenance.Storage, Auto
       for (String tab : new TreeSet<>(ManualQuarterMaintenance.MUTABLE)) {
         var grid = grids.get(tab); var rows = candidate.tables().get(tab);
         int endColumn = Math.min(5, grid.columnCount());
-        if (rows.size() > grid.rowCount() || endColumn < ManualQuarterMaintenance.HEADERS.get(tab).size()) reject();
+        if (rows.size() > grid.rowCount() || endColumn < rows.get(0).size()) reject();
         List<Object> data = new ArrayList<>();
         for (var row : rows) {
           List<Object> values = new ArrayList<>();

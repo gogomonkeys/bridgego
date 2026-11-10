@@ -35,6 +35,17 @@ class GoogleJwtVerifierTest {
     var c = claims(); c.put("iss", "accounts.google.com");
     assertEquals(new GoogleCredentialVerifier.Principal("https://accounts.google.com", "subject"), verifier.verify(token(c),"client","challenge"));
   }
+  @Test void emailMustBeVerifiedBooleanAndIsNeverUsedAsIdentity() throws Exception {
+    for(Object flag:List.of(false,"true",1)) {
+      var c=claims();c.put("email","person@example.test");c.put("email_verified",flag);
+      assertNull(verifier.verify(token(c),"client","challenge").verifiedEmail());
+    }
+    var c=claims();c.put("email","person@example.test");c.put("email_verified",true);
+    var principal=verifier.verify(token(c),"client","challenge");
+    assertEquals("person@example.test",principal.verifiedEmail());assertEquals("subject",principal.subject());
+    assertFalse(principal.toString().contains("person@"));
+    c.put("email","bad\n@example.test");assertNull(verifier.verify(token(c),"client","challenge").verifiedEmail());
+  }
   @Test void rejectsInvalidClaims() throws Exception {
     for (var change : Map.<String,Object>of("iss","https://evil.test", "aud","other", "sub","", "exp",NOW,
         "iat",NOW+61,"nonce","other","nbf",NOW+1,"azp","other").entrySet()) {

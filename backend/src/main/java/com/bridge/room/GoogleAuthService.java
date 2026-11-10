@@ -73,12 +73,15 @@ public final class GoogleAuthService {
     return new Challenge(value, 300);
   }
   public Status login(RoomService.Identity who, String origin, String credential, Boolean consent) {
-    return link(who, origin, credential, consent, false);
+    return link(who, origin, credential, consent, false, false);
   }
   public Status recover(RoomService.Identity who, String origin, String credential, Boolean consent) {
-    return link(who, origin, credential, consent, true);
+    return link(who, origin, credential, consent, true, false);
   }
-  private Status link(RoomService.Identity who, String origin, String credential, Boolean consent, boolean recovering) {
+  public Status login(RoomService.Identity who, String origin, String credential, Boolean consent, String profileConsentVersion) {
+    return link(who, origin, credential, consent, false, "account-profile-v1".equals(profileConsentVersion));
+  }
+  private Status link(RoomService.Identity who, String origin, String credential, Boolean consent, boolean recovering, boolean profileConsent) {
     checkOrigin(origin); enabled();
     if (recovering) recoveryEnabled(); else normalAdmission();
     rooms.requireOutsideRoom(who);
@@ -111,6 +114,7 @@ public final class GoogleAuthService {
     String account;
     try {
       account = recovering ? recovery.recover(principal.issuer(), principal.subject())
+          : policy.managed() && profileConsent ? store.findOrCreateAccount(principal.issuer(), principal.subject(), who.displayName(), principal.verifiedEmail())
           : store.findOrCreateAccount(principal.issuer(), principal.subject());
       UUID.fromString(account);
     } catch (Exception failure) {

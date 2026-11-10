@@ -73,7 +73,13 @@ public final class GoogleJwtVerifier implements GoogleCredentialVerifier {
       String subject = claims.path("sub").asText();
       if (!claims.path("sub").isTextual() || subject.isBlank() || subject.length() > 255)
         throw new IllegalArgumentException();
-      return new Principal("https://accounts.google.com", subject);
+      String email = null;
+      if (claims.path("email_verified").isBoolean() && claims.get("email_verified").booleanValue()
+          && claims.path("email").isTextual()) {
+        String candidate = claims.get("email").textValue();
+        if (candidate.length() <= 254 && candidate.matches("[^\\s\\p{Cntrl}@]+@[^\\s\\p{Cntrl}@]+\\.[^\\s\\p{Cntrl}@]+")) email = candidate;
+      }
+      return new Principal("https://accounts.google.com", subject, email);
     } catch (Exception invalid) {
       // Diagnostic failures must not alter authentication behavior or expose upstream objects.
       try { diagnostics.accept(rejectedAt); } catch (RuntimeException ignored) { }

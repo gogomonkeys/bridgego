@@ -41,6 +41,17 @@ class OperatorAccountErasureTest {
         OperatorAccountErasure.Preview preview(OperatorAccountErasure service){var c=service.challenge();return service.preview("owner:"+c.nonce(),c.nonce());}
         OperatorAccountErasure.Outcome execute(OperatorAccountErasure service,OperatorAccountErasure.Preview plan,String who){var c=service.challenge();return service.execute(plan.planId(),plan.beforeDigest(),plan.confirmationText(),who+":"+c.nonce(),c.nonce());}
     }
+    @Test void erasureRemovesProfileAndRetainsOtherAccountProfile() throws Exception {
+        Fixture f=new Fixture();
+        f.db.tabs.put("accounts",new ArrayList<>(List.of(AccountProfileRows.HEADER,
+            List.of(f.account,"2","刪除玩家","erase@example.test"),
+            List.of(f.other,"2","保留玩家","keep@example.test"))));
+        var service=f.service(true); var plan=f.preview(service);
+        assertEquals(OperatorAccountErasure.Outcome.VERIFIED,f.execute(service,plan,"owner"));
+        assertEquals(List.of(AccountProfileRows.HEADER,List.of(f.other,"2","保留玩家","keep@example.test")),f.db.tabs.get("accounts"));
+        assertFalse(f.db.tabs.toString().contains("erase@example.test"));
+        assertFalse(f.db.tabs.toString().contains("刪除玩家"));
+    }
     @Test void mixedParticipantsScoresAndHashPreservedAndReplayBlocked()throws Exception {
         Fixture f=new Fixture();var service=f.service(true);var plan=f.preview(service);assertEquals(2,plan.affectedSeats());assertEquals(2,plan.affectedMatches());assertEquals(0,f.db.replacements);
         assertEquals(OperatorAccountErasure.Outcome.VERIFIED,f.execute(service,plan,"owner"));

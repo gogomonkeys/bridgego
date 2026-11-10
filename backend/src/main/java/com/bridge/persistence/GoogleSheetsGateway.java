@@ -105,6 +105,25 @@ public final class GoogleSheetsGateway implements SheetsGateway {
     private void ensureSheetIds() {
         if(sheetIds==null){Map<String,Integer> ids=new HashMap<>();for(JsonNode sheet:request("?fields=sheets.properties",null).path("sheets"))ids.put(sheet.path("properties").path("title").asText(),sheet.path("properties").path("sheetId").asInt());sheetIds=ids;}
     }
+    @Override public synchronized void saveAccountProfile(int row, List<String> account, List<String> identity) {
+        if (row < 0 || row == 1 || account.size() != 4 || !"2".equals(account.get(1))
+            || (row == 0 ? identity == null || identity.size() != 4 : identity != null)) throw new IllegalArgumentException();
+        ensureSheetIds();
+        int accountSheet = sheetIds.get("accounts");
+        List<Object> requests = new ArrayList<>();
+        requests.add(Map.of("updateCells", Map.of("start",Map.of("sheetId",accountSheet,"rowIndex",0,"columnIndex",2),
+            "rows",List.of(profileRow(List.of("nickname","email"))),"fields","userEnteredValue")));
+        if (row == 0) {
+            requests.add(Map.of("appendCells",Map.of("sheetId",accountSheet,"rows",List.of(profileRow(account)),"fields","userEnteredValue")));
+            requests.add(Map.of("appendCells",Map.of("sheetId",sheetIds.get("auth_identities"),"rows",List.of(profileRow(identity)),"fields","userEnteredValue")));
+        } else requests.add(Map.of("updateCells",Map.of("start",Map.of("sheetId",accountSheet,"rowIndex",row-1,"columnIndex",0),
+            "rows",List.of(profileRow(account)),"fields","userEnteredValue")));
+        request(":batchUpdate",Map.of("requests",requests));
+    }
+    private static Map<String,Object> profileRow(List<String> values) {
+        // Explicit stringValue prevents spreadsheet formula injection from user nicknames.
+        return Map.of("values",values.stream().map(v->Map.of("userEnteredValue",Map.of("stringValue",v))).toList());
+    }
     public synchronized void appendAtomic(Map<String,List<List<Object>>> rows) {
         ensureSheetIds();
         List<Object> requests=new ArrayList<>();

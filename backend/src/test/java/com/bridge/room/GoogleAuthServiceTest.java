@@ -25,6 +25,26 @@ class GoogleAuthServiceTest {
     rooms=new RoomService();guest=rooms.createSession("Guest");store=new FakeStore();verifier=new FakeVerifier();clock=new MutableClock();
     auth=new GoogleAuthService(rooms,store,verifier,"client",Set.of(ORIGIN),clock,new CollectionPolicy(Set.of(new GoogleCredentialVerifier.Principal("https://accounts.google.com","subject")),"test contact","test retention"));
   }
+  @Test void managedLoginUsesSessionNicknameAndVerifiedEmailOnly() {
+    List<String> captured=new ArrayList<>();
+    IdentityStore profiles=new IdentityStore(){
+      public boolean enabled(){return true;}
+      public String findOrCreateAccount(String issuer,String subject){throw new AssertionError("legacy write");}
+      public String findOrCreateAccount(String issuer,String subject,String nickname,String email){captured.addAll(List.of(issuer,subject,nickname,email));return store.account;}
+    };
+    verifier.principal=new GoogleCredentialVerifier.Principal("https://accounts.google.com","subject","verified@example.test");
+    var managed=new GoogleAuthService(rooms,profiles,verifier,"client",Set.of(ORIGIN),clock,CollectionPolicy.managed("contact","retention"));
+    managed.nonce(guest,ORIGIN);assertTrue(managed.login(guest,ORIGIN,"credential",true,"account-profile-v1").signedIn());
+    assertEquals(List.of("https://accounts.google.com","subject","Guest","verified@example.test"),captured);
+    assertFalse(managed.status(guest).toString().contains("verified@example.test"));
+  }
+  @Test void managedLegacyConsentDoesNotCollectProfile() {
+    IdentityStore legacy=new FakeStore(){
+      @Override public String findOrCreateAccount(String issuer,String subject,String nickname,String email){throw new AssertionError("no new profile consent");}
+    };
+    var managed=new GoogleAuthService(rooms,legacy,verifier,"client",Set.of(ORIGIN),clock,CollectionPolicy.managed("contact","retention"));
+    managed.nonce(guest,ORIGIN);assertTrue(managed.login(guest,ORIGIN,"credential",true,null).signedIn());
+  }
   @Test void upgradePreservesGuestIdentityAndConsumesNonce() {
     var nonce=auth.nonce(guest,ORIGIN);assertTrue(auth.login(guest,ORIGIN,"credential",true).signedIn());
     assertEquals(nonce.nonce(),verifier.nonce);assertEquals(store.account,rooms.accountId(guest));

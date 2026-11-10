@@ -226,11 +226,13 @@ public final class ManualQuarterMaintenance {
     int total = 0;
     for (var header : HEADERS.entrySet()) {
       var rows = snapshot.tables.get(header.getKey());
-      if (rows.isEmpty() || rows.size() > 1000 || !rows.get(0).equals(header.getValue())) reject();
+      boolean accountTable = header.getKey().equals("accounts");
+      if (rows.isEmpty() || rows.size() > 1000 || !(accountTable ? AccountProfileRows.isHeader(rows.get(0)) : rows.get(0).equals(header.getValue()))) reject();
+      if (accountTable) AccountProfileRows.validateTable(rows);
       for (var row : rows.subList(1, rows.size()))
         if (!row.isEmpty() && row.get(0).equals(header.getValue().get(0))) reject();
       for (var row : rows) {
-        if (row.size() != header.getValue().size()) reject();
+        if (!accountTable && row.size() != header.getValue().size()) reject();
         for (String value : row) {
           if (value == null || value.length() > 20000 || (total += value.length()) > 1_048_576) reject();
         }
@@ -244,7 +246,7 @@ public final class ManualQuarterMaintenance {
     Set<String> accounts = new HashSet<>(), identities = new HashSet<>();
     for (var row : data(snapshot, "accounts")) {
       uuid(row.get(0));
-      if (!row.get(1).equals("1") || !accounts.add(row.get(0)) || erasures.contains("ACCOUNT", row.get(0))) reject();
+      if (!accounts.add(row.get(0)) || erasures.contains("ACCOUNT", row.get(0))) reject();
     }
     for (var row : data(snapshot, "auth_identities")) {
       String key = ErasureLedger.identityKey(row.get(0), row.get(1));
@@ -272,7 +274,7 @@ public final class ManualQuarterMaintenance {
       if (!rootNames.equals(Set.of("match", "participants", "completed_deals"))) reject();
       var match = root.path("match"); fields(match, MATCH_FIELDS);
       typedScalars(match, Set.of("revision", "schema_version", "planned_deals", "completed_deals", "ns_total", "ew_total"), Set.of());
-      if (!match.path("app_version").asText().equals("0.12.1")
+      if (!Set.of("0.12.1", "0.12.2").contains(match.path("app_version").asText())
           || !match.path("score_version").asText().equals("bridgego-custom-v0.11-1")) reject();
       Instant started = Instant.parse(match.path("started_at").asText()), finished = QuarterlyRetention.finishedAt(envelope);
       if (started.isAfter(finished) || finished.isAfter(clock.instant())) reject();

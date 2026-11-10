@@ -12,6 +12,11 @@ public interface SheetsGateway {
     void appendAtomic(Map<String,List<List<Object>>> rows);
     /** Operator-maintenance only: all replacement rows including headers in one atomic batch. */
     default void replaceAtomic(Map<String,List<List<Object>>> rows) { throw new UnsupportedOperationException("Atomic replacement unavailable"); }
+    /** Narrow account-profile write. Existing row is 1-based; zero appends account and identity atomically.
+     * Header C:D is upgraded in the same batch. Never rewrites other accounts or statistics. */
+    default void saveAccountProfile(int row, List<String> account, List<String> identity) {
+        throw new UnsupportedOperationException("Account profile storage unavailable");
+    }
     class Failure extends RuntimeException {
         public final int status; public final long retryAfterMillis;
         public Failure(int status,long retryAfterMillis) { super("Private storage request failed ("+status+")"); this.status=status; this.retryAfterMillis=retryAfterMillis; }

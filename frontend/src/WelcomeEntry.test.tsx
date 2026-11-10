@@ -29,6 +29,8 @@ describe("compact entry presentation", () => {
       <WelcomeEntry session={session} busy={false} onEnter={vi.fn()} />,
     );
     expect(html).toContain('<a href="#help">使用說明：資料保存與刪除</a>');
+    expect(html).not.toContain("entry-statistics-notice");
+    expect(html).not.toContain("繼續遊玩表示同意：");
     expect(html).not.toContain("季度清理");
     expect(html).not.toContain("先驗證帳號歸屬");
     expect(html).not.toContain("版本歷史");

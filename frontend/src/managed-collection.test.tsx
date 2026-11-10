@@ -83,6 +83,8 @@ describe("managed optional Google collection", () => {
       "解除連結不是刪除",
     ])
       expect(managedLoginConsent).toContain(text);
+    expect(managedLoginConsent).toContain("已驗證信箱（如有）");
+    expect(managedLoginConsent).toContain("暱稱");
     expect(managedLoginConsent).not.toMatch(/核准|測試|實驗/);
     for (const file of ["WelcomeEntry.tsx", "GoogleAccount.tsx"]) {
       const source = readFileSync(new URL(file, import.meta.url), "utf8");
@@ -127,11 +129,11 @@ describe("managed optional Google collection", () => {
   it("help distinguishes normal, restricted and legacy experiment scopes truthfully", () => {
     const html = renderToStaticMarkup(<DataPrivacyHelp />);
     for (const text of [
-      "正常帳號資料保存",
-      "帳號持續保留",
+      "統計與資料保存",
+      "帳號、暱稱及信箱持續保留",
       "不含個人識別的整體季度數字可依政策保留",
       "原季度清理彙總仍隱藏",
-      "僅登入玩家可查看本季個人",
+      "只有登入玩家可查看本季個人",
       "不代表所有帳號刪除或季度清理已完成實機驗收",
       "Asia/Taipei",
       "SUPPRESSED",

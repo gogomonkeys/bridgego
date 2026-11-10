@@ -43,6 +43,17 @@ class ManualQuarterMaintenanceTest {
     return service.execute(p.planId(), p.confirmationText());
   }
 
+  @Test void quarterCleanupPreservesProfileAndLegacyAccountsExactly() {
+    var s = new Storage();
+    var rows = s.f.tables.get("accounts");
+    rows.set(0, AccountProfileRows.HEADER);
+    rows.set(1, List.of(rows.get(1).get(0), "2", "測試玩家", "player@example.test"));
+    var expected = List.copyOf(rows);
+    var service = s.service(); var p = preview(s, service);
+    assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE, execute(service, p).outcome());
+    assertEquals(expected, s.f.tables.get("accounts"));
+  }
+
   @Test void accountsIdentitiesTombstonesCurrentPayloadsAndScoresSurviveAndReplayOnlyReads() {
     var s = new Storage(); var service = s.service(); var p = preview(s, service);
     assertEquals(1, p.expiredCommits()); assertEquals(0, s.writes);

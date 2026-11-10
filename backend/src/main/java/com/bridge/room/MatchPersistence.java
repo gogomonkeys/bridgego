@@ -8,7 +8,7 @@ import java.util.*;
 /** Server-only, privacy-minimized final facts. Never serialize GameState or its card history. */
 final class MatchPersistence {
   static final String SCORE_VERSION = "bridgego-custom-v0.11-1";
-  static final String APP_VERSION = "0.12.1";
+  static final String APP_VERSION = "0.12.2";
   private final String matchId;
   private final int plannedDeals;
   private final Instant startedAt;

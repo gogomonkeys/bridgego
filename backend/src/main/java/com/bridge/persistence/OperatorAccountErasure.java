@@ -148,12 +148,14 @@ public final class OperatorAccountErasure {
     }
     private static void validateSnapshot(Map<String,List<List<String>>> snapshot) {
         for(var entry:HEADERS.entrySet()) {
-            List<List<String>> rows=snapshot.get(entry.getKey());if(rows==null||rows.isEmpty()||!rows.get(0).equals(entry.getValue()))throw new SheetsGateway.Conflict();
+            List<List<String>> rows=snapshot.get(entry.getKey());
+            if(entry.getKey().equals("accounts")){AccountProfileRows.validateTable(rows);continue;}
+            if(rows==null||rows.isEmpty()||!rows.get(0).equals(entry.getValue()))throw new SheetsGateway.Conflict();
             for(List<String> row:rows)if(row.size()!=entry.getValue().size())throw new SheetsGateway.Conflict();
         }
         if(snapshot.get("dataset")==null||snapshot.get("dataset").isEmpty())throw new SheetsGateway.Conflict();
         ErasureLedger ledger=new ErasureLedger(snapshot.get("erasure_ledger"));Set<String> accounts=new HashSet<>();Map<String,String> identities=new HashMap<>();
-        for(List<String> row:data(snapshot,"accounts")) {if(!row.get(1).equals("1")||ledger.contains("ACCOUNT",row.get(0)))throw new SheetsGateway.Conflict();try {UUID.fromString(row.get(0));}catch(Exception e){throw new SheetsGateway.Conflict();}accounts.add(row.get(0));}
+        for(List<String> row:data(snapshot,"accounts")) {if(ledger.contains("ACCOUNT",row.get(0)))throw new SheetsGateway.Conflict();try {UUID.fromString(row.get(0));}catch(Exception e){throw new SheetsGateway.Conflict();}accounts.add(row.get(0));}
         for(List<String> row:data(snapshot,"auth_identities")) {
             if(ledger.contains("IDENTITY",ErasureLedger.identityKey(row.get(0),row.get(1)))||!row.get(0).equals("https://accounts.google.com")||row.get(1).isBlank()||!row.get(3).equals("1")||!accounts.contains(row.get(2)))throw new SheetsGateway.Conflict();
             String previous=identities.putIfAbsent(ErasureLedger.identityKey(row.get(0),row.get(1)),row.get(2));if(previous!=null&&!previous.equals(row.get(2)))throw new SheetsGateway.Conflict();

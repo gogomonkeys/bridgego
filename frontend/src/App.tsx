@@ -2,6 +2,7 @@ import StatisticsPanel from "./StatisticsPanel";
 import { accountRequest, type AuthStatus } from "./google-login";
 import { readStatisticsConfig } from "./statistics";
 import DataPrivacyHelp from "./DataPrivacyHelp";
+import GameHelp from "./GameHelp";
 import WelcomeEntry from "./WelcomeEntry";
 import { needsEntry } from "./entry-flow";
 import PwaStatus from "./PwaStatus";
@@ -103,7 +104,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.12.1", disconnects: diagnostics },
+    { version: "0.12.2", disconnects: diagnostics },
     null,
     2,
   );
@@ -156,7 +157,12 @@ export default function App() {
           </button>
         </nav>
       </header>
-      <main>
+      <main className={page === "help" ? "help-page" : undefined}>
+        {page === "help" && (
+          <div className="help-version">
+            <span className="eyebrow">v0.12.2</span>
+          </div>
+        )}
         <PwaStatus
           help={page === "help"}
           activeGame={
@@ -181,16 +187,12 @@ export default function App() {
             </button>
           </p>
         )}
-        {(page === "help" || !state.room || state.room.phase === "WAITING") && (
+        {page !== "help" && (!state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.12.1</span>
+              <span className="eyebrow">v0.12.2</span>
               <h1>
-                {page === "help"
-                  ? "安心入座，一起等候。"
-                  : state.room
-                    ? "你的牌友，正在這裡。"
-                    : "四個座位，一起相聚。"}
+                {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
               </h1>
             </div>
           </div>
@@ -265,90 +267,8 @@ export default function App() {
           <section className="panel help">
             <span className="eyebrow">HOW IT WORKS</span>
             <h2>使用說明</h2>
+            <GameHelp />
             <DataPrivacyHelp />
-            <h3>等候室小指南</h3>
-            <ol>
-              <li>輸入訪客名稱，建立房間或使用房間代碼加入。</li>
-              <li>
-                每個房間最多四位不同玩家。名稱可以相同，但身分不同。首次加入後有
-                5 秒完成 WebSocket 連線，這是首次連線交接，不是斷線保留期。
-              </li>
-              <li>
-                入座後按「我準備好了」。四人全部準備且在線後，由房主手動開局；對家組成南北／東西兩隊，不設夢家或加倍／再加倍。
-              </li>
-              <li>
-                等候室沒有重連保留期。伺服器偵測到最後一個分頁斷線後，立即清除準備並釋出席位，讓其他玩家加入。無聲斷網須先經過伺服器原生心跳偵測；這是連線偵測，不是席位保留期。
-              </li>
-              <li>
-                等候室手動離開會立即釋出席位。開局後斷線保留原手牌 10
-                秒並暫停；仍有真人在線時，逾時由電腦代打，原身分重連可接手，已出的牌不回溯。所有真人皆斷線時，10
-                秒內無人回來則結束。主動退出會放棄席位，由電腦接手；最後真人退出即結束，未完成局不計分。
-              </li>
-            </ol>
-            <h3>局數設定與局間確認</h3>
-            <p>
-              建立房間時可選 1、3 或 5 局，預設 3
-              局；同房再玩一場沿用原設定。每局看完自己的 13
-              張牌後，先確認是否倒牌，再選特權。雙方確定後一起公開，再依左向輪流叫牌。四人開頭全
-              Pass
-              會重發，不算完成一局。跟牌必須跟首引花色；每回合四張牌出齊後會短暫顯示回合勝者；每局
-              13 回合後結算；非最後一局最多等 90
-              秒，四人確認可提前開始下一局，完成設定局數後保留整場結果。
-            </p>
-            <p>
-              四人各出一張牌是一個回合，贏得這四張牌算拿下一墩；每局共有 13
-              回合。
-            </p>
-            <h3>倒牌與重發</h3>
-            <p>
-              A 算 4 點、K 算 3 點、Q 算 2 點、J 算 1 點，其餘 0 點。 少於 5
-              點，或剛好 5 點且沒有 A，可在特權選擇前選擇倒牌；只有 A 的 4
-              點手牌也符合。 符合資格者共用 20
-              秒倒數，逾時保留。任一人倒牌就同局重發，總分與首叫位置不變。
-              電腦符合資格會自動倒牌，重發後仍符合可再次倒牌；手牌點數只供自己查看。
-            </p>
-            <h3>特權與叫牌</h3>
-            <p>
-              特權徽章旁會直接標示我方及對方「已使用／未使用」。點擊問號可查看提示。同隊任一人使用即成立，兩人都不用才確定不使用；兩隊完成決定後一起公開。兩隊各自決定是否使用特權；使用的隊伍本局獲勝額外
-              +1 分，落敗 -1 分，不影響另一隊的特權調整。
-            </p>
-            <p>
-              叫牌必須高於前價，同階依 ♣ → ♦ → ♥ → ♠ → NT
-              排序；不設加倍或再加倍。
-            </p>
-            <h3>本局計分</h3>
-            <p>
-              定約 L 階的目標為 6 + L 墩。定約方剛好達標得 L + 2 分，超過目標得
-              L 分；未達標按實際少拿的墩數扣分，每少一墩扣 1
-              分，不設扣分上限。防守方只在定約失敗時得 1 分，定約成功時得 0 分。
-              特權加減分另外計算，不互相抵銷。
-            </p>
-            <p>歷史結算保留當時已記錄的分數，不以新規則重新計算。</p>
-            <h3>操作倒數由後端判定</h3>
-            <p>
-              特權階段每人 20 秒，未選者逾時視為不使用；每次輪到叫牌有 20
-              秒，逾時自動 Pass；每次出牌也有 20
-              秒，逾時出最低合法牌。重新整理不重置。有人斷線時凍結剩餘操作時間，所有人恢復連線後接續；原本的
-              10 秒重連期限不變。
-            </p>
-            <h3>蓋牌紀錄與手機手牌</h3>
-            <p>
-              每回合四張牌展示約 2
-              秒後，所有人的已完成回合紀錄一律蓋牌；進入本局結算後才能回顧該局牌面。各局叫牌與全員
-              Pass 重發前的叫牌都會保留。
-            </p>
-            <p>
-              手機可一次展開 13
-              張重疊手牌：點選或在手牌上左右滑動選牌，再按「出這張牌」。選牌本身不會出牌；可切換「展開手牌」查看完整牌面。電腦仍可直接點擊合法牌出牌。
-            </p>
-            <h3>同一瀏覽器 = 同一位訪客</h3>
-            <p>
-              訪客身分儲存在此瀏覽器，重新整理不會換人。同來源的多個分頁共用身分與席位；只要一個分頁仍連線，就會顯示在線。在等候室，最後一個分頁斷線或重新整理可能釋出席位，返回須重新加入；開局後則保留原遊戲
-              10 秒供重連，不重新發牌。每位玩家請使用自己的裝置或瀏覽器設定檔。
-            </p>
-            <p>
-              訪客與房間資料會在伺服器重新啟動後清除。請勿輸入密碼或私人資料。
-            </p>
             <button className="primary" onClick={() => navigate("room")}>
               {state.room && state.room.phase !== "WAITING"
                 ? "返回牌桌"

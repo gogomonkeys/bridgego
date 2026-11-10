@@ -71,7 +71,7 @@ export default function GoogleAccount({ token }: { token: string }) {
         accountRequest(
           "/auth/google",
           "POST",
-          { credential, consent: true },
+          { credential, consent: true, profileConsentVersion: "account-profile-v1" },
           token,
         ),
       readStatus: () =>

@@ -212,7 +212,7 @@ public final class ExperimentStorage implements IdentityStore, StatsStore, AutoC
     var match=root.path("match");fields(match,MATCH_FIELDS);
     for(String key:List.of("schema_version","planned_deals","completed_deals"))if(!match.path(key).isIntegralNumber()||!match.path(key).bigIntegerValue().equals(java.math.BigInteger.ONE))throw rejected();
     if(!match.path("revision").isIntegralNumber()||!match.path("revision").bigIntegerValue().equals(java.math.BigInteger.valueOf(envelope.revision()))
-        ||!match.path("app_version").asText().equals("0.12.1")||!match.path("score_version").asText().equals("bridgego-custom-v0.11-1"))throw rejected();
+        ||!Set.of("0.12.1", "0.12.2").contains(match.path("app_version").asText())||!match.path("score_version").asText().equals("bridgego-custom-v0.11-1"))throw rejected();
     typed(match,Set.of("revision","schema_version","planned_deals","completed_deals","ns_total","ew_total"),Set.of());
     Instant start=Instant.parse(match.path("started_at").asText()),finish=QuarterlyRetention.finishedAt(envelope);
     if(start.isAfter(finish)||finish.isAfter(clock.instant()))throw rejected();

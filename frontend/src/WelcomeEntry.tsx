@@ -1,7 +1,6 @@
 import {
   acceptStatistics,
   readStatisticsConfig,
-  statisticsNotice,
   type StatisticsConfig,
 } from "./statistics";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -135,7 +134,7 @@ export default function WelcomeEntry({
         accountRequest(
           "/auth/google",
           "POST",
-          { credential, consent: true },
+          { credential, consent: true, profileConsentVersion: "account-profile-v1" },
           token,
         ),
       recover: (credential) =>
@@ -356,11 +355,6 @@ export default function WelcomeEntry({
         <span className="eyebrow">WELCOME TO THE TABLE</span>
         <h2>{session ? `你好，${session.displayName}` : "先認識一下你。"}</h2>
         <p>選用 Google 帳號，或直接當訪客遊玩。</p>
-        {statisticsConfig?.enabled && (
-          <p className="fine entry-statistics-notice">
-            {statisticsNotice} <a href="#help">資料保存與刪除說明</a>
-          </p>
-        )}
         {!statisticsConfig && (
           <p role="status">
             {statisticsFailed
@@ -447,6 +441,7 @@ export default function WelcomeEntry({
               : availablePurpose === "verify"
                 ? "按下驗證表示同意連線至 Google；目前僅驗證身分，不建立帳號連結或保存對局。"
                 : "Google 為選用服務，不影響訪客遊玩。"}{" "}
+          {statisticsConfig?.enabled && <>訪客遊玩表示同意合資格場次納入不含個人識別的整體統計。 </>}
           <a href="#help">使用說明：資料保存與刪除</a>
         </p>
         <div ref={button} className="google-signin-button" />

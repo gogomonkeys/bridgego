@@ -597,12 +597,30 @@ input::placeholder {
   max-width: 800px;
   margin: auto;
 }
-.help ol {
+.help ol,
+.help ul {
   list-style: decimal;
   padding-left: 22px;
   font-size: 14px;
   line-height: 2;
   color: #8b7357;
+}
+.help ul {
+  list-style: disc;
+}
+.help details {
+  margin-top: 20px;
+  padding: 12px 16px;
+  border: 1px solid #e7d9c4;
+  border-radius: 12px;
+}
+.help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.help summary:focus-visible {
+  outline: 2px solid #8b7357;
+  outline-offset: 4px;
 }
 .help li {
   margin: 12px 0;
@@ -7052,4 +7070,72 @@ body {
 }
 .entry-statistics-notice {
   line-height: 1.8;
+}
+
+/* One reading column for help, installation and device settings. */
+.help-page {
+  max-width: 800px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.help-page > * {
+  min-width: 0;
+  width: 100%;
+  margin-block: 0;
+}
+.help-page .help-version {
+  padding-inline: 2px;
+}
+.help-page > .panel,
+.help-page > .pwa-help {
+  padding: 28px;
+  border: 1px solid #e7d9c4;
+  border-radius: 20px;
+  background: #fffcf7;
+}
+.help-page .pwa-help h3 {
+  margin: 0 0 12px;
+}
+.help-page .pwa-help button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  margin: 12px 12px 0 0;
+  border: 1px solid #dfd0b8;
+  border-radius: 12px;
+  background: #f5e6c5;
+  color: #67452c;
+}
+.help-page .help > section + section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #e7d9c4;
+}
+.help-page .help > section > h3:first-child {
+  margin-top: 20px;
+}
+.help-page .help > .primary {
+  min-height: 44px;
+}
+.help-page .diagnostics textarea {
+  width: 100%;
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  .help-page {
+    gap: 16px;
+    padding-top: 24px;
+  }
+  .help-page > .panel,
+  .help-page > .pwa-help {
+    padding: 20px;
+    border-radius: 16px;
+  }
+  .help-page .help > .primary {
+    width: 100%;
+  }
 }
