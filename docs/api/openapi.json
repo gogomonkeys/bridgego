@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "BridgeGo HTTP API",
-    "version": "0.13.1",
+    "version": "0.13.2",
     "description": "訪客Bearer、伺服器權威。無帳號密碼。此檔涵蓋HTTP，WS見websocket.zh-TW.md；完整遊戲投影見CONTRACT.md。回應中的GameSnapshot/MatchArchive刻意為可擴充摘要，不是完整程式碼產生契約。"
   },
   "servers": [
@@ -3920,7 +3920,7 @@
           "statistics"
         ],
         "summary": "Personal and nonidentifying overall current-quarter counts for signed-in users",
-        "description": "Guest-only sessions receive 403 STATS_LOGIN_REQUIRED, including for overall counts. Account attribution is exclusively server-derived; no requested account identifier is accepted. No-store. Query does not mutate storage; unavailable export or concurrent read returns status UNAVAILABLE with null summaries.",
+        "description": "Guest-only sessions receive 403 STATS_LOGIN_REQUIRED, including for overall counts. Account attribution is exclusively server-derived; no requested account identifier is accepted. No-store. Query does not mutate storage; unavailable export or concurrent read returns status UNAVAILABLE with null summaries. Optional unavailableReason and retryAfterSeconds explain transient BUSY/rate-limit states without exposing private storage details. HTTP 429 triggers server-side cooldown with zero storage requests until expiry.",
         "responses": {
           "200": {
             "description": "Success",
@@ -5218,6 +5218,24 @@
             "pattern": "^[0-9]{4}-Q[1-4]$",
             "description": "該帳號最早可證明生涯記錄季度；尚無紀錄為null，不宣稱涵蓋更早歷史。",
             "nullable": true
+          },
+          "unavailableReason": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "BUSY",
+              "RATE_LIMITED",
+              "STORAGE_UNAVAILABLE",
+              null
+            ],
+            "description": "Optional safe reason when UNAVAILABLE; no underlying messages or identifiers. Null for AVAILABLE/DISABLED."
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 3600,
+            "description": "Optional manual retry countdown for BUSY or RATE_LIMITED. No automatic retry. Longer upstream cooldown remains enforced server-side."
           }
         },
         "description": "已確認保存的本季正式／休閒彙總，及目前帳號的生涯數字。生涯只累加新版同意的 account-career-v1 記錄；已刪除或未標記舊資料不回填。中止場次列總場數但不列勝率分母；勝率為 wins/(wins+losses+draws)，分母0顯示無紀錄。"

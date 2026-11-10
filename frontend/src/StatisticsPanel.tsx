@@ -2,7 +2,11 @@ import PersonalStatisticsSummary from "./PersonalStatisticsSummary";
 import { taiwanSettlementTime } from "./statistics-format";
 import { useEffect, useState } from "react";
 import { accountRequest, type AuthStatus } from "./google-login";
-import type { StatisticsResponse } from "./statistics";
+import {
+  statisticsRetrySeconds,
+  statisticsRemainingSeconds,
+  type StatisticsResponse,
+} from "./statistics";
 export function StatisticsContent({
   data,
   tab,
@@ -15,8 +19,16 @@ export function StatisticsContent({
   period?: "quarter" | "lifetime";
 }) {
   if (data.status === "DISABLED") return <p role="status">統計尚未開放。</p>;
-  if (data.status !== "AVAILABLE")
-    return <p role="alert">目前無法取得統計，請稍後重試。</p>;
+  if (data.status !== "AVAILABLE") {
+    const message =
+      data.status === "UNAVAILABLE" && data.unavailableReason === "BUSY"
+        ? "統計正在讀取中，請稍後再試。"
+        : data.status === "UNAVAILABLE" &&
+            data.unavailableReason === "RATE_LIMITED"
+          ? "統計服務目前忙碌，請稍候再試。不會自動重試。"
+          : "目前無法取得統計，請稍後重試。";
+    return <p role="alert">{message}</p>;
+  }
   const lifetime = tab === "personal" && period === "lifetime";
   const personal = lifetime
     ? category === "formal"
@@ -138,8 +150,22 @@ export default function StatisticsPanel({
   const [result, setResult] = useState<{
     token: string;
     data?: StatisticsResponse;
+    retryAt?: number;
     error?: string;
   } | null>(null);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const current = result?.token === token ? result : null;
+  const retryAt = current?.retryAt ?? 0;
+  const remaining = statisticsRemainingSeconds(retryAt, clockNow);
+  useEffect(() => {
+    if (!retryAt || retryAt <= Date.now()) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setClockNow(now);
+      if (now >= retryAt) window.clearInterval(timer);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
   useEffect(() => {
     let live = true;
     setResult(null);
@@ -157,7 +183,15 @@ export default function StatisticsPanel({
         undefined,
         token,
       );
-      if (live) setResult({ token, data });
+      if (live) {
+        const now = Date.now();
+        setClockNow(now);
+        setResult({
+          token,
+          data,
+          retryAt: now + statisticsRetrySeconds(data) * 1000,
+        });
+      }
     })().catch(() => {
       if (live)
         setResult({
@@ -169,7 +203,6 @@ export default function StatisticsPanel({
       live = false;
     };
   }, [token, attempt]);
-  const current = result?.token === token ? result : null;
   return (
     <section className="panel statistics-panel" aria-label="戰績統計">
       <h2>戰績統計</h2>
@@ -214,13 +247,15 @@ export default function StatisticsPanel({
       <div className="statistics-actions">
         <button
           className="secondary"
-          disabled={!current}
+          disabled={!current || remaining > 0}
           onClick={() => {
+            if (!current || statisticsRemainingSeconds(retryAt, Date.now()) > 0)
+              return;
             setResult(null);
             setAttempt((value) => value + 1);
           }}
         >
-          重新讀取統計
+          {remaining > 0 ? `${remaining} 秒後可重試` : "重新讀取統計"}
         </button>
         <button className="text-button" onClick={onBack}>
           回到大廳

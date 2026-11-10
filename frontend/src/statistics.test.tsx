@@ -4,6 +4,8 @@ import {
   acceptStatistics,
   readStatisticsConfig,
   statisticsNotice,
+  statisticsRetrySeconds,
+  statisticsRemainingSeconds,
   type StatisticsResponse,
 } from "./statistics";
 import { StatisticsContent } from "./StatisticsPanel";
@@ -36,6 +38,93 @@ const data: StatisticsResponse = {
   casualOverall: { matches: 5, completedDeals: 9, draws: 2 },
 };
 describe("statistics consent and presentation", () => {
+  it("distinguishes transient unavailable reasons without exposing counts or suggesting re-login", () => {
+    for (const [reason, message] of [
+      ["BUSY", "統計正在讀取中"],
+      ["RATE_LIMITED", "統計服務目前忙碌"],
+      ["STORAGE_UNAVAILABLE", "目前無法取得統計"],
+    ] as const) {
+      const html = renderToStaticMarkup(
+        <StatisticsContent
+          data={{
+            ...data,
+            status: "UNAVAILABLE",
+            unavailableReason: reason,
+            retryAfterSeconds: 60,
+          }}
+          tab="overall"
+        />,
+      );
+      expect(html).toContain(message);
+      expect(html).not.toContain("<dd>");
+      expect(html).not.toContain("重新登入");
+    }
+    const available = renderToStaticMarkup(
+      <StatisticsContent
+        data={{
+          ...data,
+          unavailableReason: "RATE_LIMITED",
+          retryAfterSeconds: 60,
+        }}
+        tab="overall"
+      />,
+    );
+    expect(available).not.toContain("目前忙碌");
+  });
+  it("only honors finite positive retry delays for transient unavailable responses", () => {
+    const busy = {
+      ...data,
+      status: "UNAVAILABLE" as const,
+      unavailableReason: "BUSY" as const,
+      retryAfterSeconds: 2,
+    };
+    expect(statisticsRetrySeconds(busy)).toBe(2);
+    expect(
+      statisticsRetrySeconds({
+        ...busy,
+        unavailableReason: "RATE_LIMITED",
+        retryAfterSeconds: 60,
+      }),
+    ).toBe(60);
+    expect(statisticsRetrySeconds({ ...busy, retryAfterSeconds: 3601 })).toBe(
+      3600,
+    );
+    expect(statisticsRetrySeconds({ ...busy, retryAfterSeconds: 0.5 })).toBe(1);
+    for (const value of [undefined, null, NaN, Infinity, -2, 0])
+      expect(
+        statisticsRetrySeconds({ ...busy, retryAfterSeconds: value }),
+      ).toBe(0);
+    expect(statisticsRetrySeconds({ ...busy, status: "AVAILABLE" })).toBe(0);
+    expect(
+      statisticsRetrySeconds({
+        ...busy,
+        unavailableReason: "STORAGE_UNAVAILABLE",
+      }),
+    ).toBe(0);
+    expect(
+      statisticsRetrySeconds({ ...busy, unavailableReason: undefined }),
+    ).toBe(0);
+  });
+  it("accepts explicit null metadata from available and disabled server responses", () => {
+    for (const status of ["AVAILABLE", "DISABLED", "UNAVAILABLE"] as const) {
+      expect(
+        statisticsRetrySeconds({
+          ...data,
+          status,
+          unavailableReason: null,
+          retryAfterSeconds: null,
+        }),
+      ).toBe(0);
+    }
+  });
+  it("counts down from the deadline without going negative after a suspended tab resumes", () => {
+    expect(statisticsRemainingSeconds(62000, 2000)).toBe(60);
+    expect(statisticsRemainingSeconds(62000, 2501)).toBe(60);
+    expect(statisticsRemainingSeconds(62000, 61001)).toBe(1);
+    expect(statisticsRemainingSeconds(62000, 62000)).toBe(0);
+    expect(statisticsRemainingSeconds(62000, 99999)).toBe(0);
+  });
+
   it.each(["formal", "casual"] as const)(
     "simplifies %s overall counts without double-counting or changing stored outcomes",
     (category) => {

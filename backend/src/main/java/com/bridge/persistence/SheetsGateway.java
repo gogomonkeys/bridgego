@@ -3,6 +3,25 @@ import java.util.*;
 /** Server-only storage boundary. appendAtomic must use one spreadsheets.batchUpdate. */
 public interface SheetsGateway {
     List<List<String>> read(String tab);
+    /** Read-only batch; implementations may override with one transport request. */
+    default Map<String,List<List<String>>> readBatch(List<String> tabs) {
+        var names = batchTabs(tabs); var result = new LinkedHashMap<String,List<List<String>>>();
+        for (String tab : names) result.put(tab, read(tab));
+        return immutableBatch(names, result);
+    }
+    static List<String> batchTabs(List<String> tabs) {
+        if (tabs == null || tabs.isEmpty() || tabs.stream().anyMatch(t -> t == null || t.isBlank())
+            || new HashSet<>(tabs).size() != tabs.size()) throw new IllegalArgumentException("Invalid batch tables");
+        return List.copyOf(tabs);
+    }
+    static Map<String,List<List<String>>> immutableBatch(List<String> tabs, Map<String,List<List<String>>> rows) {
+        var names = batchTabs(tabs);
+        if (rows == null || !rows.keySet().equals(new HashSet<>(names))) throw new Conflict();
+        var result = new LinkedHashMap<String,List<List<String>>>();
+        try { for (String tab : names) result.put(tab, rows.get(tab).stream().map(List::copyOf).toList()); }
+        catch (RuntimeException invalid) { throw new Conflict(); }
+        return Collections.unmodifiableMap(result);
+    }
     /**
      * Optional opaque fingerprint of the last complete, validated snapshot, including metadata.
      * Read-only adapters without that capability return empty; this never asserts metadata coverage for them.

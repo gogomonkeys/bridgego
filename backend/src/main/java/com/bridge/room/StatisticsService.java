@@ -4,6 +4,9 @@ import com.bridge.persistence.FinalMatchEnvelope;
 import com.bridge.persistence.LifetimeStatistics;
 import com.bridge.persistence.QuarterlyRetention;
 import com.bridge.persistence.StatsStore;
+import com.bridge.persistence.SheetsGateway;
+import java.util.function.LongSupplier;
+import java.util.concurrent.TimeUnit;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.Semaphore;
@@ -22,7 +25,7 @@ public final class StatisticsService {
   public record Report(String status, String quarter, String asOf, String ruleVersion,
       Personal personal, Overall overall, Personal casualPersonal, Overall casualOverall,
       String quarterEndsAt, Personal lifetimePersonal, Personal lifetimeCasualPersonal,
-      String lifetimeCoverage, String lifetimeTrackedFromQuarter) {}
+      String lifetimeCoverage, String lifetimeTrackedFromQuarter, String unavailableReason, Integer retryAfterSeconds) {}
 
   private static final class Counters {
     long matches, deals, draws, mine, myDeals, wins, losses, myDraws, score;
@@ -33,35 +36,60 @@ public final class StatisticsService {
   private final RoomService rooms;
   private final StatsStore store;
   private final Clock clock;
+  private final LongSupplier ticker;
+  private long cooldownStartedNanos, cooldownMillis;
   private final Semaphore reader = new Semaphore(1);
   private final StatisticsReadDiagnostics diagnostics = new StatisticsReadDiagnostics();
 
   @Autowired public StatisticsService(RoomService rooms, StatsStore store) { this(rooms, store, Clock.systemUTC()); }
-  StatisticsService(RoomService rooms, StatsStore store, Clock clock) {
-    this.rooms = rooms; this.store = store; this.clock = clock;
+  StatisticsService(RoomService rooms, StatsStore store, Clock clock) { this(rooms,store,clock,System::nanoTime); }
+  StatisticsService(RoomService rooms, StatsStore store, Clock clock, LongSupplier ticker) {
+    this.rooms = rooms; this.store = store; this.clock = clock; this.ticker=Objects.requireNonNull(ticker);
+  }
+  private synchronized void rateLimited(long retryAfterMillis) {
+    cooldownStartedNanos=ticker.getAsLong();cooldownMillis=Math.max(60_000L,retryAfterMillis);
+  }
+  private synchronized int retrySeconds() {
+    if(cooldownMillis==0)return 0;
+    long elapsed=Math.max(0,TimeUnit.NANOSECONDS.toMillis(ticker.getAsLong()-cooldownStartedNanos));
+    if(elapsed>=cooldownMillis){cooldownMillis=0;return 0;}
+    long remaining=cooldownMillis-elapsed;
+    // UI waits at most one hour at a time; longer valid upstream Retry-After still
+    // remains enforced server-side, without overflow or any storage request.
+    return (int)Math.min(3600,remaining/1000+(remaining%1000==0?0:1));
   }
 
   public Report read(RoomService.Identity who) {
     String account = rooms.statisticsAccount(who); // Guests cannot learn even overall totals.
     if (!rooms.statisticsEnabled()) return unavailable("DISABLED", clock.instant());
-    if (!reader.tryAcquire()) { diagnostics.busy(); return unavailable("UNAVAILABLE", clock.instant()); }
+    int retry=retrySeconds();
+    if(retry>0){diagnostics.cooldown();return unavailable("UNAVAILABLE",clock.instant(),"RATE_LIMITED",retry);}
+    if (!reader.tryAcquire()) { diagnostics.busy(); return unavailable("UNAVAILABLE", clock.instant(),"BUSY",2); }
     long started = System.nanoTime();
     var stage = StatisticsReadDiagnostics.Stage.STORAGE;
     Report report;
     try {
       // External I/O is outside the room/gameplay lock. Committed export enforces
       // erasure and current-quarter COMPLETE watermarks. No stale cache survives deletion.
-      StatsStore.StatisticsData committed = store.exportStatistics(account);
-      Instant now = clock.instant();
-      stage = StatisticsReadDiagnostics.Stage.BOUNDARY;
-      if (committed.asOf() != null && (committed.asOf().isAfter(now)
-          || !QuarterlyRetention.currentQuarterStart(committed.asOf()).equals(QuarterlyRetention.currentQuarterStart(now))))
-        throw new IllegalArgumentException("Statistics boundary changed during read");
-      stage = StatisticsReadDiagnostics.Stage.PROJECTION;
-      report = project(committed.current(), committed.lifetime(), account, now);
+      retry=retrySeconds();
+      if(retry>0){
+        diagnostics.cooldown();report=unavailable("UNAVAILABLE",clock.instant(),"RATE_LIMITED",retry);
+      } else {
+        StatsStore.StatisticsData committed = store.exportStatistics(account);
+        Instant now = clock.instant();
+        stage = StatisticsReadDiagnostics.Stage.BOUNDARY;
+        if (committed.asOf() != null && (committed.asOf().isAfter(now)
+            || !QuarterlyRetention.currentQuarterStart(committed.asOf()).equals(QuarterlyRetention.currentQuarterStart(now))))
+          throw new IllegalArgumentException("Statistics boundary changed during read");
+        stage = StatisticsReadDiagnostics.Stage.PROJECTION;
+        report = project(committed.current(), committed.lifetime(), account, now);
+      }
     } catch (RuntimeException failure) {
       diagnostics.failed(stage, failure, System.nanoTime() - started);
-      report = unavailable("UNAVAILABLE", clock.instant());
+      if(failure instanceof SheetsGateway.Failure upstream && upstream.status==429) {
+        rateLimited(upstream.retryAfterMillis);
+        report=unavailable("UNAVAILABLE",clock.instant(),"RATE_LIMITED",retrySeconds());
+      } else report = unavailable("UNAVAILABLE", clock.instant());
     } finally {
       reader.release();
     }
@@ -71,8 +99,11 @@ public final class StatisticsService {
   }
 
   private static Report unavailable(String status, Instant now) {
+    return unavailable(status,now,"UNAVAILABLE".equals(status)?"STORAGE_UNAVAILABLE":null,null);
+  }
+  private static Report unavailable(String status, Instant now,String reason,Integer retrySeconds) {
     return new Report(status, QuarterlyRetention.quarter(now), now.toString(), SettlementEligibility.RULE_VERSION,
-        null, null, null, null, quarterEndsAt(now), null, null, "RECORDED_SINCE_FEATURE", null);
+        null, null, null, null, quarterEndsAt(now), null, null, "RECORDED_SINCE_FEATURE", null,reason,retrySeconds);
   }
 
   static Report project(List<FinalMatchEnvelope> envelopes, String account, Instant now) {
@@ -149,7 +180,7 @@ public final class StatisticsService {
     return new Report("AVAILABLE", QuarterlyRetention.quarter(now), now.toString(), SettlementEligibility.RULE_VERSION,
         formal.personal(), formal.overall(), casual.personal(), casual.overall(), quarterEndsAt(now),
         personal(savedFormal.plus(liveFormal)), personal(savedCasual.plus(liveCasual)),
-        "RECORDED_SINCE_FEATURE", trackedFrom);
+        "RECORDED_SINCE_FEATURE", trackedFrom,null,null);
   }
 
   private static String quarterEndsAt(Instant now) {

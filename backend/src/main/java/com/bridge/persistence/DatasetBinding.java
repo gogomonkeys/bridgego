@@ -44,6 +44,16 @@ public record DatasetBinding(String spreadsheetId, String datasetId, String purp
           throw new SheetsGateway.Conflict();
         return marker;
       }
+      public Map<String,List<List<String>>> readBatch(List<String> tabs) {
+        var requested=SheetsGateway.batchTabs(tabs); var combined=new ArrayList<>(requested);
+        if (!combined.contains("dataset")) combined.add("dataset");
+        var values=SheetsGateway.immutableBatch(combined,delegate.readBatch(combined));
+        if (!List.of(List.of("purpose","dataset_id"),List.of(purpose,datasetId)).equals(values.get("dataset")))
+          throw new SheetsGateway.Conflict();
+        var result=new LinkedHashMap<String,List<List<String>>>();
+        for(String tab:requested)result.put(tab,values.get(tab));
+        return SheetsGateway.immutableBatch(requested,result);
+      }
       public List<List<String>> read(String tab) { var marker=checked();return "dataset".equals(tab)?marker:delegate.read(tab); }
       public void appendAtomic(Map<String,List<List<Object>>> rows) { checked();mutable(rows);delegate.appendAtomic(rows); }
       public void replaceAtomic(Map<String,List<List<Object>>> rows) { checked();mutable(rows);delegate.replaceAtomic(rows); }

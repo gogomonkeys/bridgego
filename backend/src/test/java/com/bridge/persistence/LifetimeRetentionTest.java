@@ -67,7 +67,7 @@ class LifetimeRetentionTest {
     assertThrows(IllegalStateException.class,()->ManualQuarterMaintenanceTest.preview(s,s.service()));assertEquals(0,s.writes);
   }
   @Test void releaseVersionsFoldWithoutChangingOlderVersionCompatibility() {
-    for(String version:List.of("0.12.1","0.12.2","0.13.0","0.13.1")) {
+    for(String version:List.of("0.12.1","0.12.2","0.13.0","0.13.1", "0.13.2")) {
     var s=fixture();var e=ManualQuarterMaintenance.decoded(s.f.tables).get(s.f.expired.commitId());
     var root=(com.fasterxml.jackson.databind.node.ObjectNode)e.payload();
     ((com.fasterxml.jackson.databind.node.ObjectNode)root.path("match")).put("app_version",version);

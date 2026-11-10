@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 /** Bounded diagnostics only: never log exceptions, messages, identifiers, payloads or credentials. */
 final class StatisticsReadDiagnostics {
   enum Stage { ADMISSION, STORAGE, BOUNDARY, PROJECTION }
-  enum Reason { BUSY, STORAGE_HTTP, STORAGE_INTEGRITY, STORAGE_STATE, INVALID_DATA, UNEXPECTED }
+  enum Reason { BUSY, COOLDOWN, STORAGE_HTTP, STORAGE_INTEGRITY, STORAGE_STATE, INVALID_DATA, UNEXPECTED }
   private record Key(Stage stage, Reason reason, int status) {}
   private static final long INTERVAL = TimeUnit.SECONDS.toNanos(60);
   private static final Set<Integer> SAFE_HTTP_CODES = Set.of(400,401,403,404,408,429,500,502,503,504);
@@ -20,6 +20,7 @@ final class StatisticsReadDiagnostics {
   StatisticsReadDiagnostics() { this(LoggerFactory.getLogger(StatisticsReadDiagnostics.class), System::nanoTime); }
   StatisticsReadDiagnostics(Logger logger, LongSupplier ticker) { this.logger=logger;this.ticker=ticker; }
   void busy() { report(Stage.ADMISSION, Reason.BUSY, 0, 0); }
+  void cooldown() { report(Stage.ADMISSION, Reason.COOLDOWN, 429, 0); }
   void failed(Stage stage, RuntimeException failure, long elapsedNanos) {
     Reason reason;
     int status=0;

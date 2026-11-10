@@ -24,6 +24,8 @@ export interface OverallStatistics {
 }
 export interface StatisticsResponse {
   status: "AVAILABLE" | "DISABLED" | "UNAVAILABLE";
+  unavailableReason?: "BUSY" | "RATE_LIMITED" | "STORAGE_UNAVAILABLE" | null;
+  retryAfterSeconds?: number | null;
   quarter: string;
   asOf: string;
   quarterEndsAt?: string;
@@ -65,4 +67,24 @@ export async function acceptStatistics(
     token,
   );
   if (result.accepted !== true) throw new Error("尚未確認資料使用同意");
+}
+
+/** Only explicit transient unavailable responses may disable manual retry. */
+export function statisticsRetrySeconds(data?: StatisticsResponse): number {
+  if (
+    data?.status !== "UNAVAILABLE" ||
+    (data.unavailableReason !== "BUSY" &&
+      data.unavailableReason !== "RATE_LIMITED")
+  )
+    return 0;
+  const seconds = data.retryAfterSeconds;
+  return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+    ? Math.min(3600, Math.ceil(seconds))
+    : 0;
+}
+export function statisticsRemainingSeconds(
+  deadline: number,
+  now: number,
+): number {
+  return Math.max(0, Math.ceil((deadline - now) / 1000));
 }

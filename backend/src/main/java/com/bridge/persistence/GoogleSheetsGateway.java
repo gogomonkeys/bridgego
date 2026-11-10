@@ -12,6 +12,11 @@ import java.util.*;
 /** No credentials, response bodies, or player identifiers are logged. */
 public final class GoogleSheetsGateway implements SheetsGateway {
     private static final ObjectMapper JSON=new ObjectMapper();
+    private static final ObjectMapper BATCH_JSON=new ObjectMapper(com.fasterxml.jackson.core.JsonFactory.builder()
+        .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
+        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final int RANGE_BYTES=4*1024*1024;
+    private static final Set<String> READ_TABS=Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","dataset","retention_ledger","quarterly_aggregates");
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final String spreadsheet,email; private final PrivateKey key;
     private final BoundedGoogleBody boundedBody=new BoundedGoogleBody();
@@ -39,22 +44,23 @@ public final class GoogleSheetsGateway implements SheetsGateway {
         }catch(Failure e){throw e;}catch(Exception e){throw new Failure(0,0);}
     }
     private static String b64(byte[] bytes){return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);}
-    private JsonNode request(String path,Object body) {
+    private JsonNode request(String path,Object body) { return request(path,body,RANGE_BYTES,JSON); }
+    private JsonNode request(String path,Object body,int maximum,ObjectMapper parser) {
         try {
             HttpRequest.Builder req=HttpRequest.newBuilder(URI.create("https://sheets.googleapis.com/v4/spreadsheets/"+spreadsheet+path)).timeout(Duration.ofSeconds(25)).header("Authorization","Bearer "+token());
             if(body!=null)req.header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body))); else req.GET();
-            return send(req.build());
+            return send(req.build(),maximum,parser);
         }catch(Failure e){throw e;}catch(Exception e){throw new Failure(0,0);}
     }
-    private JsonNode send(HttpRequest req) {
+    private JsonNode send(HttpRequest req) { return send(req,RANGE_BYTES,JSON); }
+    private JsonNode send(HttpRequest req,int maximum,ObjectMapper parser) {
         try {
             HttpResponse<java.io.InputStream> response=http.send(req,HttpResponse.BodyHandlers.ofInputStream());int status=response.statusCode();
             if(status<200||status>=300) {
-                boundedBody.read(response.body(),64*1024,25000);
-                long retry=0;try {String v=response.headers().firstValue("Retry-After").orElse("0");try{retry=Long.parseLong(v)*1000;}catch(NumberFormatException ex){retry=Math.max(0,java.time.ZonedDateTime.parse(v,java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli()-System.currentTimeMillis());}}catch(Exception ignored){}
-                throw new Failure(status,retry);
+                throw rejectedResponse(status,response.headers().firstValue("Retry-After").orElse(""),
+                    response.body(),Instant.now());
             }
-            return JSON.readTree(boundedBody.read(response.body(),4*1024*1024,25000));
+            return parser.readTree(boundedBody.read(response.body(),maximum,25000));
         }catch(Failure e){throw e;}catch(InterruptedException e){Thread.currentThread().interrupt();throw new Failure(0,0);}catch(Exception e){throw new Failure(0,0);}
     }
     /** Dedicated experiment adapter only; no arbitrary URLs, field masks or ranges. */
@@ -78,10 +84,80 @@ public final class GoogleSheetsGateway implements SheetsGateway {
     }
     void experimentBatch(Map<String,Object> body){request(":batchUpdate",body);}
     public List<List<String>> read(String tab) {
-        if(!Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","dataset","retention_ledger","quarterly_aggregates").contains(tab))throw new IllegalArgumentException();
+        if(!READ_TABS.contains(tab))throw new IllegalArgumentException();
         JsonNode values=request("/values/"+tab+"!A:E?valueRenderOption=UNFORMATTED_VALUE",null).path("values");
         List<List<String>> result=new ArrayList<>();
         for(JsonNode row:values){List<String> r=new ArrayList<>();row.forEach(v->r.add(v.asText()));result.add(r);}return result;
+    }
+    /** Fixed A:E ranges only. No account identifiers or arbitrary ranges enter request URLs. */
+    @Override public Map<String,List<List<String>>> readBatch(List<String> tabs) {
+        var names=validateBatchTabs(tabs);
+        return decodeBatch(request(batchPath(names),null,names.size()*RANGE_BYTES+65536,BATCH_JSON),names,spreadsheet);
+    }
+    private static List<String> validateBatchTabs(List<String> tabs) {
+        var names=SheetsGateway.batchTabs(tabs);
+        if(!READ_TABS.containsAll(names))throw new IllegalArgumentException("Invalid batch tables");
+        return names;
+    }
+    static String batchPath(List<String> tabs) {
+        var names=validateBatchTabs(tabs);var path=new StringBuilder("/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&majorDimension=ROWS");
+        for(String tab:names)path.append("&ranges=").append(URLEncoder.encode(tab+"!A:E",StandardCharsets.UTF_8));
+        return path.toString();
+    }
+    static Map<String,List<List<String>>> decodeBatch(JsonNode root,List<String> tabs,String spreadsheet) {
+        var names=validateBatchTabs(tabs);
+        if(root==null || !root.isObject() || !spreadsheet.equals(root.path("spreadsheetId").textValue())
+            || !root.path("valueRanges").isArray() || root.path("valueRanges").size()!=names.size())throw new Conflict();
+        var result=new LinkedHashMap<String,List<List<String>>>();
+        for(var range:root.path("valueRanges")) {
+            if(!range.isObject() || !"ROWS".equals(range.path("majorDimension").textValue()))throw new Conflict();
+            String name=null;String returned=range.path("range").textValue();
+            if(returned==null || returned.length()>128)throw new Conflict();
+            for(String tab:names)if(returned.matches("(?:"+tab+"|'"+tab+"')!A(?:1)?:E(?:[1-9][0-9]*)?")){
+                // Either whole columns A:E or explicit A1:E<positive row>, never mixed notation.
+                String suffix=returned.substring(returned.indexOf('!')+1);
+                if(suffix.equals("A:E") || suffix.matches("A1:E[1-9][0-9]*"))name=tab;
+            }
+            if(name==null || result.containsKey(name))throw new Conflict();
+            try { if(JSON.writeValueAsBytes(range).length>RANGE_BYTES)throw new Conflict(); }
+            catch(java.io.IOException invalid){throw new Conflict();}
+            var rows=new ArrayList<List<String>>();var values=range.get("values");
+            if(values!=null) {
+                if(!values.isArray())throw new Conflict();
+                String extent=returned.substring(returned.indexOf('!')+1);
+                if(!extent.equals("A:E") && new java.math.BigInteger(extent.substring(4)).compareTo(java.math.BigInteger.valueOf(values.size()))<0)
+                    throw new Conflict();
+                for(var row:values){
+                    if(!row.isArray() || row.size()>5)throw new Conflict();
+                    var cells=new ArrayList<String>();
+                    for(var cell:row){if(!cell.isTextual()&&!cell.isNumber()&&!cell.isBoolean())throw new Conflict();cells.add(cell.asText());}
+                    rows.add(cells);
+                }
+            }
+            result.put(name,rows);
+        }
+        return SheetsGateway.immutableBatch(names,result);
+    }
+    /** Headers are sufficient for a rejected request. Never consume or log its untrusted error body. */
+    static Failure rejectedResponse(int status,String retryAfter,java.io.InputStream body,Instant now) {
+        long delay=retryAfterMillis(retryAfter,now);
+        BoundedGoogleBody.closeLater(body);
+        return new Failure(status,delay);
+    }
+    /** Retry-After is untrusted input; saturate valid huge delays rather than wrap or retry early. */
+    static long retryAfterMillis(String value,Instant now) {
+        if(value==null)return 0;value=value.trim();
+        try {
+            if(value.matches("[0-9]+")) {
+                value=value.replaceFirst("^0+(?!$)","");
+                if(value.length()>19)return Long.MAX_VALUE;
+                var milliseconds=new java.math.BigInteger(value).multiply(java.math.BigInteger.valueOf(1000));
+                return milliseconds.min(java.math.BigInteger.valueOf(Long.MAX_VALUE)).longValue();
+            }
+            Instant until=ZonedDateTime.parse(value,java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+            if(!until.isAfter(now))return 0;
+            try{return Duration.between(now,until).toMillis();}catch(ArithmeticException overflow){return Long.MAX_VALUE;}
+        }catch(RuntimeException invalid){return 0;}
     }
     public synchronized void replaceAtomic(Map<String,List<List<Object>>> rows) {
         ensureSheetIds();request(":batchUpdate",replacementBody(rows,sheetIds));

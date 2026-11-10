@@ -71,33 +71,63 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
         QuarterlyRetention.requireCollectionReady(gateway,clock); // fail closed if the boundary crossed during export
         return List.copyOf(current);
     }
+    private static final List<String> STATISTICS_CONTROLS=List.of("retention_ledger","erasure_ledger","accounts");
+    private static final List<String> STATISTICS_RECORDS=List.of("envelopes","commits");
+    private Map<String,List<List<String>>> statisticsTables(List<String> tables) {
+        var rows=gateway.readBatch(tables);
+        if(rows==null || !rows.keySet().equals(new HashSet<>(tables)))throw new SheetsGateway.Conflict();
+        var copy=new LinkedHashMap<String,List<List<String>>>();
+        for(String table:tables) {
+            var values=rows.get(table);
+            if(values==null)throw new SheetsGateway.Conflict();
+            copy.put(table,values.stream().map(List::copyOf).toList());
+        }
+        return Map.copyOf(copy);
+    }
+    private static SheetsGateway snapshotReader(Map<String,List<List<String>>> tables) {
+        return new SheetsGateway() {
+            public List<List<String>> read(String tab) {
+                var rows=tables.get(tab);if(rows==null)throw new SheetsGateway.Conflict();return rows;
+            }
+            public void appendAtomic(Map<String,List<List<Object>>> rows) { throw new UnsupportedOperationException("Read-only snapshot"); }
+        };
+    }
     @Override public StatisticsData exportStatistics(String accountId) {
-        Instant before = clock.instant(), boundary = QuarterlyRetention.currentQuarterStart(before);
-        QuarterlyRetention.requireCollectionReady(gateway, clock);
-        var retentionBefore = gateway.read("retention_ledger");
-        var erasureBefore = gateway.read("erasure_ledger");
-        var accountsBefore = gateway.read("accounts");
+        Instant boundary=QuarterlyRetention.currentQuarterStart(clock.instant());
+        // Three bounded read batches, each still validated by DatasetBinding. Never bypass
+        // the first control gate or treat batchGet as a cross-request transaction.
+        var controlsBefore=statisticsTables(STATISTICS_CONTROLS);
+        QuarterlyRetention.requireCollectionReady(snapshotReader(controlsBefore),clock);
+        var retentionBefore=controlsBefore.get("retention_ledger");
+        var erasureBefore=controlsBefore.get("erasure_ledger");
+        var accountsBefore=controlsBefore.get("accounts");
         AccountProfileRows.validateTable(accountsBefore);
-        if (new ErasureLedger(erasureBefore).contains("ACCOUNT", accountId)) throw new SheetsGateway.Conflict();
-        var accountBefore = accountsBefore.stream().skip(1).filter(r -> r.get(0).equals(accountId)).findFirst()
+        if(new ErasureLedger(erasureBefore).contains("ACCOUNT",accountId))throw new SheetsGateway.Conflict();
+        var accountBefore=accountsBefore.stream().skip(1).filter(r->r.get(0).equals(accountId)).findFirst()
             .orElseThrow(SheetsGateway.Conflict::new);
-        var lifetime = LifetimeStatistics.readAccount(accountsBefore, accountId);
-        if (lifetime != null && (lifetime.through() == null ? !lifetime.equals(LifetimeStatistics.Carry.empty()) : lifetime.through().isAfter(boundary)))
+        var lifetime=LifetimeStatistics.readAccount(accountsBefore,accountId);
+        if(lifetime!=null && (lifetime.through()==null ? !lifetime.equals(LifetimeStatistics.Carry.empty()) : lifetime.through().isAfter(boundary)))
             throw new SheetsGateway.Conflict();
-        var current = exportCommitted();
-        // Maintenance is offline-only. These checks additionally fail closed if a boundary,
-        // erasure, account replacement or cleanup transition is observed across the read.
-        var accountsAfter = gateway.read("accounts");
+        var recordRows=statisticsTables(STATISTICS_RECORDS);
+        var snapshot=new LinkedHashMap<>(controlsBefore);snapshot.putAll(recordRows);
+        var ledger=new RetentionLedger(retentionBefore);var current=new ArrayList<FinalMatchEnvelope>();
+        // The existing decoder retains all hash/chunk/commit/duplicate and erasure checks.
+        for(var envelope:readVerified(snapshotReader(snapshot)).values()) {
+            if(QuarterlyRetention.finishedAt(envelope).isBefore(boundary))continue;
+            QuarterlyRetention.requireCurrent(envelope,clock,ledger);current.add(envelope);
+        }
+        var controlsAfter=statisticsTables(STATISTICS_CONTROLS);
+        var accountsAfter=controlsAfter.get("accounts");
         AccountProfileRows.validateTable(accountsAfter);
-        var accountAfter = accountsAfter.stream().skip(1).filter(r -> r.get(0).equals(accountId)).findFirst()
+        var accountAfter=accountsAfter.stream().skip(1).filter(r->r.get(0).equals(accountId)).findFirst()
             .orElseThrow(SheetsGateway.Conflict::new);
-        if (!accountBefore.equals(accountAfter) || !retentionBefore.equals(gateway.read("retention_ledger"))
-            || !erasureBefore.equals(gateway.read("erasure_ledger"))
-            || !boundary.equals(QuarterlyRetention.currentQuarterStart(clock.instant()))) throw new SheetsGateway.Conflict();
-        QuarterlyRetention.requireCollectionReady(gateway, clock);
-        Instant asOf = clock.instant();
-        if (!boundary.equals(QuarterlyRetention.currentQuarterStart(asOf))) throw new SheetsGateway.Conflict();
-        return new StatisticsData(current, lifetime, asOf);
+        if(!accountBefore.equals(accountAfter) || !retentionBefore.equals(controlsAfter.get("retention_ledger"))
+            || !erasureBefore.equals(controlsAfter.get("erasure_ledger"))
+            || !boundary.equals(QuarterlyRetention.currentQuarterStart(clock.instant())))throw new SheetsGateway.Conflict();
+        QuarterlyRetention.requireCollectionReady(snapshotReader(controlsAfter),clock);
+        Instant asOf=clock.instant();
+        if(!boundary.equals(QuarterlyRetention.currentQuarterStart(asOf)))throw new SheetsGateway.Conflict();
+        return new StatisticsData(current,lifetime,asOf);
     }
     /** Read-only decoder: no writer or thread resources are created. */
     static Map<String,FinalMatchEnvelope> readVerified(SheetsGateway gateway) {
