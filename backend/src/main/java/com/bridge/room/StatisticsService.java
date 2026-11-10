@@ -34,6 +34,7 @@ public final class StatisticsService {
   private final StatsStore store;
   private final Clock clock;
   private final Semaphore reader = new Semaphore(1);
+  private final StatisticsReadDiagnostics diagnostics = new StatisticsReadDiagnostics();
 
   @Autowired public StatisticsService(RoomService rooms, StatsStore store) { this(rooms, store, Clock.systemUTC()); }
   StatisticsService(RoomService rooms, StatsStore store, Clock clock) {
@@ -43,18 +44,23 @@ public final class StatisticsService {
   public Report read(RoomService.Identity who) {
     String account = rooms.statisticsAccount(who); // Guests cannot learn even overall totals.
     if (!rooms.statisticsEnabled()) return unavailable("DISABLED", clock.instant());
-    if (!reader.tryAcquire()) return unavailable("UNAVAILABLE", clock.instant());
+    if (!reader.tryAcquire()) { diagnostics.busy(); return unavailable("UNAVAILABLE", clock.instant()); }
+    long started = System.nanoTime();
+    var stage = StatisticsReadDiagnostics.Stage.STORAGE;
     Report report;
     try {
       // External I/O is outside the room/gameplay lock. Committed export enforces
       // erasure and current-quarter COMPLETE watermarks. No stale cache survives deletion.
       StatsStore.StatisticsData committed = store.exportStatistics(account);
       Instant now = clock.instant();
+      stage = StatisticsReadDiagnostics.Stage.BOUNDARY;
       if (committed.asOf() != null && (committed.asOf().isAfter(now)
           || !QuarterlyRetention.currentQuarterStart(committed.asOf()).equals(QuarterlyRetention.currentQuarterStart(now))))
         throw new IllegalArgumentException("Statistics boundary changed during read");
+      stage = StatisticsReadDiagnostics.Stage.PROJECTION;
       report = project(committed.current(), committed.lifetime(), account, now);
     } catch (RuntimeException failure) {
+      diagnostics.failed(stage, failure, System.nanoTime() - started);
       report = unavailable("UNAVAILABLE", clock.instant());
     } finally {
       reader.release();

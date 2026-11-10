@@ -110,7 +110,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.13.0", disconnects: diagnostics },
+    { version: "0.13.1", disconnects: diagnostics },
     null,
     2,
   );
@@ -163,10 +163,18 @@ export default function App() {
           </button>
         </nav>
       </header>
-      <main className={page === "help" ? "help-page" : undefined}>
-        {page === "help" && (
+      <main
+        className={
+          page === "help"
+            ? "help-page"
+            : page === "statistics"
+              ? "statistics-page"
+              : undefined
+        }
+      >
+        {(page === "help" || page === "statistics") && (
           <div className="help-version">
-            <span className="eyebrow">v0.13.0</span>
+            <span className="eyebrow">v0.13.1</span>
           </div>
         )}
         <PwaStatus
@@ -193,10 +201,10 @@ export default function App() {
             </button>
           </p>
         )}
-        {page !== "help" && (!state.room || state.room.phase === "WAITING") && (
+        {page === "room" && (!state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.13.0</span>
+              <span className="eyebrow">v0.13.1</span>
               <h1>
                 {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
               </h1>
@@ -211,7 +219,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {state.notice && (
+        {state.notice && page !== "statistics" && (
           <p className="notice" role="status">
             {state.notice}
           </p>

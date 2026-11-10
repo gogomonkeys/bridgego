@@ -14,7 +14,7 @@ export default function PersonalStatisticsSummary({
           <dd>{personalWinRate(counts)}</dd>
         </div>
         <div>
-          <dt>場數</dt>
+          <dt>總場次</dt>
           <dd>{counts.matches}</dd>
         </div>
         <div>
@@ -26,23 +26,20 @@ export default function PersonalStatisticsSummary({
           <dd>{counts.totalScore}</dd>
         </div>
       </dl>
-      <p className="fine">
-        勝率＝勝場
-        ÷（勝場＋敗場＋平手），含判負、不含中止。場數包含所有已定案場次；積分為各場我方結算分數的累計，未完成局不計分；判負仍可能保有正積分。
-      </p>
+      <p className="fine">勝率不含中止場；積分僅累計已完成局。</p>
       <details className="statistics-breakdown">
-        <summary>場次明細</summary>
+        <summary>場次明細與計算方式</summary>
         <dl className="statistics-counts">
           <div>
-            <dt>正常完成</dt>
+            <dt>完成場次</dt>
             <dd>{counts.scoredMatches ?? "—"}</dd>
           </div>
           <div>
-            <dt>判負場次</dt>
+            <dt>中途離席</dt>
             <dd>{counts.forfeitMatches ?? "—"}</dd>
           </div>
           <div>
-            <dt>中止（不計勝負）</dt>
+            <dt>無勝負場次</dt>
             <dd>{counts.interruptedMatches ?? "—"}</dd>
           </div>
           <div>
@@ -58,6 +55,18 @@ export default function PersonalStatisticsSummary({
             <dd>{counts.completedDeals}</dd>
           </div>
         </dl>
+        <ul className="fine statistics-explanation">
+          <li>勝率＝勝場 ÷（勝場＋敗場＋平手），含判負、不含中止。</li>
+          <li>
+            總場次＝完成場次＋中途離席＋無勝負場次；未確認保存的結果不計。
+          </li>
+          <li>
+            中途離席指因離席判負的場次，並非本人離席次數；包含隊友或對手離席造成的判負。無勝負場次不計勝敗。
+          </li>
+          <li>
+            積分為各場我方已完成局的結算分數總和；未完成局不計，判負仍可能有正積分。
+          </li>
+        </ul>
       </details>
     </>
   );

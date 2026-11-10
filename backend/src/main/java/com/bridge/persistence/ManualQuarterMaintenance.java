@@ -281,7 +281,7 @@ public final class ManualQuarterMaintenance {
       if (!rootNames.equals(Set.of("match", "participants", "completed_deals"))) reject();
       var match = root.path("match"); fields(match, MATCH_FIELDS);
       typedScalars(match, Set.of("revision", "schema_version", "planned_deals", "completed_deals", "ns_total", "ew_total"), Set.of());
-      if (!Set.of("0.12.1", "0.12.2", "0.13.0").contains(match.path("app_version").asText())
+      if (!Set.of("0.12.1", "0.12.2", "0.13.0", "0.13.1").contains(match.path("app_version").asText())
           || !match.path("score_version").asText().equals("bridgego-custom-v0.11-1")) reject();
       Instant started = Instant.parse(match.path("started_at").asText()), finished = QuarterlyRetention.finishedAt(envelope);
       if (started.isAfter(finished) || finished.isAfter(clock.instant())) reject();

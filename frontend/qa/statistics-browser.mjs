@@ -210,7 +210,7 @@ try {
           .count(),
         0,
       );
-      assert.equal(await p.locator(".statistics-tabs").count(), 0);
+      assert.equal(await p.locator(".statistics-controls").count(), 0);
       assert.equal(s.reads, 0);
     },
   );
@@ -224,7 +224,7 @@ try {
       await p.getByText("我方累計分數", { exact: true }).waitFor();
       await p.getByRole("button", { name: "休閒場", exact: true }).click();
       await p
-        .getByRole("heading", { name: "休閒場 · 個人", exact: true })
+        .getByRole("heading", { name: "我的本季戰績", exact: true })
         .waitFor();
       assert.equal(
         await p
@@ -233,9 +233,9 @@ try {
           .then((v) => v.at(-1)),
         "42",
       );
-      await p.getByRole("button", { name: "整體", exact: true }).click();
+      await p.getByRole("button", { name: "整體概況", exact: true }).click();
       await p
-        .getByRole("heading", { name: "休閒場 · 整體", exact: true })
+        .getByRole("heading", { name: "本季整體概況", exact: true })
         .waitFor();
       assert.equal(
         await p.locator(".statistics-counts dd").first().textContent(),
@@ -292,7 +292,7 @@ try {
       await enter(p);
       assert.equal(s.consents, 0);
       assert.equal(s.reads, 0);
-      assert.equal(await p.locator(".statistics-tabs").count(), 0);
+      assert.equal(await p.locator(".statistics-controls").count(), 0);
     },
     { enabled: false },
   );
@@ -329,7 +329,7 @@ try {
       await p.waitForTimeout(150);
       await p.evaluate(() => (location.hash = "statistics"));
       await p.waitForTimeout(100);
-      assert.equal(await p.locator(".statistics-tabs").count(), 0);
+      assert.equal(await p.locator(".statistics-controls").count(), 0);
       assert.equal(
         await p
           .getByRole("button", { name: "戰績統計", exact: true })
@@ -378,7 +378,7 @@ try {
       });
       release();
       await p.waitForTimeout(200);
-      assert.equal(await p.locator(".statistics-tabs").count(), 0);
+      assert.equal(await p.locator(".statistics-controls").count(), 0);
       assert.equal(
         await p.getByText("我方累計分數", { exact: true }).count(),
         0,
@@ -394,7 +394,7 @@ try {
       await p.locator(".match-workspace").waitFor();
       assert.equal(s.consents, 0);
       assert.equal(s.reads, 0);
-      assert.equal(await p.locator(".statistics-tabs").count(), 0);
+      assert.equal(await p.locator(".statistics-controls").count(), 0);
     },
     { active: true },
   );

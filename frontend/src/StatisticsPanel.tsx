@@ -42,37 +42,23 @@ export function StatisticsContent({
       </p>
     );
   return (
-    <>
-      <h3>
-        {label} · {tab === "personal" ? "個人" : "整體"}
-      </h3>
+    <div
+      className="statistics-data"
+      aria-label={`${label} · ${tab === "personal" ? "個人" : "整體"}`}
+    >
       {lifetime ? (
-        <div>
-          <p>生涯累計 · 正式／休閒分開計算</p>
-          <p className="fine">
-            {data.lifetimeTrackedFromQuarter
-              ? `已記錄範圍自 ${data.lifetimeTrackedFromQuarter} 起。`
-              : "尚無可確認的生涯起始季度。"}
-            僅含新版已同意保存的紀錄，不補算舊未同意或已清除資料。
-          </p>
-        </div>
+        <p className="statistics-range">
+          生涯累計
+          {data.lifetimeTrackedFromQuarter
+            ? ` · 自 ${data.lifetimeTrackedFromQuarter} 起`
+            : ""}
+        </p>
       ) : (
-        <>
-          <p>台灣時間本季 · {data.quarter}</p>
-          {cutoff && (
-            <p className="statistics-cutoff">結算至 {cutoff}（台灣時間）</p>
-          )}
-          <p className="fine">以上為下一季切換時間，並非自動清理時間。</p>
-        </>
+        <div className="statistics-range">
+          <p>{data.quarter} · 台灣時間</p>
+          {cutoff && <p>結算至 {cutoff}</p>}
+        </div>
       )}
-      <p className="fine">
-        資料截至{" "}
-        {new Date(data.asOf).toLocaleString("zh-TW", {
-          timeZone: "Asia/Taipei",
-          hour12: false,
-        })}
-        （台灣時間）
-      </p>
       {counts.matches === 0 && (
         <p role="status">
           {lifetime ? "生涯" : "本季"}尚無已確認保存的{label}。
@@ -83,19 +69,19 @@ export function StatisticsContent({
       ) : (
         <dl className="statistics-counts">
           <div>
-            <dt>已定案場次</dt>
+            <dt>總場次</dt>
             <dd>{counts.matches}</dd>
           </div>
           <div>
-            <dt>正常完成</dt>
+            <dt>完成場次</dt>
             <dd>{counts.scoredMatches ?? "—"}</dd>
           </div>
           <div>
-            <dt>判負場次</dt>
+            <dt>中途離席</dt>
             <dd>{counts.forfeitMatches ?? "—"}</dd>
           </div>
           <div>
-            <dt>中止（不計勝負）</dt>
+            <dt>無勝負場次</dt>
             <dd>{counts.interruptedMatches ?? "—"}</dd>
           </div>
           <div>
@@ -108,10 +94,34 @@ export function StatisticsContent({
           </div>
         </dl>
       )}
-      <p className="fine">
-        僅計入已確認保存的結果；正式場與休閒場分開計算。訪客只計入整體，沒有個人統計。保存失敗或結果未確認的場次不計入，詳細規則見使用說明。
-      </p>
-    </>
+      <details className="statistics-disclosure">
+        <summary>資料與保存說明</summary>
+        <p className="fine">
+          資料截至{" "}
+          {new Date(data.asOf).toLocaleString("zh-TW", {
+            timeZone: "Asia/Taipei",
+            hour12: false,
+          })}
+          （台灣時間）
+        </p>
+        {lifetime ? (
+          <p className="fine">
+            僅含新版已同意保存的紀錄，不補算舊未同意或已清除資料。
+            {!data.lifetimeTrackedFromQuarter && "尚無可確認的生涯起始季度。"}
+          </p>
+        ) : (
+          <p className="fine">結算至以上下一季切換時間，並非自動清理時間。</p>
+        )}
+        {tab === "overall" && (
+          <p className="fine">
+            總場次＝完成場次＋中途離席＋無勝負場次。完成場次僅計正常打完的場次，不含判負與中止；平手是完成場次的一部分。中途離席指因離席判負的場次，並非本人離席次數；包含隊友或對手離席造成的判負。無勝負場次不計勝敗。完成局數也包含判負或中止前已打完的局，不等於完成場次。
+          </p>
+        )}
+        <p className="fine">
+          僅計入已確認保存的結果；正式場與休閒場分開計算。訪客只計入整體，沒有個人統計。保存失敗或結果未確認的場次不計入，詳細規則見使用說明。
+        </p>
+      </details>
+    </div>
   );
 }
 export default function StatisticsPanel({
@@ -163,79 +173,146 @@ export default function StatisticsPanel({
   return (
     <section className="panel statistics-panel" aria-label="戰績統計">
       <h2>戰績統計</h2>
-      <div className="statistics-tabs" role="group" aria-label="統計範圍">
+      <StatisticsControls
+        tab={tab}
+        category={category}
+        period={period}
+        onTab={setTab}
+        onCategory={setCategory}
+        onPeriod={setPeriod}
+      />
+      <div
+        className="statistics-results"
+        aria-live="polite"
+        aria-busy={!current}
+      >
+        <div className="statistics-results-heading">
+          <h3>
+            {tab === "personal"
+              ? `我的${period === "quarter" ? "本季" : "生涯"}戰績`
+              : "本季整體概況"}
+          </h3>
+          <span className="statistics-category-label">
+            {category === "formal" ? "正式場" : "休閒場"}
+          </span>
+        </div>
+        {!current ? (
+          <p role="status">正在讀取戰績統計…</p>
+        ) : current.error ? (
+          <p role="alert">{current.error}</p>
+        ) : (
+          current.data && (
+            <StatisticsContent
+              data={current.data}
+              tab={tab}
+              category={category}
+              period={period}
+            />
+          )
+        )}
+      </div>
+      <div className="statistics-actions">
         <button
-          className={tab === "personal" ? "primary" : "secondary"}
-          aria-pressed={tab === "personal"}
-          onClick={() => setTab("personal")}
+          className="secondary"
+          disabled={!current}
+          onClick={() => {
+            setResult(null);
+            setAttempt((value) => value + 1);
+          }}
         >
-          個人
+          重新讀取統計
         </button>
-        <button
-          className={tab === "overall" ? "primary" : "secondary"}
-          aria-pressed={tab === "overall"}
-          onClick={() => setTab("overall")}
-        >
-          整體
+        <button className="text-button" onClick={onBack}>
+          回到大廳
         </button>
       </div>
-      <div className="statistics-tabs" role="group" aria-label="場次類型">
-        {(["formal", "casual"] as const).map((value) => (
+    </section>
+  );
+}
+
+type StatisticsControlsProps = {
+  tab: "personal" | "overall";
+  category: "formal" | "casual";
+  period: "quarter" | "lifetime";
+  onTab: (value: "personal" | "overall") => void;
+  onCategory: (value: "formal" | "casual") => void;
+  onPeriod: (value: "quarter" | "lifetime") => void;
+};
+
+export function StatisticsControls({
+  tab,
+  category,
+  period,
+  onTab,
+  onCategory,
+  onPeriod,
+}: StatisticsControlsProps) {
+  return (
+    <div className="statistics-controls">
+      <div className="statistics-audience" role="group" aria-label="統計範圍">
+        {(["personal", "overall"] as const).map((value) => (
           <button
+            type="button"
             key={value}
-            className={category === value ? "primary" : "secondary"}
-            aria-pressed={category === value}
-            onClick={() => setCategory(value)}
+            aria-pressed={tab === value}
+            onClick={() => onTab(value)}
           >
-            {value === "formal" ? "正式場" : "休閒場"}
+            {value === "personal" ? "我的戰績" : "整體概況"}
           </button>
         ))}
       </div>
-      {tab === "personal" && (
-        <div
-          className="statistics-tabs statistics-period"
-          role="group"
-          aria-label="個人統計期間"
-        >
-          {(["quarter", "lifetime"] as const).map((value) => (
-            <button
-              key={value}
-              className={period === value ? "primary" : "secondary"}
-              aria-pressed={period === value}
-              onClick={() => setPeriod(value)}
-            >
-              {value === "quarter" ? "本季" : "生涯"}
-            </button>
-          ))}
+      <div className="statistics-filters">
+        <div className="statistics-filter">
+          <span
+            id="statistics-category-caption"
+            className="statistics-filter-caption"
+          >
+            場次
+          </span>
+          <div
+            className="statistics-segment"
+            role="group"
+            aria-labelledby="statistics-category-caption"
+          >
+            {(["formal", "casual"] as const).map((value) => (
+              <button
+                type="button"
+                key={value}
+                aria-pressed={category === value}
+                onClick={() => onCategory(value)}
+              >
+                {value === "formal" ? "正式場" : "休閒場"}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
-      {!current ? (
-        <p role="status">正在讀取戰績統計…</p>
-      ) : current.error ? (
-        <p role="alert">{current.error}</p>
-      ) : (
-        current.data && (
-          <StatisticsContent
-            data={current.data}
-            tab={tab}
-            category={category}
-            period={period}
-          />
-        )
-      )}
-      <button
-        className="secondary"
-        disabled={!current}
-        onClick={() => {
-          setResult(null);
-          setAttempt((value) => value + 1);
-        }}
-      >
-        重新讀取統計
-      </button>{" "}
-      <button className="text-button" onClick={onBack}>
-        回到大廳
-      </button>
-    </section>
+        {tab === "personal" && (
+          <div className="statistics-filter">
+            <span
+              id="statistics-period-caption"
+              className="statistics-filter-caption"
+            >
+              期間
+            </span>
+            <div
+              className="statistics-segment"
+              role="group"
+              aria-labelledby="statistics-period-caption"
+            >
+              {(["quarter", "lifetime"] as const).map((value) => (
+                <button
+                  type="button"
+                  key={value}
+                  aria-pressed={period === value}
+                  onClick={() => onPeriod(value)}
+                >
+                  {value === "quarter" ? "本季" : "生涯"}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

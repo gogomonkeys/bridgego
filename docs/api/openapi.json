@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "BridgeGo HTTP API",
-    "version": "0.13.0",
+    "version": "0.13.1",
     "description": "訪客Bearer、伺服器權威。無帳號密碼。此檔涵蓋HTTP，WS見websocket.zh-TW.md；完整遊戲投影見CONTRACT.md。回應中的GameSnapshot/MatchArchive刻意為可擴充摘要，不是完整程式碼產生契約。"
   },
   "servers": [

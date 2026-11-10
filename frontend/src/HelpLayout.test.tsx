@@ -11,7 +11,7 @@ vi.mock("./client", () => ({
     busy: false,
     status: "offline",
     error: null,
-    notice: null,
+    notice: "已離開房間，準備狀態與席位已立即清除。",
   }),
 }));
 import App from "./App";
@@ -29,7 +29,7 @@ describe("help page layout", () => {
       html.indexOf('class="pwa-help"'),
     );
     for (const text of [
-      "v0.13.0",
+      "v0.13.1",
       "加入主畫面",
       "保持螢幕開啟",
       "使用說明",
@@ -37,10 +37,23 @@ describe("help page layout", () => {
     ])
       expect(html).toContain(text);
   });
+  it("preserves the existing help-page notice outside the statistics change", () => {
+    vi.stubGlobal("window", { location: { hash: "#help" } });
+    expect(renderToStaticMarkup(<App />)).toContain("已離開房間");
+  });
+  it("keeps version but omits lobby slogans and leave-room notices on statistics", () => {
+    vi.stubGlobal("window", { location: { hash: "#statistics" } });
+    const html = renderToStaticMarkup(<App />);
+    expect(html).toContain('class="statistics-page"');
+    expect(html).toContain("v0.13.1");
+    expect(html).not.toContain("四個座位，一起相聚。");
+    expect(html).not.toContain("已離開房間");
+  });
   it("does not change the welcome page title or apply the help reading column there", () => {
     vi.stubGlobal("window", { location: { hash: "#room" } });
     const html = renderToStaticMarkup(<App />);
     expect(html).not.toContain('class="help-page"');
     expect(html).toContain("四個座位，一起相聚。");
+    expect(html).toContain("已離開房間");
   });
 });

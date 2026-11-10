@@ -66,14 +66,16 @@ class LifetimeRetentionTest {
     rows.set(1,List.of(rows.get(1).get(0),"1","","","{bad}"));
     assertThrows(IllegalStateException.class,()->ManualQuarterMaintenanceTest.preview(s,s.service()));assertEquals(0,s.writes);
   }
-  @Test void release013RecordsFoldWithoutChangingOlderVersionCompatibility() {
+  @Test void releaseVersionsFoldWithoutChangingOlderVersionCompatibility() {
+    for(String version:List.of("0.12.1","0.12.2","0.13.0","0.13.1")) {
     var s=fixture();var e=ManualQuarterMaintenance.decoded(s.f.tables).get(s.f.expired.commitId());
     var root=(com.fasterxml.jackson.databind.node.ObjectNode)e.payload();
-    ((com.fasterxml.jackson.databind.node.ObjectNode)root.path("match")).put("app_version","0.13.0");
+    ((com.fasterxml.jackson.databind.node.ObjectNode)root.path("match")).put("app_version",version);
     MatchCategoryEnvelopeTest.replace(s.f.tables,1,FixedRoomEnvelopeTest.envelope(root));
     var service=s.service();var plan=ManualQuarterMaintenanceTest.preview(s,service);
     assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE,ManualQuarterMaintenanceTest.execute(service,plan).outcome());
     assertEquals(1,carry(s).formal().matches());
+    }
   }
 
 }

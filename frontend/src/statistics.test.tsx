@@ -36,6 +36,41 @@ const data: StatisticsResponse = {
   casualOverall: { matches: 5, completedDeals: 9, draws: 2 },
 };
 describe("statistics consent and presentation", () => {
+  it.each(["formal", "casual"] as const)(
+    "simplifies %s overall counts without double-counting or changing stored outcomes",
+    (category) => {
+      const counts = {
+        matches: 7,
+        scoredMatches: 3,
+        forfeitMatches: 2,
+        interruptedMatches: 2,
+        completedDeals: 11,
+        draws: 1,
+      };
+      const result = { ...data, overall: counts, casualOverall: counts };
+      const html = renderToStaticMarkup(
+        <StatisticsContent data={result} tab="overall" category={category} />,
+      );
+      expect(html).toContain("<dt>完成場次</dt><dd>3</dd>");
+      expect(html).toContain("<dt>無勝負場次</dt><dd>2</dd>");
+      expect(html).toContain("<dt>完成局數</dt><dd>11</dd>");
+      expect(html).toContain("<dt>平手場次</dt><dd>1</dd>");
+      expect(html).not.toContain("<dt>已定案場次</dt>");
+      expect(html).toContain("<dt>總場次</dt><dd>7</dd>");
+      expect(html).toContain("<dt>中途離席</dt><dd>2</dd>");
+      expect((html.match(/<dt>/g) ?? []).length).toBe(6);
+      expect(html).toContain("不含判負與中止");
+      expect(html).toContain("並非本人離席次數");
+      expect(result.overall).toEqual(counts);
+    },
+  );
+  it("does not substitute total finalized matches for an unknown normal-completion count", () => {
+    const html = renderToStaticMarkup(
+      <StatisticsContent data={data} tab="overall" />,
+    );
+    expect(html).toContain("<dt>完成場次</dt><dd>—</dd>");
+  });
+
   it("separates normal, forfeit and interrupted outcomes without inventing missing counts", () => {
     const result: StatisticsResponse = {
       ...data,
@@ -50,13 +85,13 @@ describe("statistics consent and presentation", () => {
     const html = renderToStaticMarkup(
       <StatisticsContent data={result} tab="personal" />,
     );
-    expect(html).toContain("<dt>正常完成</dt><dd>3</dd>");
-    expect(html).toContain("<dt>判負場次</dt><dd>2</dd>");
-    expect(html).toContain("<dt>中止（不計勝負）</dt><dd>2</dd>");
+    expect(html).toContain("<dt>完成場次</dt><dd>3</dd>");
+    expect(html).toContain("<dt>中途離席</dt><dd>2</dd>");
+    expect(html).toContain("<dt>無勝負場次</dt><dd>2</dd>");
     const legacy = renderToStaticMarkup(
       <StatisticsContent data={data} tab="personal" />,
     );
-    expect(legacy).toContain("<dt>正常完成</dt><dd>—</dd>");
+    expect(legacy).toContain("<dt>完成場次</dt><dd>—</dd>");
   });
   it("uses independent lifetime counts and retains formal/casual separation", () => {
     const lifetime: StatisticsResponse = {
@@ -96,7 +131,7 @@ describe("statistics consent and presentation", () => {
     const overall = renderToStaticMarkup(
       <StatisticsContent data={lifetime} tab="overall" period="lifetime" />,
     );
-    expect(overall).toContain("台灣時間本季");
+    expect(overall).toContain("2026-Q4 · 台灣時間");
     expect(overall).not.toContain("<dd>123</dd>");
   });
   it("never falls back to current-quarter counts when lifetime data is absent", () => {
@@ -192,7 +227,7 @@ describe("statistics consent and presentation", () => {
       <StatisticsContent data={data} tab="personal" />,
     );
     expect(personal).toContain("2026-Q4");
-    expect(personal).toContain("場數");
+    expect(personal).toContain("總場次");
     expect(personal).toContain("完成局數");
     expect(personal).toContain("積分");
     const overall = renderToStaticMarkup(
@@ -219,7 +254,7 @@ describe("statistics consent and presentation", () => {
       <StatisticsContent data={data} tab="overall" category="casual" />,
     );
     expect(overall).toContain("休閒場 · 整體");
-    expect(overall).toContain("<dd>5</dd>");
+    expect(overall).toContain("<dt>完成局數</dt><dd>9</dd>");
     expect(overall).not.toContain("<dd>42</dd>");
     expect(overall).not.toContain("獲勝場次");
     expect(
