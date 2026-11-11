@@ -32,14 +32,42 @@ final class ProductionReadOnlyFormatAudit {
 
   public enum Counter {
     SHEETS_ENUMERATED, BLOCKS_ENUMERATED, ROWS_ENUMERATED, CELLS_ENUMERATED,
+    SHEETS_SKIPPED, BLOCKS_SKIPPED, ROWS_SKIPPED, CELL_SLOTS_SKIPPED,
     MALFORMED_STRUCTURE, UNKNOWN_STRUCTURE, LIMIT_EXCEEDED, OVERLAPPING_RANGES,
-    STRING_CELLS, NUMERIC_CELLS, OTHER_VALUE_CELLS,
+    STRING_CELLS, NUMERIC_CELLS, BLANK_CELLS, OTHER_VALUE_CELLS,
     USER_TEXT_TYPE_ONLY_EXACT, USER_TEXT_AT_PATTERN_EXACT,
     EFFECTIVE_DEFAULT_LEFT_STRING_EXACT, EFFECTIVE_DEFAULT_RIGHT_NUMBER_EXACT,
     EFFECTIVE_DEFAULT_PLUS_TEXT_TYPE_ONLY_EXACT, EFFECTIVE_DEFAULT_PLUS_TEXT_AT_PATTERN_EXACT,
     EFFECTIVE_DEFAULT_PLUS_TEXT_RIGHT_NUMBER_TYPE_ONLY_EXACT, EFFECTIVE_DEFAULT_PLUS_TEXT_RIGHT_NUMBER_AT_PATTERN_EXACT,
-    TEXT_FORMAT_PAIR_EXACT, NUMERIC_TEXT_FORMAT_PAIR_EXACT, KNOWN_ISSUER_LINK_STYLE_EXACT, POTENTIAL_AUTOMATIC_EMAIL_LINK_STYLE_EXACT,
+    EFFECTIVE_DEFAULT_BLANK_EXACT, EFFECTIVE_DEFAULT_PLUS_TEXT_BLANK_TYPE_ONLY_EXACT,
+    EFFECTIVE_DEFAULT_PLUS_TEXT_BLANK_AT_PATTERN_EXACT,
+    TEXT_FORMAT_PAIR_EXACT, NUMERIC_TEXT_FORMAT_PAIR_EXACT, BLANK_TEXT_FORMAT_PAIR_EXACT, KNOWN_ISSUER_LINK_STYLE_EXACT, POTENTIAL_AUTOMATIC_EMAIL_LINK_STYLE_EXACT,
     UNRECOGNIZED_LINK, HYPERLINK_ABSENT, HYPERLINK_EMPTY, HYPERLINK_NONEMPTY, HYPERLINK_OTHER
+  }
+  /** Reasons identify only fixed structural branches, never a resource, table, field value or position. */
+  public enum Reason {
+    ROOT_NOT_OBJECT, ROOT_FIELDS_UNKNOWN, ROOT_PROPERTIES_NOT_OBJECT, ROOT_PROPERTIES_FIELDS_UNKNOWN, ROOT_EXTRA_CONTENT,
+    SHEETS_ABSENT, SHEETS_NOT_ARRAY, SHEETS_EMPTY, SHEET_COUNT_MISMATCH, SHEET_COUNT_LIMIT,
+    SHEET_NOT_OBJECT, SHEET_FIELDS_UNKNOWN, SHEET_PROPERTIES_NOT_OBJECT, SHEET_PROPERTIES_FIELDS_UNKNOWN,
+    SHEET_ID_INVALID, SHEET_ID_DUPLICATE, SHEET_INDEX_INVALID, SHEET_INDEX_DUPLICATE,
+    SHEET_TITLE_INVALID, SHEET_TITLE_DUPLICATE, SHEET_EXTRA_CONTENT,
+    GRID_NOT_OBJECT, GRID_FIELDS_UNKNOWN, GRID_ROW_COUNT_INVALID, GRID_COLUMN_COUNT_INVALID, GRID_DIMENSIONS_NOT_PRODUCTION,
+    BLOCKS_ABSENT, BLOCKS_NOT_ARRAY, BLOCKS_EMPTY, BLOCK_COUNT_LIMIT, BLOCK_NOT_OBJECT, BLOCK_FIELDS_UNKNOWN,
+    START_ROW_INVALID, START_COLUMN_INVALID,
+    ROW_METADATA_NOT_ARRAY, ROW_METADATA_RANGE_LIMIT, ROW_METADATA_OVERLAP, ROW_METADATA_ITEM_NOT_OBJECT,
+    ROW_METADATA_FIELDS_UNKNOWN, ROW_METADATA_BOOLEAN_INVALID,
+    ROW_METADATA_PIXEL_SIZE_NON_NUMERIC, ROW_METADATA_PIXEL_SIZE_NON_INTEGRAL_TYPE,
+    ROW_METADATA_PIXEL_SIZE_NONPOSITIVE, ROW_METADATA_PIXEL_SIZE_ABOVE1000_TO10000, ROW_METADATA_PIXEL_SIZE_ABOVE10000,
+    ROW_METADATA_EXTRA_CONTENT, ROW_METADATA_COVERAGE_GAP,
+    COLUMN_METADATA_NOT_ARRAY, COLUMN_METADATA_RANGE_LIMIT, COLUMN_METADATA_OVERLAP, COLUMN_METADATA_ITEM_NOT_OBJECT,
+    COLUMN_METADATA_FIELDS_UNKNOWN, COLUMN_METADATA_BOOLEAN_INVALID,
+    COLUMN_METADATA_PIXEL_SIZE_NON_NUMERIC, COLUMN_METADATA_PIXEL_SIZE_NON_INTEGRAL_TYPE,
+    COLUMN_METADATA_PIXEL_SIZE_NONPOSITIVE, COLUMN_METADATA_PIXEL_SIZE_ABOVE1000_TO10000, COLUMN_METADATA_PIXEL_SIZE_ABOVE10000,
+    COLUMN_METADATA_EXTRA_CONTENT, COLUMN_METADATA_COVERAGE_GAP,
+    ROWS_NOT_ARRAY, ROW_RANGE_LIMIT, SHEET_ROW_LIMIT, TOTAL_ROW_LIMIT, ROW_NOT_OBJECT, ROW_FIELDS_UNKNOWN,
+    VALUES_NOT_ARRAY, COLUMN_RANGE_LIMIT, TOTAL_CELL_LIMIT, CELL_RANGE_OVERLAP,
+    CELL_NOT_OBJECT, CELL_FIELDS_UNKNOWN, FORMAT_NOT_OBJECT, FORMAT_FIELDS_UNKNOWN,
+    FORMAT_COMPONENT_NOT_OBJECT, FORMAT_COMPONENT_FIELDS_UNKNOWN
   }
   public enum Source { USER_ENTERED, EFFECTIVE }
   public enum Feature {
@@ -64,13 +92,18 @@ final class ProductionReadOnlyFormatAudit {
   /** Every leaf is a saturated integer or boolean; keys come exclusively from fixed enums.
    * completeScan means bounded enumeration of the recognized production envelope, never schema,
    * business, format acceptance, mutation permission, or writer-exclusion verification.
-   * The general default-plus-TEXT counters include both string LEFT and numeric RIGHT styles;
-   * numeric-only counters distinguish the latter without reporting their positions or values.
+   * The general default-plus-TEXT counters include string LEFT, numeric RIGHT and exact blank styles;
+   * numeric-only and blank-only counters distinguish those cases without reporting positions or values.
+   * When completeScan is false, totals cover only the safely bounded, nonduplicated subset.
    */
   public record Summary(boolean completeScan, Map<Counter, Integer> counts,
-      Map<Source, Map<Feature, Integer>> formats) {
+      Map<Source, Map<Feature, Integer>> formats, Map<Reason, Integer> reasons) {
+    public Summary(boolean completeScan, Map<Counter, Integer> counts, Map<Source, Map<Feature, Integer>> formats) {
+      this(completeScan, counts, formats, Map.of());
+    }
     public Summary {
       counts = immutableCounts(Counter.class, counts);
+      reasons = immutableCounts(Reason.class, reasons);
       EnumMap<Source, Map<Feature, Integer>> copy = new EnumMap<>(Source.class);
       for (Source source : Source.values()) copy.put(source,
           immutableCounts(Feature.class, formats == null ? null : formats.get(source)));
@@ -91,32 +124,26 @@ final class ProductionReadOnlyFormatAudit {
 
   static Summary inspect(JsonNode root) {
     Audit audit = new Audit();
-    if (!audit.preflight(root)) return audit.summary();
-    Templates templates = Templates.from(root.path("properties"));
-    for (JsonNode sheet : root.get("sheets")) {
-      audit.add(Counter.SHEETS_ENUMERATED);
-      for (JsonNode block : sheet.get("data")) {
-        audit.add(Counter.BLOCKS_ENUMERATED);
-        JsonNode rows = block.get("rowData");
-        if (rows == null) continue;
-        for (JsonNode row : rows) {
-          audit.add(Counter.ROWS_ENUMERATED);
-          JsonNode cells = row.get("values");
-          if (cells == null) continue;
-          for (JsonNode cell : cells) audit.cell(cell, templates);
-        }
-      }
-    }
+    audit.preflight(root);
+    Templates templates = Templates.from(root != null && root.isObject() ? root.path("properties") : JsonNodeFactory.instance.objectNode());
+    // The plan holds only bounded row-array references until this call returns. No cell data is copied.
+    for (JsonNode cells : audit.safeRows) for (JsonNode cell : cells) audit.cell(cell, templates);
     return audit.summary();
   }
 
   private static final class Audit {
     final int[] counts = new int[Counter.values().length];
     final int[][] formats = new int[Source.values().length][Feature.values().length];
+    final int[] reasons = new int[Reason.values().length];
+    final List<JsonNode> safeRows = new ArrayList<>();
+    int totalCells, totalRows;
     boolean complete = true;
-    void add(Counter key) { counts[key.ordinal()] = Math.min(MAX_CELLS, counts[key.ordinal()] + 1); }
+    void add(Counter key) { add(key, 1); }
+    void add(Counter key, int amount) { counts[key.ordinal()] = (int)Math.min(MAX_CELLS, (long)counts[key.ordinal()] + Math.max(0, amount)); }
     void add(Source source, Feature key) { int[] c = formats[source.ordinal()]; c[key.ordinal()] = Math.min(MAX_CELLS, c[key.ordinal()] + 1); }
-    boolean problem(Counter key) { complete = false; add(key); return false; }
+    void problem(Counter category, Reason reason) {
+      complete = false; add(category); reasons[reason.ordinal()] = Math.min(MAX_CELLS, reasons[reason.ordinal()] + 1);
+    }
     Summary summary() {
       EnumMap<Counter, Integer> c = new EnumMap<>(Counter.class);
       for (Counter key : Counter.values()) c.put(key, counts[key.ordinal()]);
@@ -126,101 +153,135 @@ final class ProductionReadOnlyFormatAudit {
         for (Feature key : Feature.values()) values.put(key, formats[source.ordinal()][key.ordinal()]);
         f.put(source, values);
       }
-      return new Summary(complete, c, f);
+      EnumMap<Reason, Integer> r = new EnumMap<>(Reason.class);
+      for (Reason key : Reason.values()) r.put(key, reasons[key.ordinal()]);
+      return new Summary(complete, c, f, r);
     }
-    boolean object(JsonNode node, Set<String> allowed) {
-      if (node == null || !node.isObject()) return problem(Counter.MALFORMED_STRUCTURE);
-      if (node.size() > allowed.size()) return problem(Counter.UNKNOWN_STRUCTURE);
-      boolean good = true;
-      for (Iterator<String> it = node.fieldNames(); it.hasNext();) if (!allowed.contains(it.next())) {
-        problem(Counter.UNKNOWN_STRUCTURE); good = false;
-      }
-      return good;
+    // Unknown keys are never descended into. Even a large object may expose bounded known children
+    // through fixed-key lookups; its arbitrary key set is not iterated when it exceeds this bound.
+    boolean object(JsonNode node, Set<String> allowed, Reason wrongType, Reason unknown) {
+      if (node == null || !node.isObject()) { problem(Counter.MALFORMED_STRUCTURE, wrongType); return false; }
+      if (node.size() > allowed.size()) { problem(Counter.UNKNOWN_STRUCTURE, unknown); return true; }
+      for (Iterator<String> it = node.fieldNames(); it.hasNext();) if (!allowed.contains(it.next())) problem(Counter.UNKNOWN_STRUCTURE, unknown);
+      return true;
     }
-    // Only bounded arrays of rows and dimensions are visited here, never their cell contents.
-    // A later, single cell enumeration is allowed only after all ranges and totals are proven bounded.
-    boolean preflight(JsonNode root) {
-      if (!object(root, ROOT)) return false;
-      if (!object(root.get("properties"), PROPERTIES)) return false;
+    // Build a bounded plan of nonoverlapping, in-range cell arrays. A malformed sibling or
+    // dimension annotation never suppresses another independently bounded row/block/sheet.
+    void preflight(JsonNode root) {
+      if (!object(root, ROOT, Reason.ROOT_NOT_OBJECT, Reason.ROOT_FIELDS_UNKNOWN)) return;
+      object(root.get("properties"), PROPERTIES, Reason.ROOT_PROPERTIES_NOT_OBJECT, Reason.ROOT_PROPERTIES_FIELDS_UNKNOWN);
+      for (String key : List.of("developerMetadata", "namedRanges", "dataSources", "dataSourceSchedules", "comments")) if (nonempty(root.get(key))) problem(Counter.UNKNOWN_STRUCTURE, Reason.ROOT_EXTRA_CONTENT);
       JsonNode sheets = root.get("sheets");
-      if (sheets == null || !sheets.isArray() || sheets.isEmpty()) return problem(Counter.MALFORMED_STRUCTURE);
-      if (sheets.size() > 8) return problem(Counter.LIMIT_EXCEEDED);
-      if (sheets.size() != 8) problem(Counter.MALFORMED_STRUCTURE);
+      if (sheets == null) { problem(Counter.MALFORMED_STRUCTURE, Reason.SHEETS_ABSENT); return; }
+      if (!sheets.isArray()) { problem(Counter.MALFORMED_STRUCTURE, Reason.SHEETS_NOT_ARRAY); return; }
+      if (sheets.isEmpty()) { problem(Counter.MALFORMED_STRUCTURE, Reason.SHEETS_EMPTY); return; }
+      if (sheets.size() > 8) { problem(Counter.LIMIT_EXCEEDED, Reason.SHEET_COUNT_LIMIT); add(Counter.SHEETS_SKIPPED, sheets.size() - 8); }
+      if (sheets.size() != 8) problem(Counter.MALFORMED_STRUCTURE, Reason.SHEET_COUNT_MISMATCH);
       Set<Integer> ids = new HashSet<>(), indices = new HashSet<>();
       Set<String> titles = new HashSet<>();
-      int totalCells = 0, totalRows = 0;
-      for (String key : List.of("developerMetadata", "namedRanges", "dataSources", "dataSourceSchedules", "comments")) if (nonempty(root.get(key))) problem(Counter.UNKNOWN_STRUCTURE);
-      for (JsonNode sheet : sheets) {
-        if (!object(sheet, SHEET) || !object(sheet.get("properties"), SHEET_PROPERTIES)) return false;
+      for (int i = 0; i < Math.min(8, sheets.size()); i++) {
+        JsonNode sheet = sheets.get(i);
+        if (!object(sheet, SHEET, Reason.SHEET_NOT_OBJECT, Reason.SHEET_FIELDS_UNKNOWN)) { add(Counter.SHEETS_SKIPPED); continue; }
+        add(Counter.SHEETS_ENUMERATED);
         JsonNode sp = sheet.get("properties");
+        if (!object(sp, SHEET_PROPERTIES, Reason.SHEET_PROPERTIES_NOT_OBJECT, Reason.SHEET_PROPERTIES_FIELDS_UNKNOWN)) { add(Counter.SHEETS_SKIPPED); continue; }
         int id = integer(sp.get("sheetId"), 0, Integer.MAX_VALUE);
         int index = sp.has("index") ? integer(sp.get("index"), 0, 7) : 0;
         String title = safeText(sp.get("title"));
-        if (id < 0 || index < 0 || !ids.add(id) || !indices.add(index)
-            || !ProductionReadOnlyWorkbook.TABS.contains(title) || !titles.add(title)) problem(Counter.MALFORMED_STRUCTURE);
-        for (String name : SHEET) if (!name.equals("properties") && !name.equals("data") && nonempty(sheet.get(name))) problem(Counter.UNKNOWN_STRUCTURE);
-        JsonNode grid = sheet.path("properties").get("gridProperties");
-        if (!object(grid, GRID)) return false;
-        int height = integer(grid.get("rowCount"), 1, 1000), width = integer(grid.get("columnCount"), 1, 26);
-        if (height < 0 || width < 0) return problem(Counter.LIMIT_EXCEEDED);
-        if (height != 1000 || width != 26) problem(Counter.MALFORMED_STRUCTURE);
-        JsonNode blocks = sheet.get("data");
-        if (blocks == null || !blocks.isArray() || blocks.isEmpty()) return problem(Counter.MALFORMED_STRUCTURE);
-        if (blocks.size() > MAX_BLOCKS) return problem(Counter.LIMIT_EXCEEDED);
-        BitSet occupied = new BitSet(height * width), rowDimensions = new BitSet(height), columnDimensions = new BitSet(width);
-        for (JsonNode block : blocks) {
-          if (!object(block, BLOCK)) return false;
-          int sr = block.has("startRow") ? integer(block.get("startRow"), 0, height - 1) : 0;
-          int sc = block.has("startColumn") ? integer(block.get("startColumn"), 0, width - 1) : 0;
-          if (sr < 0 || sc < 0) return problem(Counter.MALFORMED_STRUCTURE);
-          if (!dimensions(block.get("rowMetadata"), sr, height, rowDimensions)
-              || !dimensions(block.get("columnMetadata"), sc, width, columnDimensions)) return false;
-          JsonNode rows = block.get("rowData");
-          if (rows == null) continue;
-          if (!rows.isArray()) return problem(Counter.MALFORMED_STRUCTURE);
-          if (rows.size() > height - sr || rows.size() > MAX_CELLS - totalRows) return problem(Counter.LIMIT_EXCEEDED);
-          totalRows += rows.size();
-          for (int r = 0; r < rows.size(); r++) {
-            JsonNode row = rows.get(r);
-            if (!object(row, ROW)) return false;
-            JsonNode values = row.get("values");
-            if (values == null) continue;
-            if (!values.isArray()) return problem(Counter.MALFORMED_STRUCTURE);
-            if (values.size() > width - sc || values.size() > MAX_CELLS - totalCells) return problem(Counter.LIMIT_EXCEEDED);
-            int from = (sr + r) * width + sc, to = from + values.size();
-            int overlap = occupied.nextSetBit(from);
-            if (overlap >= 0 && overlap < to) return problem(Counter.OVERLAPPING_RANGES);
-            occupied.set(from, to);
-            totalCells += values.size();
-          }
+        if (id < 0) problem(Counter.MALFORMED_STRUCTURE, Reason.SHEET_ID_INVALID);
+        else if (!ids.add(id)) {
+          problem(Counter.MALFORMED_STRUCTURE, Reason.SHEET_ID_DUPLICATE);
+          add(Counter.SHEETS_SKIPPED); continue; // Do not count the same declared physical sheet twice.
         }
-        if (rowDimensions.cardinality() != height || columnDimensions.cardinality() != width) problem(Counter.MALFORMED_STRUCTURE);
+        if (index < 0) problem(Counter.MALFORMED_STRUCTURE, Reason.SHEET_INDEX_INVALID);
+        else if (!indices.add(index)) problem(Counter.MALFORMED_STRUCTURE, Reason.SHEET_INDEX_DUPLICATE);
+        if (!ProductionReadOnlyWorkbook.TABS.contains(title)) problem(Counter.MALFORMED_STRUCTURE, Reason.SHEET_TITLE_INVALID);
+        else if (!titles.add(title)) problem(Counter.MALFORMED_STRUCTURE, Reason.SHEET_TITLE_DUPLICATE);
+        for (String name : SHEET) if (!name.equals("properties") && !name.equals("data") && nonempty(sheet.get(name))) problem(Counter.UNKNOWN_STRUCTURE, Reason.SHEET_EXTRA_CONTENT);
+        JsonNode grid = sp.get("gridProperties");
+        if (!object(grid, GRID, Reason.GRID_NOT_OBJECT, Reason.GRID_FIELDS_UNKNOWN)) { add(Counter.SHEETS_SKIPPED); continue; }
+        int height = integer(grid.get("rowCount"), 1, 1000), width = integer(grid.get("columnCount"), 1, 26);
+        if (height < 0) problem(Counter.LIMIT_EXCEEDED, Reason.GRID_ROW_COUNT_INVALID);
+        if (width < 0) problem(Counter.LIMIT_EXCEEDED, Reason.GRID_COLUMN_COUNT_INVALID);
+        if (height < 0 || width < 0) { add(Counter.SHEETS_SKIPPED); continue; }
+        if (height != 1000 || width != 26) problem(Counter.MALFORMED_STRUCTURE, Reason.GRID_DIMENSIONS_NOT_PRODUCTION);
+        scanSheet(sheet, height, width);
       }
-      return true;
     }
-    boolean dimensions(JsonNode nodes, int start, int limit, BitSet occupied) {
-      if (nodes == null) return true;
-      if (!nodes.isArray()) return problem(Counter.MALFORMED_STRUCTURE);
-      if (nodes.size() > limit - start) return problem(Counter.LIMIT_EXCEEDED);
+    void scanSheet(JsonNode sheet, int height, int width) {
+      JsonNode blocks = sheet.get("data");
+      if (blocks == null) { problem(Counter.MALFORMED_STRUCTURE, Reason.BLOCKS_ABSENT); return; }
+      if (!blocks.isArray()) { problem(Counter.MALFORMED_STRUCTURE, Reason.BLOCKS_NOT_ARRAY); return; }
+      if (blocks.isEmpty()) { problem(Counter.MALFORMED_STRUCTURE, Reason.BLOCKS_EMPTY); return; }
+      if (blocks.size() > MAX_BLOCKS) { problem(Counter.LIMIT_EXCEEDED, Reason.BLOCK_COUNT_LIMIT); add(Counter.BLOCKS_SKIPPED, blocks.size() - MAX_BLOCKS); }
+      BitSet occupied = new BitSet(height * width), rowDimensions = new BitSet(height), columnDimensions = new BitSet(width);
+      int sheetRows = 0;
+      // At most 8 sheets * 1000 block entries are examined globally, including invalid/skipped entries.
+      for (int b = 0; b < Math.min(MAX_BLOCKS, blocks.size()); b++) {
+        JsonNode block = blocks.get(b);
+        if (!object(block, BLOCK, Reason.BLOCK_NOT_OBJECT, Reason.BLOCK_FIELDS_UNKNOWN)) { add(Counter.BLOCKS_SKIPPED); continue; }
+        add(Counter.BLOCKS_ENUMERATED);
+        int sr = block.has("startRow") ? integer(block.get("startRow"), 0, height - 1) : 0;
+        int sc = block.has("startColumn") ? integer(block.get("startColumn"), 0, width - 1) : 0;
+        if (sr < 0) problem(Counter.MALFORMED_STRUCTURE, Reason.START_ROW_INVALID);
+        if (sc < 0) problem(Counter.MALFORMED_STRUCTURE, Reason.START_COLUMN_INVALID);
+        if (sr < 0 || sc < 0) { add(Counter.BLOCKS_SKIPPED); continue; }
+        dimensions(block.get("rowMetadata"), sr, height, rowDimensions, true);
+        dimensions(block.get("columnMetadata"), sc, width, columnDimensions, false);
+        JsonNode rows = block.get("rowData");
+        if (rows == null) continue; // Native sparse/default blocks may contain dimensions only.
+        if (!rows.isArray()) { problem(Counter.MALFORMED_STRUCTURE, Reason.ROWS_NOT_ARRAY); add(Counter.BLOCKS_SKIPPED); continue; }
+        if (rows.size() > height - sr) { problem(Counter.LIMIT_EXCEEDED, Reason.ROW_RANGE_LIMIT); add(Counter.ROWS_SKIPPED, rows.size()); continue; }
+        // Reserve attempted row slots, including empty, malformed and overlapping rows. The local
+        // share prevents one adversarial sheet from consuming the other seven sheets' work budget.
+        if (rows.size() > height * width - sheetRows) { problem(Counter.LIMIT_EXCEEDED, Reason.SHEET_ROW_LIMIT); add(Counter.ROWS_SKIPPED, rows.size()); continue; }
+        if (rows.size() > MAX_CELLS - totalRows) { problem(Counter.LIMIT_EXCEEDED, Reason.TOTAL_ROW_LIMIT); add(Counter.ROWS_SKIPPED, rows.size()); continue; }
+        totalRows += rows.size(); sheetRows += rows.size();
+        for (int r = 0; r < rows.size(); r++) {
+          JsonNode row = rows.get(r); add(Counter.ROWS_ENUMERATED);
+          if (!object(row, ROW, Reason.ROW_NOT_OBJECT, Reason.ROW_FIELDS_UNKNOWN)) { add(Counter.ROWS_SKIPPED); continue; }
+          JsonNode values = row.get("values");
+          if (values == null) continue; // Empty native row: no supplied cell slots to enumerate.
+          if (!values.isArray()) { problem(Counter.MALFORMED_STRUCTURE, Reason.VALUES_NOT_ARRAY); add(Counter.ROWS_SKIPPED); continue; }
+          if (values.size() > width - sc) { problem(Counter.LIMIT_EXCEEDED, Reason.COLUMN_RANGE_LIMIT); add(Counter.CELL_SLOTS_SKIPPED, values.size()); continue; }
+          if (values.size() > MAX_CELLS - totalCells) { problem(Counter.LIMIT_EXCEEDED, Reason.TOTAL_CELL_LIMIT); add(Counter.CELL_SLOTS_SKIPPED, values.size()); continue; }
+          int from = (sr + r) * width + sc, to = from + values.size();
+          int overlap = occupied.nextSetBit(from);
+          if (overlap >= 0 && overlap < to) { problem(Counter.OVERLAPPING_RANGES, Reason.CELL_RANGE_OVERLAP); add(Counter.CELL_SLOTS_SKIPPED, values.size()); continue; }
+          occupied.set(from, to); totalCells += values.size();
+          if (!values.isEmpty()) safeRows.add(values);
+        }
+      }
+      if (rowDimensions.cardinality() != height) problem(Counter.MALFORMED_STRUCTURE, Reason.ROW_METADATA_COVERAGE_GAP);
+      if (columnDimensions.cardinality() != width) problem(Counter.MALFORMED_STRUCTURE, Reason.COLUMN_METADATA_COVERAGE_GAP);
+    }
+    void dimensions(JsonNode nodes, int start, int limit, BitSet occupied, boolean row) {
+      if (nodes == null) return;
+      if (!nodes.isArray()) { problem(Counter.MALFORMED_STRUCTURE, row ? Reason.ROW_METADATA_NOT_ARRAY : Reason.COLUMN_METADATA_NOT_ARRAY); return; }
+      if (nodes.size() > limit - start) { problem(Counter.LIMIT_EXCEEDED, row ? Reason.ROW_METADATA_RANGE_LIMIT : Reason.COLUMN_METADATA_RANGE_LIMIT); return; }
       int overlap = occupied.nextSetBit(start);
-      if (overlap >= 0 && overlap < start + nodes.size()) return problem(Counter.OVERLAPPING_RANGES);
+      if (overlap >= 0 && overlap < start + nodes.size()) { problem(Counter.OVERLAPPING_RANGES, row ? Reason.ROW_METADATA_OVERLAP : Reason.COLUMN_METADATA_OVERLAP); return; }
       occupied.set(start, start + nodes.size());
       for (JsonNode dimension : nodes) {
-        if (!object(dimension, DIMENSION)) return false;
-        for (String key : List.of("hiddenByFilter", "hiddenByUser")) if (dimension.has(key) && !dimension.get(key).isBoolean()) return problem(Counter.MALFORMED_STRUCTURE);
-        if (dimension.has("pixelSize") && integer(dimension.get("pixelSize"), 1, 1000) < 0) return problem(Counter.MALFORMED_STRUCTURE);
-        if (dimension.has("developerMetadata") && (!dimension.get("developerMetadata").isArray() || !dimension.get("developerMetadata").isEmpty())) return problem(Counter.UNKNOWN_STRUCTURE);
-        if (dimension.has("dataSourceColumnReference") && (!dimension.get("dataSourceColumnReference").isObject() || !dimension.get("dataSourceColumnReference").isEmpty())) return problem(Counter.UNKNOWN_STRUCTURE);
+        if (!object(dimension, DIMENSION, row ? Reason.ROW_METADATA_ITEM_NOT_OBJECT : Reason.COLUMN_METADATA_ITEM_NOT_OBJECT,
+            row ? Reason.ROW_METADATA_FIELDS_UNKNOWN : Reason.COLUMN_METADATA_FIELDS_UNKNOWN)) continue;
+        for (String key : List.of("hiddenByFilter", "hiddenByUser")) if (dimension.has(key) && !dimension.get(key).isBoolean()) problem(Counter.MALFORMED_STRUCTURE, row ? Reason.ROW_METADATA_BOOLEAN_INVALID : Reason.COLUMN_METADATA_BOOLEAN_INVALID);
+        if (dimension.has("pixelSize")) {
+          Reason pixelReason = pixelReason(dimension.get("pixelSize"), row);
+          if (pixelReason != null) problem(Counter.MALFORMED_STRUCTURE, pixelReason);
+        }
+        if (dimension.has("developerMetadata") && (!dimension.get("developerMetadata").isArray() || !dimension.get("developerMetadata").isEmpty())) problem(Counter.UNKNOWN_STRUCTURE, row ? Reason.ROW_METADATA_EXTRA_CONTENT : Reason.COLUMN_METADATA_EXTRA_CONTENT);
+        if (dimension.has("dataSourceColumnReference") && (!dimension.get("dataSourceColumnReference").isObject() || !dimension.get("dataSourceColumnReference").isEmpty())) problem(Counter.UNKNOWN_STRUCTURE, row ? Reason.ROW_METADATA_EXTRA_CONTENT : Reason.COLUMN_METADATA_EXTRA_CONTENT);
       }
-      return true;
     }
     void cell(JsonNode cell, Templates t) {
       add(Counter.CELLS_ENUMERATED);
-      if (!object(cell, CELL)) return;
+      if (!object(cell, CELL, Reason.CELL_NOT_OBJECT, Reason.CELL_FIELDS_UNKNOWN)) return;
       String value = stringValue(cell);
-      boolean number = singleNumber(cell.get("userEnteredValue"));
+      boolean number = singleNumber(cell.get("userEnteredValue")), blank = blankCell(cell);
       if (value != null) add(Counter.STRING_CELLS);
       else if (number) add(Counter.NUMERIC_CELLS);
+      else if (blank) add(Counter.BLANK_CELLS);
       else add(Counter.OTHER_VALUE_CELLS);
       JsonNode entered = cell.get("userEnteredFormat"), effective = cell.get("effectiveFormat");
       format(entered, Source.USER_ENTERED, value, t);
@@ -230,8 +291,14 @@ final class ProductionReadOnlyFormatAudit {
       if (textAt) add(Counter.USER_TEXT_AT_PATTERN_EXACT);
       if (value != null && same(effective, t.left, null)) add(Counter.EFFECTIVE_DEFAULT_LEFT_STRING_EXACT);
       if (number && same(effective, t.right, null)) add(Counter.EFFECTIVE_DEFAULT_RIGHT_NUMBER_EXACT);
-      boolean effectiveText = value != null && same(effective, t.text, null) || number && same(effective, t.numberText, null);
-      boolean effectiveTextAt = value != null && same(effective, t.textAt, null) || number && same(effective, t.numberTextAt, null);
+      boolean blankDefault = blank && (same(effective, t.blank, null) || same(effective, t.left, null));
+      boolean blankText = blank && (same(effective, t.blankText, null) || same(effective, t.text, null));
+      boolean blankTextAt = blank && (same(effective, t.blankTextAt, null) || same(effective, t.textAt, null));
+      if (blankDefault) add(Counter.EFFECTIVE_DEFAULT_BLANK_EXACT);
+      if (blankText) add(Counter.EFFECTIVE_DEFAULT_PLUS_TEXT_BLANK_TYPE_ONLY_EXACT);
+      if (blankTextAt) add(Counter.EFFECTIVE_DEFAULT_PLUS_TEXT_BLANK_AT_PATTERN_EXACT);
+      boolean effectiveText = value != null && same(effective, t.text, null) || number && same(effective, t.numberText, null) || blankText;
+      boolean effectiveTextAt = value != null && same(effective, t.textAt, null) || number && same(effective, t.numberTextAt, null) || blankTextAt;
       if (effectiveText) add(Counter.EFFECTIVE_DEFAULT_PLUS_TEXT_TYPE_ONLY_EXACT);
       if (effectiveTextAt) add(Counter.EFFECTIVE_DEFAULT_PLUS_TEXT_AT_PATTERN_EXACT);
       boolean numericText = number && same(effective, t.numberText, null);
@@ -240,6 +307,7 @@ final class ProductionReadOnlyFormatAudit {
       if (numericTextAt) add(Counter.EFFECTIVE_DEFAULT_PLUS_TEXT_RIGHT_NUMBER_AT_PATTERN_EXACT);
       if (textOnly && effectiveText || textAt && effectiveTextAt) add(Counter.TEXT_FORMAT_PAIR_EXACT);
       if (textOnly && numericText || textAt && numericTextAt) add(Counter.NUMERIC_TEXT_FORMAT_PAIR_EXACT);
+      if (textOnly && blankText || textAt && blankTextAt) add(Counter.BLANK_TEXT_FORMAT_PAIR_EXACT);
       JsonNode hyperlink = cell.get("hyperlink");
       if (hyperlink == null) add(Counter.HYPERLINK_ABSENT);
       else if (!hyperlink.isTextual()) add(Counter.HYPERLINK_OTHER);
@@ -254,17 +322,17 @@ final class ProductionReadOnlyFormatAudit {
       if (!issuer && !email && (nonempty(hyperlink) || hasLink(entered) || hasLink(effective))) add(Counter.UNRECOGNIZED_LINK);
     }
     boolean formatFields(JsonNode node, Set<String> fields, Source source) {
-      if (node == null || !node.isObject()) { problem(Counter.MALFORMED_STRUCTURE); return false; }
-      if (node.size() > fields.size()) { add(source, Feature.UNKNOWN_FIELD); problem(Counter.UNKNOWN_STRUCTURE); return false; }
+      if (node == null || !node.isObject()) { problem(Counter.MALFORMED_STRUCTURE, Reason.FORMAT_COMPONENT_NOT_OBJECT); return false; }
+      if (node.size() > fields.size()) { add(source, Feature.UNKNOWN_FIELD); problem(Counter.UNKNOWN_STRUCTURE, fields == FORMAT ? Reason.FORMAT_FIELDS_UNKNOWN : Reason.FORMAT_COMPONENT_FIELDS_UNKNOWN); return false; }
       boolean valid = true;
       for (Iterator<String> it = node.fieldNames(); it.hasNext();) if (!fields.contains(it.next())) {
-        add(source, Feature.UNKNOWN_FIELD); problem(Counter.UNKNOWN_STRUCTURE); valid = false;
+        add(source, Feature.UNKNOWN_FIELD); problem(Counter.UNKNOWN_STRUCTURE, fields == FORMAT ? Reason.FORMAT_FIELDS_UNKNOWN : Reason.FORMAT_COMPONENT_FIELDS_UNKNOWN); valid = false;
       }
       return valid;
     }
     void format(JsonNode f, Source s, String cellValue, Templates t) {
       if (f == null) { add(s, Feature.ABSENT); return; }
-      if (!f.isObject()) { add(s, Feature.NOT_OBJECT); problem(Counter.MALFORMED_STRUCTURE); return; }
+      if (!f.isObject()) { add(s, Feature.NOT_OBJECT); problem(Counter.MALFORMED_STRUCTURE, Reason.FORMAT_NOT_OBJECT); return; }
       if (f.isEmpty()) { add(s, Feature.EMPTY); return; }
       add(s, Feature.NONEMPTY);
       if (!formatFields(f, FORMAT, s)) return;
@@ -326,7 +394,7 @@ final class ProductionReadOnlyFormatAudit {
   }
 
   private static final class Templates {
-    ObjectNode left, right, text, textAt, numberText, numberTextAt, enteredLink, link, linkColor;
+    ObjectNode left, right, text, textAt, numberText, numberTextAt, blank, blankText, blankTextAt, enteredLink, link, linkColor;
     int fontSize = 10;
     static Templates from(JsonNode properties) {
       Templates t = new Templates();
@@ -338,6 +406,9 @@ final class ProductionReadOnlyFormatAudit {
       if (!safeDefault(rootDefault)) return t;
       t.left = rootDefault.deepCopy();
       if (textEquals(t.left.path("textFormat").get("fontFamily"), "arial,sans,sans-serif")) ((ObjectNode)t.left.get("textFormat")).put("fontFamily", "Arial");
+      t.blank = t.left.deepCopy();
+      t.blankText = t.blank.deepCopy(); t.blankText.putObject("numberFormat").put("type", "TEXT");
+      t.blankTextAt = t.blankText.deepCopy(); ((ObjectNode)t.blankTextAt.get("numberFormat")).put("pattern", "@");
       t.left.put("horizontalAlignment", "LEFT").put("hyperlinkDisplayType", "PLAIN_TEXT");
       t.right = t.left.deepCopy(); t.right.put("horizontalAlignment", "RIGHT");
       t.text = t.left.deepCopy(); t.text.putObject("numberFormat").put("type", "TEXT");
@@ -408,6 +479,19 @@ final class ProductionReadOnlyFormatAudit {
     if (!hasOnly(e, VALUES) || e.size() != 1 || !textEquals(e.get("stringValue"), value)
         || cell.has("formattedValue") && !textEquals(cell.get("formattedValue"), value)) return null;
     return value;
+  }
+  private static Reason pixelReason(JsonNode value, boolean row) {
+    if (!value.isNumber()) return row ? Reason.ROW_METADATA_PIXEL_SIZE_NON_NUMERIC : Reason.COLUMN_METADATA_PIXEL_SIZE_NON_NUMERIC;
+    if (!value.isIntegralNumber()) return row ? Reason.ROW_METADATA_PIXEL_SIZE_NON_INTEGRAL_TYPE : Reason.COLUMN_METADATA_PIXEL_SIZE_NON_INTEGRAL_TYPE;
+    if (value.bigIntegerValue().signum() <= 0) return row ? Reason.ROW_METADATA_PIXEL_SIZE_NONPOSITIVE : Reason.COLUMN_METADATA_PIXEL_SIZE_NONPOSITIVE;
+    if (integer(value, 1, 1000) >= 0) return null;
+    if (integer(value, 1001, 10000) >= 0) return row ? Reason.ROW_METADATA_PIXEL_SIZE_ABOVE1000_TO10000 : Reason.COLUMN_METADATA_PIXEL_SIZE_ABOVE1000_TO10000;
+    return row ? Reason.ROW_METADATA_PIXEL_SIZE_ABOVE10000 : Reason.COLUMN_METADATA_PIXEL_SIZE_ABOVE10000;
+  }
+  private static boolean blankCell(JsonNode cell) {
+    JsonNode u = cell.get("userEnteredValue"), e = cell.get("effectiveValue"), f = cell.get("formattedValue");
+    return (u == null || u.isObject() && u.isEmpty()) && (e == null || e.isObject() && e.isEmpty())
+        && (f == null || f.isTextual() && f.textValue().isEmpty());
   }
   private static boolean singleNumber(JsonNode n) { return hasOnly(n, VALUES) && n.size() == 1 && n.has("numberValue") && n.get("numberValue").isNumber(); }
   private static boolean emailCandidate(String value) {
