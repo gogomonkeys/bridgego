@@ -64,10 +64,12 @@ public final class ProductionReadOnlyWorkbook {
   public enum Status { STRUCTURE_OBSERVED_LAYOUT_UNAPPROVED, STRUCTURE_COMPATIBLE_ONLY }
   /** Contains no table values, target IDs, player details or authority to mutate anything. */
   public record Report(Status status,String profileVersion,String targetHash,String nativeSha256,
-      String layoutHash,String normalizedDataHash,String literalTypesHash,Map<String,Integer> dataRows) {
+      String layoutHash,String normalizedDataHash,String literalTypesHash,Map<String,Integer> dataRows,
+      ProductionReadOnlyBusiness.Summary businessSemantics) {
     public Report { dataRows=Collections.unmodifiableMap(new TreeMap<>(dataRows)); }
     public boolean mutationPermitted(){return false;}
     public boolean businessSemanticsVerified(){return false;}
+    public boolean supportedRecordContractVerified(){return businessSemantics!=null && businessSemantics.verified();}
     public boolean writerExclusionVerified(){return false;}
     @Override public String toString(){return "ProductionReadOnlyReport["+status+", mutationPermitted=false]";}
   }
@@ -84,7 +86,14 @@ public final class ProductionReadOnlyWorkbook {
   }
   static Report inspectDiagnosed(byte[] bytes,ProductionReadOnlyTarget target,ProductionReadOnlyDiagnostics diagnostics) {return parse(bytes,target,null,diagnostics);}
   private static Report parse(byte[] bytes,ProductionReadOnlyTarget target,String expectedLayout) {return parse(bytes,target,expectedLayout,new ProductionReadOnlyDiagnostics());}
+  // Deterministic local-test seam; no public caller-supplied observation time or raw table exposure.
+  static Report inspectAt(byte[] bytes,ProductionReadOnlyTarget target,Instant observationTime) {
+    return parse(bytes,target,null,new ProductionReadOnlyDiagnostics(),observationTime);
+  }
   private static Report parse(byte[] bytes,ProductionReadOnlyTarget target,String expectedLayout,ProductionReadOnlyDiagnostics diagnostics) {
+    return parse(bytes,target,expectedLayout,diagnostics,Instant.now());
+  }
+  private static Report parse(byte[] bytes,ProductionReadOnlyTarget target,String expectedLayout,ProductionReadOnlyDiagnostics diagnostics,Instant observationTime) {
     try {
       diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.WORKBOOK_JSON);
       if(bytes==null || bytes.length==0 || bytes.length>MAX_RESPONSE_BYTES || target==null)throw failure();
@@ -138,11 +147,13 @@ public final class ProductionReadOnlyWorkbook {
       if(!tables.get("dataset").equals(List.of(HEADERS.get("dataset"),List.of("bridgego-managed",target.datasetId()))))throw failure();
       diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.NUMERIC_ROWS);
       validateNumericRows(tables);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.BUSINESS_SEMANTICS);
+      var semantics=ProductionReadOnlyBusiness.inspect(tables,observationTime);
       diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.LAYOUT_HASH);
       ObjectNode layout=without(root,Set.of("spreadsheetId","spreadsheetUrl","sheets"));layout.set("sheetsByTitle",JSON.valueToTree(layouts));
       String layoutHash=hash(canonical(layout));if(expectedLayout!=null && !expectedLayout.equals(layoutHash))throw failure();
       return new Report(expectedLayout==null?Status.STRUCTURE_OBSERVED_LAYOUT_UNAPPROVED:Status.STRUCTURE_COMPATIBLE_ONLY,
-          ProductionReadOnlyTarget.PROFILE,hash(canonical(JSON.valueToTree(Map.of("profile",ProductionReadOnlyTarget.PROFILE,"target",target)))),sha(bytes),layoutHash,hash(JSON.valueToTree(tables)),hash(JSON.valueToTree(types)),counts);
+          ProductionReadOnlyTarget.PROFILE,hash(canonical(JSON.valueToTree(Map.of("profile",ProductionReadOnlyTarget.PROFILE,"target",target)))),sha(bytes),layoutHash,hash(JSON.valueToTree(tables)),hash(JSON.valueToTree(types)),counts,semantics);
     }catch(Exception | LinkageError bad){diagnostics.fail(bad);throw failure();}
   }
   private static List<List<String>> logicalRows(String title,List<List<String>> full,ProductionReadOnlyDiagnostics diagnostics) {

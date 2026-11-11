@@ -46,7 +46,7 @@ public final class ProductionReadOnlyStartup {
         });
         if(report==null || report.mutationPermitted() || report.businessSemanticsVerified() || report.writerExclusionVerified())return result("READ_REJECTED",diagnostics);
         diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.COMPLETE);
-        return new Outcome("OBSERVED_STRUCTURE_ONLY",report,diagnostics.snapshot(),diagnostics.formatAudit());
+        return new Outcome(report.supportedRecordContractVerified()?"OBSERVED_SUPPORTED_RECORD_CONTRACT":"OBSERVED_STRUCTURE_ONLY",report,diagnostics.snapshot(),diagnostics.formatAudit());
       }catch(Exception | LinkageError rejected){diagnostics.fail(rejected);return result("READ_REJECTED",diagnostics);}
     }catch(Exception | LinkageError invalid){diagnostics.fail(invalid);return result("CONFIG_REJECTED",diagnostics);}
   }
