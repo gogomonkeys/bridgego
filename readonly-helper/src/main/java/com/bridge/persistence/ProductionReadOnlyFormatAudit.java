@@ -314,7 +314,8 @@ final class ProductionReadOnlyFormatAudit {
       else if (hyperlink.textValue().isEmpty()) add(Counter.HYPERLINK_EMPTY);
       else add(Counter.HYPERLINK_NONEMPTY);
       boolean issuer = ISSUER.equals(value) && textEquals(hyperlink, ISSUER)
-          && same(entered, t.enteredLink, null) && same(effective, t.link, null);
+          && ProductionReadOnlyWorkbook.sameKnownFormat(entered, t.enteredLink)
+          && ProductionReadOnlyWorkbook.sameKnownFormat(effective, t.link);
       boolean email = emailCandidate(value) && mailto(hyperlink, value)
           && same(entered, t.enteredLink, value) && same(effective, t.link, value);
       if (issuer) add(Counter.KNOWN_ISSUER_LINK_STYLE_EXACT);
@@ -415,14 +416,11 @@ final class ProductionReadOnlyFormatAudit {
       t.textAt = t.text.deepCopy(); ((ObjectNode)t.textAt.get("numberFormat")).put("pattern", "@");
       t.numberText = t.text.deepCopy(); t.numberText.put("horizontalAlignment", "RIGHT");
       t.numberTextAt = t.textAt.deepCopy(); t.numberTextAt.put("horizontalAlignment", "RIGHT");
-      // This exact hyperlink profile is established only for the native Arial profile.
-      if (!"Arial".equals(font) || !t.left.path("textFormat").isObject()) return t;
+      // Reuse the parser's exact validated Arial/Carlito theme and root default, never just its font name.
+      try { t.link = ProductionReadOnlyWorkbook.nativeIssuerLinkFormat(properties); }
+      catch (RuntimeException invalidProfile) { return t; }
       t.enteredLink = JsonNodeFactory.instance.objectNode();
       t.enteredLink.putObject("textFormat").putObject("link").put("uri", ISSUER);
-      t.link = t.left.deepCopy(); t.link.put("hyperlinkDisplayType", "LINKED");
-      ObjectNode tf = (ObjectNode)t.link.get("textFormat");
-      tf.put("underline", true); tf.putObject("link").put("uri", ISSUER);
-      tf.set("foregroundColor", t.linkColor); tf.putObject("foregroundColorStyle").set("rgbColor", t.linkColor);
       return t;
     }
   }
@@ -484,8 +482,9 @@ final class ProductionReadOnlyFormatAudit {
     if (!value.isNumber()) return row ? Reason.ROW_METADATA_PIXEL_SIZE_NON_NUMERIC : Reason.COLUMN_METADATA_PIXEL_SIZE_NON_NUMERIC;
     if (!value.isIntegralNumber()) return row ? Reason.ROW_METADATA_PIXEL_SIZE_NON_INTEGRAL_TYPE : Reason.COLUMN_METADATA_PIXEL_SIZE_NON_INTEGRAL_TYPE;
     if (value.bigIntegerValue().signum() <= 0) return row ? Reason.ROW_METADATA_PIXEL_SIZE_NONPOSITIVE : Reason.COLUMN_METADATA_PIXEL_SIZE_NONPOSITIVE;
-    if (integer(value, 1, 1000) >= 0) return null;
-    if (integer(value, 1001, 10000) >= 0) return row ? Reason.ROW_METADATA_PIXEL_SIZE_ABOVE1000_TO10000 : Reason.COLUMN_METADATA_PIXEL_SIZE_ABOVE1000_TO10000;
+    if (integer(value, 1, row ? 1000 : 10000) >= 0) return null;
+    // Retain the fixed legacy column bucket in the output schema, but supported widths no longer fail completeness.
+    if (integer(value, 1001, 10000) >= 0) return Reason.ROW_METADATA_PIXEL_SIZE_ABOVE1000_TO10000;
     return row ? Reason.ROW_METADATA_PIXEL_SIZE_ABOVE10000 : Reason.COLUMN_METADATA_PIXEL_SIZE_ABOVE10000;
   }
   private static boolean blankCell(JsonNode cell) {

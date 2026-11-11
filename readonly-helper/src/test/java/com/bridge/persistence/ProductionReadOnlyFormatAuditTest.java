@@ -303,7 +303,10 @@ class ProductionReadOnlyFormatAuditTest {
         case 2,3->row?Reason.ROW_METADATA_PIXEL_SIZE_NONPOSITIVE:Reason.COLUMN_METADATA_PIXEL_SIZE_NONPOSITIVE;
         case 4,5->row?Reason.ROW_METADATA_PIXEL_SIZE_ABOVE1000_TO10000:Reason.COLUMN_METADATA_PIXEL_SIZE_ABOVE1000_TO10000;
         default->row?Reason.ROW_METADATA_PIXEL_SIZE_ABOVE10000:Reason.COLUMN_METADATA_PIXEL_SIZE_ABOVE10000;};
-      Summary summary=audit(root);assertFalse(summary.completeScan());assertEquals(1,summary.reasons().get(expectedReason));
+      Summary summary=audit(root);
+      if(!row && (i==4 || i==5)) {
+        assertTrue(summary.completeScan());assertTrue(summary.reasons().values().stream().allMatch(n->n==0));
+      } else { assertFalse(summary.completeScan());assertEquals(1,summary.reasons().get(expectedReason)); }
       assertEquals(expected,count(summary,Counter.CELLS_ENUMERATED));assertSafe(summary);
     }
   }

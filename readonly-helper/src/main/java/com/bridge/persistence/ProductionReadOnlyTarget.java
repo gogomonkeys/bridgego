@@ -4,7 +4,7 @@ import java.util.*;
 
 /** Explicit reviewed selection, never inferred from resource content or a browser query parameter. */
 public record ProductionReadOnlyTarget(String spreadsheetId,String expectedTitle,String datasetId,List<Sheet> sheets) {
-  public static final String PROFILE="legacy-eight-native-v1-readonly";
+  public static final String PROFILE="legacy-eight-native-v2-readonly";
   public record Sheet(String title,int sheetId) {}
   public ProductionReadOnlyTarget {
     try {

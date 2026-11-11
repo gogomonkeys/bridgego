@@ -289,7 +289,8 @@ public final class ProductionReadOnlyWorkbook {
       JsonNode dimension = values.get(i);
       fields(dimension, Set.of("hiddenByFilter", "hiddenByUser", "pixelSize", "developerMetadata", "dataSourceColumnReference"));
       falseBoolean(dimension, "hiddenByFilter"); falseBoolean(dimension, "hiddenByUser");
-      if (dimension.has("pixelSize")) integer(dimension, "pixelSize", 1, 1000);
+      // Local display-metadata bounds, not API limits or allocation sizes. Preserve the exact value below.
+      if (dimension.has("pixelSize")) integer(dimension, "pixelSize", 1, key.equals("columnMetadata") ? 10000 : 1000);
       emptyArrays(dimension, Set.of("developerMetadata")); emptyObject(dimension, "dataSourceColumnReference");
       coverage[start + i] = canonical(dimension);
     }
@@ -332,9 +333,9 @@ public final class ProductionReadOnlyWorkbook {
     diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CELL_FORMAT);
     boolean link=cell.has("userEnteredFormat") && !cell.get("userEnteredFormat").isEmpty();
     if(link) {
-      if(profile!=DisplayProfile.ARIAL_NATIVE || !title.equals("auth_identities") || row<=0 || column!=0
+      if(profile==DisplayProfile.PLAIN || !title.equals("auth_identities") || row<=0 || column!=0
           || !ISSUER.equals(value) || !ISSUER.equals(text(cell,"hyperlink")))throw failure();
-      observedNativeIssuerLink(cell,defaultFormat);
+      observedNativeIssuerLink(cell,profile,defaultFormat);
     }else {
       emptyObject(cell,"userEnteredFormat");
       if(cell.has("effectiveFormat")) {
@@ -352,16 +353,58 @@ public final class ProductionReadOnlyWorkbook {
     return value;
   }
 
-  private static void observedNativeIssuerLink(JsonNode cell,JsonNode defaultFormat) {
+  private static void observedNativeIssuerLink(JsonNode cell,DisplayProfile profile,JsonNode defaultFormat) {
     JsonNode entered=JSON.valueToTree(Map.of("textFormat",Map.of("link",Map.of("uri",ISSUER))));
-    if(!canonical(required(cell,"userEnteredFormat")).equals(canonical(entered)))throw failure();
+    if(!sameKnownFormat(required(cell,"userEnteredFormat"),entered)
+        || !sameKnownFormat(required(cell,"effectiveFormat"),nativeIssuerLinkFormat(profile,defaultFormat)))throw failure();
+  }
+
+  /** The audit may classify this style only after the same strict root/theme checks as the parser. */
+  static ObjectNode nativeIssuerLinkFormat(JsonNode properties) {
+    DisplayProfile profile=properties(properties);
+    if(profile==DisplayProfile.PLAIN)throw failure();
+    return nativeIssuerLinkFormat(profile,required(properties,"defaultFormat"));
+  }
+
+  private static ObjectNode nativeIssuerLinkFormat(DisplayProfile profile,JsonNode defaultFormat) {
     ObjectNode expected=effectiveDefault(defaultFormat);
     expected.put("horizontalAlignment","LEFT");expected.put("hyperlinkDisplayType","LINKED");
     ObjectNode tf=(ObjectNode)expected.get("textFormat");tf.put("underline",true);tf.putObject("link").put("uri",ISSUER);
+    List<String> linkColor=switch(profile) {
+      case CARLITO->CARLITO_THEME_COLORS.get("LINK");
+      case ARIAL_NATIVE->ARIAL_THEME_COLORS.get("LINK");
+      case PLAIN->throw failure();
+    };
     var color=JSON.createObjectNode();var channels=List.of("red","green","blue");
-    for(int i=0;i<3;i++)color.put(channels.get(i),new BigDecimal(ARIAL_THEME_COLORS.get("LINK").get(i)));
+    for(int i=0;i<3;i++)color.put(channels.get(i),new BigDecimal(linkColor.get(i)));
     tf.set("foregroundColor",color);tf.putObject("foregroundColorStyle").set("rgbColor",color.deepCopy());
-    if(!canonical(required(cell,"effectiveFormat")).equals(canonical(expected)))throw failure();
+    return expected;
+  }
+
+  // Compare the small validated template, rejecting extra keys even when their values are empty.
+  // Only omission of an empty known object is equivalent (including inherited default black RGB).
+  static boolean sameKnownFormat(JsonNode actual,JsonNode expected) {
+    if(actual==null || expected==null)return false;
+    if(expected.isObject()) {
+      if(!actual.isObject() || actual.size()>expected.size())return false;
+      for(Iterator<String> it=actual.fieldNames();it.hasNext();)if(!expected.has(it.next()))return false;
+      for(Iterator<Map.Entry<String,JsonNode>> it=expected.fields();it.hasNext();) {
+        var field=it.next();JsonNode value=actual.get(field.getKey());
+        if(value==null && emptyKnownFormat(field.getValue()))continue;
+        if(!sameKnownFormat(value,field.getValue()))return false;
+      }
+      return true;
+    }
+    if(expected.isNumber())return actual.isNumber()
+        && expected.isIntegralNumber()==actual.isIntegralNumber()
+        && expected.decimalValue().compareTo(actual.decimalValue())==0;
+    return expected.equals(actual);
+  }
+
+  private static boolean emptyKnownFormat(JsonNode node) {
+    if(!node.isObject())return false;
+    for(JsonNode child:node)if(!emptyKnownFormat(child))return false;
+    return true;
   }
 
   private static DisplayProfile properties(JsonNode p) {
