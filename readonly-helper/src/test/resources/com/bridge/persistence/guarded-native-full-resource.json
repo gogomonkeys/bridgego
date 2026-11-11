@@ -1,0 +1,270 @@
+{
+  "properties": {
+    "title": "Synthetic display-only fixture",
+    "timeZone": "Asia/Taipei",
+    "spreadsheetTheme": {
+      "primaryFontFamily": "Arial",
+      "themeColors": [
+        {
+          "colorType": "TEXT",
+          "color": {
+            "rgbColor": {}
+          }
+        },
+        {
+          "colorType": "BACKGROUND",
+          "color": {
+            "rgbColor": {
+              "blue": 1,
+              "green": 1,
+              "red": 1
+            }
+          }
+        },
+        {
+          "color": {
+            "rgbColor": {
+              "blue": 0.95686275,
+              "green": 0.52156866,
+              "red": 0.25882354
+            }
+          },
+          "colorType": "ACCENT1"
+        },
+        {
+          "colorType": "ACCENT2",
+          "color": {
+            "rgbColor": {
+              "blue": 0.20784314,
+              "green": 0.2627451,
+              "red": 0.91764706
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT3",
+          "color": {
+            "rgbColor": {
+              "red": 0.9843137,
+              "blue": 0.015686275,
+              "green": 0.7372549
+            }
+          }
+        },
+        {
+          "color": {
+            "rgbColor": {
+              "red": 0.20392157,
+              "blue": 0.3254902,
+              "green": 0.65882355
+            }
+          },
+          "colorType": "ACCENT4"
+        },
+        {
+          "colorType": "ACCENT5",
+          "color": {
+            "rgbColor": {
+              "blue": 0.003921569,
+              "green": 0.42745098,
+              "red": 1
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT6",
+          "color": {
+            "rgbColor": {
+              "blue": 0.7764706,
+              "red": 0.27450982,
+              "green": 0.7411765
+            }
+          }
+        },
+        {
+          "colorType": "LINK",
+          "color": {
+            "rgbColor": {
+              "green": 0.33333334,
+              "blue": 0.8,
+              "red": 0.06666667
+            }
+          }
+        }
+      ]
+    },
+    "defaultFormat": {
+      "textFormat": {
+        "fontSize": 10,
+        "italic": false,
+        "foregroundColorStyle": {
+          "rgbColor": {}
+        },
+        "strikethrough": false,
+        "underline": false,
+        "bold": false,
+        "foregroundColor": {},
+        "fontFamily": "arial,sans,sans-serif"
+      },
+      "wrapStrategy": "OVERFLOW_CELL",
+      "padding": {
+        "bottom": 2,
+        "left": 3,
+        "top": 2,
+        "right": 3
+      },
+      "backgroundColor": {
+        "red": 1,
+        "green": 1,
+        "blue": 1
+      },
+      "verticalAlignment": "BOTTOM",
+      "backgroundColorStyle": {
+        "rgbColor": {
+          "red": 1,
+          "green": 1,
+          "blue": 1
+        }
+      }
+    },
+    "autoRecalc": "ON_CHANGE",
+    "locale": "en_US"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "title": "display_only"
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": [
+                {
+                  "effectiveFormat": {
+                    "horizontalAlignment": "LEFT",
+                    "wrapStrategy": "OVERFLOW_CELL",
+                    "padding": {
+                      "right": 3,
+                      "bottom": 2,
+                      "top": 2,
+                      "left": 3
+                    },
+                    "backgroundColorStyle": {
+                      "rgbColor": {
+                        "green": 1,
+                        "red": 1,
+                        "blue": 1
+                      }
+                    },
+                    "hyperlinkDisplayType": "PLAIN_TEXT",
+                    "verticalAlignment": "BOTTOM",
+                    "textFormat": {
+                      "underline": false,
+                      "fontFamily": "Arial",
+                      "italic": false,
+                      "bold": false,
+                      "strikethrough": false,
+                      "fontSize": 10,
+                      "foregroundColor": {},
+                      "foregroundColorStyle": {
+                        "rgbColor": {}
+                      }
+                    },
+                    "backgroundColor": {
+                      "green": 1,
+                      "blue": 1,
+                      "red": 1
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "properties": {
+        "title": "auth_identities"
+      },
+      "data": [
+        {
+          "rowData": [
+            {
+              "values": []
+            },
+            {
+              "values": [
+                {
+                  "formattedValue": "https://accounts.google.com",
+                  "userEnteredValue": {
+                    "stringValue": "https://accounts.google.com"
+                  },
+                  "effectiveValue": {
+                    "stringValue": "https://accounts.google.com"
+                  },
+                  "hyperlink": "https://accounts.google.com",
+                  "userEnteredFormat": {
+                    "textFormat": {
+                      "link": {
+                        "uri": "https://accounts.google.com"
+                      }
+                    }
+                  },
+                  "effectiveFormat": {
+                    "horizontalAlignment": "LEFT",
+                    "verticalAlignment": "BOTTOM",
+                    "textFormat": {
+                      "foregroundColor": {
+                        "red": 0.06666667,
+                        "blue": 0.8,
+                        "green": 0.33333334
+                      },
+                      "underline": true,
+                      "strikethrough": false,
+                      "italic": false,
+                      "fontFamily": "Arial",
+                      "fontSize": 10,
+                      "bold": false,
+                      "foregroundColorStyle": {
+                        "rgbColor": {
+                          "green": 0.33333334,
+                          "red": 0.06666667,
+                          "blue": 0.8
+                        }
+                      },
+                      "link": {
+                        "uri": "https://accounts.google.com"
+                      }
+                    },
+                    "wrapStrategy": "OVERFLOW_CELL",
+                    "backgroundColor": {
+                      "blue": 1,
+                      "green": 1,
+                      "red": 1
+                    },
+                    "hyperlinkDisplayType": "LINKED",
+                    "backgroundColorStyle": {
+                      "rgbColor": {
+                        "blue": 1,
+                        "green": 1,
+                        "red": 1
+                      }
+                    },
+                    "padding": {
+                      "top": 2,
+                      "right": 3,
+                      "bottom": 2,
+                      "left": 3
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
