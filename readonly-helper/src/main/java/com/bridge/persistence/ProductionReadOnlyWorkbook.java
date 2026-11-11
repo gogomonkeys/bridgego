@@ -102,6 +102,9 @@ public final class ProductionReadOnlyWorkbook {
       if(!target.expectedTitle().equals(text(p,"title")))throw failure();
       diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.WORKBOOK_THEME);
       DisplayProfile theme=properties(p);
+      // Observation only. Audit errors cannot replace or relax any original validation below.
+      try{diagnostics.recordFormatAudit(ProductionReadOnlyFormatAudit.inspect(root));}
+      catch(Exception | LinkageError ignoredAuditFailure){/* No raw error details or fallback reads. */}
       diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.SHEET_COLLECTION);
       JsonNode sheets=required(root,"sheets");if(!sheets.isArray() || sheets.size()!=8)throw failure();
       var layouts=new TreeMap<String,JsonNode>();var tables=new TreeMap<String,List<List<String>>>();

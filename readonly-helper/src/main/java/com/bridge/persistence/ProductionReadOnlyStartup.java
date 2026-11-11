@@ -16,7 +16,7 @@ public final class ProductionReadOnlyStartup {
   @FunctionalInterface interface Reader {
     ProductionReadOnlyWorkbook.Report read(ProductionReadOnlyPreflight.Settings settings,Supplier<byte[]> credentials);
   }
-  record Outcome(String status,ProductionReadOnlyWorkbook.Report summary,ProductionReadOnlyDiagnostics.Snapshot diagnostic) {
+  record Outcome(String status,ProductionReadOnlyWorkbook.Report summary,ProductionReadOnlyDiagnostics.Snapshot diagnostic,ProductionReadOnlyFormatAudit.Summary formatAudit) {
     @Override public String toString(){return "StartupReadOnlyOutcome["+status+"]";}
   }
   static Outcome run(Function<String,String> env,Clock clock,AtomicBoolean attempted,Reader reader) {
@@ -46,11 +46,11 @@ public final class ProductionReadOnlyStartup {
         });
         if(report==null || report.mutationPermitted() || report.businessSemanticsVerified() || report.writerExclusionVerified())return result("READ_REJECTED",diagnostics);
         diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.COMPLETE);
-        return new Outcome("OBSERVED_STRUCTURE_ONLY",report,diagnostics.snapshot());
+        return new Outcome("OBSERVED_STRUCTURE_ONLY",report,diagnostics.snapshot(),diagnostics.formatAudit());
       }catch(Exception | LinkageError rejected){diagnostics.fail(rejected);return result("READ_REJECTED",diagnostics);}
     }catch(Exception | LinkageError invalid){diagnostics.fail(invalid);return result("CONFIG_REJECTED",diagnostics);}
   }
-  private static Outcome result(String status,ProductionReadOnlyDiagnostics diagnostics){if(status.endsWith("_REJECTED"))diagnostics.fail(ProductionReadOnlyDiagnostics.ErrorType.REJECTED);return new Outcome(status,null,diagnostics.snapshot());}
+  private static Outcome result(String status,ProductionReadOnlyDiagnostics diagnostics){if(status.endsWith("_REJECTED"))diagnostics.fail(ProductionReadOnlyDiagnostics.ErrorType.REJECTED);return new Outcome(status,null,diagnostics.snapshot(),diagnostics.formatAudit());}
   public static void main(String[] ignored) {
     // No persistent marker is created. Deployments/cold starts can repeat this bounded, idempotent read.
     var diagnostics=new ProductionReadOnlyDiagnostics();

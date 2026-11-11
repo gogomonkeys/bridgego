@@ -27,5 +27,8 @@ final class ProductionReadOnlyDiagnostics {
       failure instanceof InterruptedException ? ErrorType.INTERRUPTED : failure instanceof SSLException ? ErrorType.TLS :
       failure instanceof IOException ? ErrorType.IO : failure instanceof LinkageError ? ErrorType.LINKAGE : ErrorType.REJECTED);
   }
+  private final AtomicReference<ProductionReadOnlyFormatAudit.Summary> formatAudit=new AtomicReference<>();
+  void recordFormatAudit(ProductionReadOnlyFormatAudit.Summary summary){formatAudit.compareAndSet(null,summary);}
+  ProductionReadOnlyFormatAudit.Summary formatAudit(){return formatAudit.get();}
   Snapshot snapshot(){return state.get();}
 }
