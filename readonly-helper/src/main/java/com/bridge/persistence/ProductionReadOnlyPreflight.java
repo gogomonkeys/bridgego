@@ -50,7 +50,7 @@ public final class ProductionReadOnlyPreflight {
         resource=http.withDiagnostics(diagnostics).readFullResource();
         diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.WORKBOOK_PARSE);
         return verify?ProductionReadOnlyWorkbook.verify(resource,settings.target(),layout):
-            ProductionReadOnlyWorkbook.inspect(resource,settings.target());
+            ProductionReadOnlyWorkbook.inspectDiagnosed(resource,settings.target(),diagnostics);
       }
     }catch(Exception | LinkageError failure){diagnostics.fail(failure);throw rejected();}
     finally{clear(ownedCredentials);clear(resource);if(acquired)ACTIVE.set(false);}

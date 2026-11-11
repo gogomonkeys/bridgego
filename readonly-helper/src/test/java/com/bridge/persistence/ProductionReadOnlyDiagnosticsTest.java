@@ -42,7 +42,7 @@ class ProductionReadOnlyDiagnosticsTest {
   }
   @Test void parserFailureIsDistinctFromTransportAndBodyCanaryAbsent() throws Exception {
     var d=new ProductionReadOnlyDiagnostics();var settings=new ProductionReadOnlyPreflight.Settings(TARGET,EMAIL,true);var fake=new FakeClient(r->response(200,token(r)?validToken():("{\"private\":\""+CANARY+"\"}").getBytes(StandardCharsets.UTF_8)));
-    assertThrows(IllegalStateException.class,()->ProductionReadOnlyPreflight.run(settings,()->credentials.clone(),null,false,(t,c,e,en)->new ProductionReadOnlyHttp(t,c,e,fake),d));assertEquals(ProductionReadOnlyDiagnostics.Stage.WORKBOOK_PARSE,d.snapshot().stage());assertEquals(ProductionReadOnlyDiagnostics.ErrorType.REJECTED,d.snapshot().error());json(d);
+    assertThrows(IllegalStateException.class,()->ProductionReadOnlyPreflight.run(settings,()->credentials.clone(),null,false,(t,c,e,en)->new ProductionReadOnlyHttp(t,c,e,fake),d));assertEquals(ProductionReadOnlyDiagnostics.Stage.ROOT_FIELDS,d.snapshot().stage());assertEquals(ProductionReadOnlyDiagnostics.ErrorType.REJECTED,d.snapshot().error());json(d);
   }
   @Test void timeoutSnapshotCannotBeOverwrittenByLateWorkerOrCleanup() throws Exception {
     var d=new ProductionReadOnlyDiagnostics();var entered=new CountDownLatch(1);var release=new CountDownLatch(1);var exited=new CountDownLatch(1);

@@ -82,25 +82,36 @@ public final class ProductionReadOnlyWorkbook {
     if(expectedLayoutHash==null || !expectedLayoutHash.matches("[a-f0-9]{64}"))throw failure();
     return parse(bytes,target,expectedLayoutHash);
   }
-  private static Report parse(byte[] bytes,ProductionReadOnlyTarget target,String expectedLayout) {
+  static Report inspectDiagnosed(byte[] bytes,ProductionReadOnlyTarget target,ProductionReadOnlyDiagnostics diagnostics) {return parse(bytes,target,null,diagnostics);}
+  private static Report parse(byte[] bytes,ProductionReadOnlyTarget target,String expectedLayout) {return parse(bytes,target,expectedLayout,new ProductionReadOnlyDiagnostics());}
+  private static Report parse(byte[] bytes,ProductionReadOnlyTarget target,String expectedLayout,ProductionReadOnlyDiagnostics diagnostics) {
     try {
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.WORKBOOK_JSON);
       if(bytes==null || bytes.length==0 || bytes.length>MAX_RESPONSE_BYTES || target==null)throw failure();
       JsonNode root=JSON.readTree(bytes);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.ROOT_FIELDS);
       fields(root,union(Set.of("spreadsheetId","spreadsheetUrl","properties","sheets","commentsViewMode","developerMetadata"),ROOT_EMPTY_ARRAYS));
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.ROOT_BINDING);
       if(!target.spreadsheetId().equals(text(root,"spreadsheetId"))
           || !("https://docs.google.com/spreadsheets/d/"+target.spreadsheetId()+"/edit").equals(text(root,"spreadsheetUrl"))
           || !COMMENTS.equals(text(root,"commentsViewMode")))throw failure();
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.ROOT_METADATA);
       emptyArrays(root,ROOT_EMPTY_ARRAYS);emptyArrays(root,Set.of("developerMetadata")); // Legacy profile has no guarded receipts.
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.ROOT_TITLE);
       JsonNode p=required(root,"properties");
       if(!target.expectedTitle().equals(text(p,"title")))throw failure();
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.WORKBOOK_THEME);
       DisplayProfile theme=properties(p);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.SHEET_COLLECTION);
       JsonNode sheets=required(root,"sheets");if(!sheets.isArray() || sheets.size()!=8)throw failure();
       var layouts=new TreeMap<String,JsonNode>();var tables=new TreeMap<String,List<List<String>>>();
       var counts=new TreeMap<String,Integer>();var types=new TreeMap<String,JsonNode>();
       Set<Integer> ids=new HashSet<>(),indices=new HashSet<>();
       for(JsonNode sheet:sheets) {
+        diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.SHEET_FEATURES);
         fields(sheet,union(Set.of("properties","data","basicFilter"),SHEET_EMPTY_ARRAYS));
         emptyArrays(sheet,SHEET_EMPTY_ARRAYS);emptyObject(sheet,"basicFilter");
+        diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.SHEET_PROPERTIES);
         JsonNode sp=required(sheet,"properties");
         fields(sp,Set.of("sheetId","title","index","sheetType","gridProperties","hidden","rightToLeft","tabColor","tabColorStyle","dataSourceSheetProperties"));
         String title=text(sp,"title");int index=optionalInteger(sp,"index",0,0,7),id=integer(sp,"sheetId",0,Integer.MAX_VALUE);
@@ -109,25 +120,30 @@ public final class ProductionReadOnlyWorkbook {
         if(!pin.title().equals(title) || pin.sheetId()!=id)throw failure();
         falseBoolean(sp,"hidden");falseBoolean(sp,"rightToLeft");
         for(String key:List.of("tabColor","tabColorStyle","dataSourceSheetProperties"))emptyObject(sp,key);
+        diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.SHEET_GRID);
         JsonNode gp=required(sp,"gridProperties");
         fields(gp,Set.of("rowCount","columnCount","frozenRowCount","frozenColumnCount","hideGridlines","rowGroupControlAfter","columnGroupControlAfter"));
         int rows=integer(gp,"rowCount",1000,1000),columns=integer(gp,"columnCount",26,26);
         optionalInteger(gp,"frozenRowCount",0,0,0);optionalInteger(gp,"frozenColumnCount",0,0,0);falseBoolean(gp,"hideGridlines");
         for(String key:List.of("rowGroupControlAfter","columnGroupControlAfter"))if(gp.has(key) && !gp.get(key).isBoolean())throw failure();
-        var parsed=parseGrid(title,new Grid(id,rows,columns,index),required(sheet,"data"),theme,p.get("defaultFormat"));
+        var parsed=parseGrid(title,new Grid(id,rows,columns,index),required(sheet,"data"),theme,p.get("defaultFormat"),diagnostics);
         ObjectNode layout=without(sheet,Set.of("data"));layout.set("gridDataMetadata",parsed.metadata());
         layouts.put(title,layout);types.put(title,literalTypes(required(sheet,"data")));
-        var logical=logicalRows(title,parsed.rows());tables.put(title,logical);counts.put(title,logical.size()-1);
+        var logical=logicalRows(title,parsed.rows(),diagnostics);tables.put(title,logical);counts.put(title,logical.size()-1);
       }
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.DATASET_MARKER);
       if(!tables.get("dataset").equals(List.of(HEADERS.get("dataset"),List.of("bridgego-managed",target.datasetId()))))throw failure();
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.NUMERIC_ROWS);
       validateNumericRows(tables);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.LAYOUT_HASH);
       ObjectNode layout=without(root,Set.of("spreadsheetId","spreadsheetUrl","sheets"));layout.set("sheetsByTitle",JSON.valueToTree(layouts));
       String layoutHash=hash(canonical(layout));if(expectedLayout!=null && !expectedLayout.equals(layoutHash))throw failure();
       return new Report(expectedLayout==null?Status.STRUCTURE_OBSERVED_LAYOUT_UNAPPROVED:Status.STRUCTURE_COMPATIBLE_ONLY,
           ProductionReadOnlyTarget.PROFILE,hash(canonical(JSON.valueToTree(Map.of("profile",ProductionReadOnlyTarget.PROFILE,"target",target)))),sha(bytes),layoutHash,hash(JSON.valueToTree(tables)),hash(JSON.valueToTree(types)),counts);
-    }catch(Exception | LinkageError bad){throw failure();}
+    }catch(Exception | LinkageError bad){diagnostics.fail(bad);throw failure();}
   }
-  private static List<List<String>> logicalRows(String title,List<List<String>> full) {
+  private static List<List<String>> logicalRows(String title,List<List<String>> full,ProductionReadOnlyDiagnostics diagnostics) {
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.TABLE_HEADERS);
     if(full.isEmpty())throw failure();int width=HEADERS.get(title).size();
     if(title.equals("accounts")) {
       var h=full.get(0);if(h.subList(0,2).equals(List.of("account_id","schema_version"))) {
@@ -139,6 +155,7 @@ public final class ProductionReadOnlyWorkbook {
     List<String> expected=title.equals("accounts") && width==2?List.of("account_id","schema_version"):
         title.equals("accounts") && width==5?List.of("account_id","schema_version","nickname","email","lifetime_statistics"):HEADERS.get(title);
     if(!full.get(0).subList(0,width).equals(expected))throw failure();
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.TABLE_ROWS);
     var out=new ArrayList<List<String>>();
     for(var row:full) {
       if(row.subList(width,26).stream().anyMatch(v->!v.isEmpty()))throw failure();
@@ -180,7 +197,8 @@ public final class ProductionReadOnlyWorkbook {
     catch(Exception ignored){throw failure();}
   }
   private static ParsedGrid parseGrid(String title, Grid grid, JsonNode blocks, DisplayProfile profile,
-      JsonNode defaultFormat) {
+      JsonNode defaultFormat,ProductionReadOnlyDiagnostics diagnostics) {
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.GRID_BLOCK);
     if (!blocks.isArray() || blocks.isEmpty() || blocks.size() > MAX_BLOCKS) throw failure();
     String[][] cells = new String[grid.rowCount()][grid.columnCount()];
     for (String[] row : cells) Arrays.fill(row, "");
@@ -188,25 +206,31 @@ public final class ProductionReadOnlyWorkbook {
     JsonNode[] rowMetadata = new JsonNode[grid.rowCount()], columnMetadata = new JsonNode[grid.columnCount()];
     var cellMetadata = new TreeMap<Integer,JsonNode>();
     for (JsonNode block : blocks) {
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.GRID_BLOCK);
       fields(block, Set.of("startRow", "startColumn", "rowData", "rowMetadata", "columnMetadata"));
       int startRow = optionalInteger(block, "startRow", 0, 0, grid.rowCount() - 1);
       int startColumn = optionalInteger(block, "startColumn", 0, 0, grid.columnCount() - 1);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.GRID_DIMENSIONS);
       dimensions(block, "rowMetadata", startRow, rowMetadata);
       dimensions(block, "columnMetadata", startColumn, columnMetadata);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.GRID_ROW);
       if (!block.has("rowData")) continue;
       JsonNode rows = block.get("rowData");
       if (!rows.isArray() || rows.size() > grid.rowCount() - startRow) throw failure();
       for (int r = 0; r < rows.size(); r++) {
+        diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.GRID_ROW);
         JsonNode row = rows.get(r); fields(row, Set.of("values"));
         if (!row.has("values")) continue;
         JsonNode values = row.get("values");
         if (!values.isArray() || values.size() > grid.columnCount() - startColumn) throw failure();
         for (int c = 0; c < values.size(); c++) {
+          diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.GRID_CELL);
           int rr = r + startRow, cc = c + startColumn;
           if (assigned[rr][cc]) throw failure();
           assigned[rr][cc] = true;
           JsonNode cell = values.get(c);
-          String value = parseCell(cell, title, rr, cc, profile,defaultFormat);
+          String value = parseCell(cell, title, rr, cc, profile,defaultFormat,diagnostics);
+          diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CELL_INHERITED_FORMAT);
           boolean issuerLink=cell.has("userEnteredFormat") && !cell.get("userEnteredFormat").isEmpty();
           // Exact known links are recognized but kept in this read-only profile's layout fingerprint.
           // This parser has no write capability and never changes the native cells.
@@ -219,6 +243,7 @@ public final class ProductionReadOnlyWorkbook {
         }
       }
     }
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.GRID_COVERAGE);
     for (JsonNode entry : rowMetadata) if (entry == null) throw failure();
     for (JsonNode entry : columnMetadata) if (entry == null) throw failure();
     int end = grid.rowCount();
@@ -267,13 +292,15 @@ public final class ProductionReadOnlyWorkbook {
     }
   }
 
-  private static String parseCell(JsonNode cell, String title, int row, int column, DisplayProfile profile,JsonNode defaultFormat) {
+  private static String parseCell(JsonNode cell, String title, int row, int column, DisplayProfile profile,JsonNode defaultFormat,ProductionReadOnlyDiagnostics diagnostics) {
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CELL_FEATURES);
     fields(cell, union(VALUE_FIELDS, Set.of("userEnteredFormat", "effectiveFormat", "hyperlink", "note", "textFormatRuns",
         "dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula", "chipRuns")));
     if (cell.has("note") && !text(cell, "note").isEmpty()) throw failure();
     emptyArrays(cell, Set.of("textFormatRuns", "chipRuns"));
     for (String key : List.of("dataValidation", "pivotTable", "dataSourceTable", "dataSourceFormula"))
       emptyObject(cell, key);
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CELL_VALUE);
     JsonNode entered = cell.get("userEnteredValue"), effective = cell.get("effectiveValue");
     String value;
     if (entered == null || entered.isObject() && entered.isEmpty()) {
@@ -299,6 +326,7 @@ public final class ProductionReadOnlyWorkbook {
       }
     }
     if (cell.has("formattedValue") && !value.equals(text(cell, "formattedValue"))) throw failure();
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CELL_FORMAT);
     boolean link=cell.has("userEnteredFormat") && !cell.get("userEnteredFormat").isEmpty();
     if(link) {
       if(profile!=DisplayProfile.ARIAL_NATIVE || !title.equals("auth_identities") || row<=0 || column!=0
