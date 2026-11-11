@@ -18,6 +18,9 @@ public final class ProductionReadOnlyPreflight {
   public static ProductionReadOnlyWorkbook.Report observeOnce(Settings settings,Supplier<byte[]> existingCredentials) {
     return run(settings,existingCredentials,null,false,ProductionReadOnlyHttp::open);
   }
+  static ProductionReadOnlyWorkbook.Report observeDiagnosed(Settings settings,Supplier<byte[]> credentials,ProductionReadOnlyDiagnostics diagnostics) {
+    return run(settings,credentials,null,false,(t,c,e,enabled)->ProductionReadOnlyHttp.open(t,c,e,enabled,diagnostics),diagnostics);
+  }
   /** Independent reviewed layout required; there is no fallback to observation on mismatch.
    * The credential supplier must return a fresh owned copy, which is wiped before returning. */
   public static ProductionReadOnlyWorkbook.Report verifyOnce(Settings settings,Supplier<byte[]> existingCredentials,String reviewedLayoutHash) {
@@ -29,20 +32,27 @@ public final class ProductionReadOnlyPreflight {
   /** Test seam only. Caller supplies a fresh owned credential copy; it is wiped on every exit path. */
   static ProductionReadOnlyWorkbook.Report run(Settings settings,Supplier<byte[]> credentials,String layout,
       boolean verify,Factory factory) {
+    return run(settings,credentials,layout,verify,factory,new ProductionReadOnlyDiagnostics());
+  }
+  static ProductionReadOnlyWorkbook.Report run(Settings settings,Supplier<byte[]> credentials,String layout,
+      boolean verify,Factory factory,ProductionReadOnlyDiagnostics diagnostics) {
     byte[] ownedCredentials=null,resource=null;boolean acquired=false;
     try {
       if(settings==null || !settings.enabled() || settings.target()==null || credentials==null || factory==null)throw rejected();
       ProductionReadOnlyHttp.validateExpectedEmail(settings.expectedServiceAccountEmail());
       if(verify && (layout==null || !layout.matches("[a-f0-9]{64}")))throw rejected();
       if(!ACTIVE.compareAndSet(false,true))throw rejected();acquired=true;
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CREDENTIAL_LOAD);
       ownedCredentials=credentials.get();
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CREDENTIAL_VALIDATION);
       try(var http=factory.open(settings.target(),ownedCredentials,settings.expectedServiceAccountEmail(),true)) {
         clear(ownedCredentials);ownedCredentials=null;
-        resource=http.readFullResource();
+        resource=http.withDiagnostics(diagnostics).readFullResource();
+        diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.WORKBOOK_PARSE);
         return verify?ProductionReadOnlyWorkbook.verify(resource,settings.target(),layout):
             ProductionReadOnlyWorkbook.inspect(resource,settings.target());
       }
-    }catch(Exception | LinkageError failure){throw rejected();}
+    }catch(Exception | LinkageError failure){diagnostics.fail(failure);throw rejected();}
     finally{clear(ownedCredentials);clear(resource);if(acquired)ACTIVE.set(false);}
   }
   private static void clear(byte[] bytes){if(bytes!=null)Arrays.fill(bytes,(byte)0);}

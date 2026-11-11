@@ -53,17 +53,27 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
   private final AtomicReference<Operation> running = new AtomicReference<>();
   private final AtomicBoolean tokenRequested = new AtomicBoolean();
   private volatile Token token;
+  private ProductionReadOnlyDiagnostics diagnostics=new ProductionReadOnlyDiagnostics();
 
   /** Validates the binding and credentials before allocating the fixed-route client; does not send HTTP. */
   static ProductionReadOnlyHttp open(ProductionReadOnlyTarget binding, byte[] serviceAccountJson, String expectedEmail, boolean explicitlyEnabled) {
+    return open(binding,serviceAccountJson,expectedEmail,explicitlyEnabled,new ProductionReadOnlyDiagnostics());
+  }
+  static ProductionReadOnlyHttp open(ProductionReadOnlyTarget binding,byte[] serviceAccountJson,String expectedEmail,
+      boolean explicitlyEnabled,ProductionReadOnlyDiagnostics diagnostics) {
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CREDENTIAL_VALIDATION);
+    try {
     if (!explicitlyEnabled) throw failure();
     validateExpectedEmail(expectedEmail);
     
     validateBinding(binding);
     Credentials credentials = parseCredentials(serviceAccountJson,expectedEmail);
-    try { return new ProductionReadOnlyHttp(binding, credentials, newClient(), DEADLINE); }
-    catch (Exception | LinkageError rejected) { credentials.close(); throw failure(); }
+    diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.CLIENT_SETUP);
+    try { var result=new ProductionReadOnlyHttp(binding, credentials, newClient(diagnostics), DEADLINE);result.diagnostics=diagnostics;return result; }
+    catch (Exception | LinkageError rejected) {diagnostics.fail(rejected);credentials.close(); throw failure(); }
+    }catch(Exception | LinkageError rejected){diagnostics.fail(rejected);throw failure();}
   }
+  ProductionReadOnlyHttp withDiagnostics(ProductionReadOnlyDiagnostics diagnostics){this.diagnostics=diagnostics;return this;}
 
   /** Package-private fake-client seams. They cannot change endpoints, scopes, headers, or HTTP methods. */
   ProductionReadOnlyHttp(ProductionReadOnlyTarget binding, byte[] serviceAccountJson, String expectedEmail, CloseableHttpClient http) {
@@ -94,7 +104,7 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
     } catch (Exception rejected) { throw failure(); }
   }
 
-  private static CloseableHttpClient newClient() {
+  private static CloseableHttpClient newClient(ProductionReadOnlyDiagnostics diagnostics) {
     requireSilentLogging(); // Refuse active Apache header/wire logging before any client is allocated.
     try {
       return configure(HttpClients.custom()).setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
@@ -102,7 +112,7 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
               .setMaxHeaderCount(32).setMaxLineLength(8192).setMaxEmptyLineCount(1).build()).build())
           .setMaxConnTotal(1).setMaxConnPerRoute(1).setDefaultConnectionConfig(ConnectionConfig.custom()
               .setConnectTimeout(Timeout.ofSeconds(5)).setSocketTimeout(Timeout.ofSeconds(5)).build()).build()).build();
-    } catch (Exception | LinkageError rejected) { throw failure(); }
+    } catch (Exception | LinkageError rejected) {diagnostics.fail(rejected);throw failure(); }
   }
   static void requireSilentLogging() {
     try { if (!(LoggerFactory.getILoggerFactory() instanceof NOPLoggerFactory)) throw failure(); }
@@ -147,9 +157,9 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
       operation.response.compareAndSet(result,null); // Caller now owns the complete bytes.
       return result;
     } catch (InterruptedException interrupted) {
-      operation.stop(); Thread.currentThread().interrupt(); throw failure();
+      diagnostics.fail(interrupted);operation.stop(); Thread.currentThread().interrupt(); throw failure();
     } catch (Exception | LinkageError rejected) {
-      operation.stop();
+      diagnostics.fail(rejected);operation.stop();
       if (worker.getState() == Thread.State.NEW) operation.finish();
       throw failure();
     }
@@ -179,10 +189,12 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
     long issuedAtNanos = System.nanoTime(); // Conservative lifetime includes signing and token response latency.
     try {
       remaining(operation);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.TOKEN_SIGNING);
       assertion = credentials.assertionBody();
       remaining(operation);
       response = exchange(operation, new HttpPost(TOKEN_URI), assertion,
           ContentType.APPLICATION_FORM_URLENCODED, null, MAX_TOKEN_BYTES);
+      diagnostics.mark(ProductionReadOnlyDiagnostics.Stage.TOKEN_PARSE);
       JsonNode result = JSON.readTree(response);
       fields(result, Set.of("access_token", "token_type", "expires_in", "scope"));
       if (!"Bearer".equals(text(result, "token_type")) || !result.path("expires_in").isIntegralNumber()
@@ -191,7 +203,7 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
           || result.has("scope") && !SCOPE.equals(text(result, "scope"))) throw failure();
       remaining(operation);
       return new Token(text(result, "access_token"), result.path("expires_in").intValue(), issuedAtNanos);
-    } catch (Exception | LinkageError rejected) { throw failure(); }
+    } catch (Exception | LinkageError rejected) { diagnostics.fail(rejected);throw failure(); }
     finally { clear(assertion); clear(response); credentials.close(); }
   }
 
@@ -211,22 +223,24 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
       if (payload != null) request.setEntity(new ByteArrayEntity(payload, contentType));
       remaining(operation);
       if (bearer != null) { Token current = token; if (current == null) throw failure(); current.requireValid(); }
+      diagnostics.mark(bearer==null?ProductionReadOnlyDiagnostics.Stage.TOKEN_HTTP:ProductionReadOnlyDiagnostics.Stage.WORKBOOK_HTTP);
       response = http.execute(request);
       remaining(operation);
       if (response != null && response.getCode() == 401 && bearer != null) {
         Token invalid = token; if (invalid != null) invalid.close();
       }
-      if (response == null || response.getCode() != 200) throw failure();
+      if (response == null || response.getCode() != 200) {diagnostics.fail(ProductionReadOnlyDiagnostics.ErrorType.HTTP_STATUS);throw failure();}
+      diagnostics.mark(bearer==null?ProductionReadOnlyDiagnostics.Stage.TOKEN_HEADERS:ProductionReadOnlyDiagnostics.Stage.WORKBOOK_HEADERS);
       ownedResponse=boundedBody(response,operation,limit);
       operation.response.set(ownedResponse); // Retain ownership until response cleanup succeeds.
       if(operation.stopped.get() || closed.get()){clear(operation.response.getAndSet(null));throw failure();}
       remaining(operation);
-    } catch (Exception | LinkageError rejected) { clear(ownedResponse);throw failure(); }
+    } catch (Exception | LinkageError rejected) { diagnostics.fail(rejected);clear(ownedResponse);throw failure(); }
     finally {
       // Removal does not promise to erase immutable strings or copies held by the HTTP/TLS/JCA libraries.
       request.cancel(); request.removeHeaders("Authorization"); request.setEntity(null);
       try { if (response != null) response.close(CloseMode.IMMEDIATE); }
-      catch (Exception | LinkageError rejected) {clear(ownedResponse);operation.response.compareAndSet(ownedResponse,null);throw failure();}
+      catch (Exception | LinkageError rejected) {diagnostics.fail(rejected);clear(ownedResponse);operation.response.compareAndSet(ownedResponse,null);throw failure();}
       finally { operation.current.compareAndSet(request, null); }
     }
     operation.response.compareAndSet(ownedResponse,null); // Transfer only after successful cleanup.
@@ -256,6 +270,7 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
     HttpEntity entity = response.getEntity();
     if (entity == null || length > limit || entity.getContentLength() > limit || entity.getContentLength() < -1
         || length >= 0 && entity.getContentLength() >= 0 && length != entity.getContentLength()) throw failure();
+    diagnostics.mark(limit==MAX_TOKEN_BYTES?ProductionReadOnlyDiagnostics.Stage.TOKEN_BODY:ProductionReadOnlyDiagnostics.Stage.WORKBOOK_BODY);
     InputStream body = entity.getContent();
     if (body == null) throw failure();
     WipingOutput output = new WipingOutput(); byte[] buffer = new byte[4096];
@@ -280,7 +295,8 @@ final class ProductionReadOnlyHttp implements AutoCloseable {
   }
   private Duration remaining(Operation operation) {
     long left = operation.deadlineNanos - System.nanoTime();
-    if (left <= 0 || closed.get() || operation.stopped.get() || Thread.currentThread().isInterrupted()) throw failure();
+    if(left<=0){diagnostics.fail(ProductionReadOnlyDiagnostics.ErrorType.TIMEOUT);throw failure();}
+    if (closed.get() || operation.stopped.get() || Thread.currentThread().isInterrupted()) throw failure();
     return Duration.ofNanos(left);
   }
   private final class Operation {
