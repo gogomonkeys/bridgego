@@ -1,0 +1,219 @@
+[
+  {
+    "file": "AccountProfileRows.java",
+    "sourceSha256": "cf32606650b3f2933dd1cf6ab359b03346cdf7440523f770ef8fcf2ae6b8cbdd",
+    "extractedSha256": "cc41bf59116d42569a034afcc5778dbf8292f0f7267962e8d6453a455bd7cfc6",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "cf32606650b3f2933dd1cf6ab359b03346cdf7440523f770ef8fcf2ae6b8cbdd"
+  },
+  {
+    "file": "BatchedSheetsTransport.java",
+    "sourceSha256": "6d39fbf6e62e3194f9bb1b1804cf2a86390ce5e6b8d1210d1e9a7da6d6d1bfac",
+    "extractedSha256": "36b5a79674b2a088fcd299b1fd0a6311c55006a8a532002b3486af010803b0f3",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "2bce674f2274644663e6d5a9b5665e6e05bb01169a8e4a27bef93345fc022a66"
+  },
+  {
+    "file": "BootArm.java",
+    "sourceSha256": "d150803f72cafbcc2434ac9ddd5ede8ad2b4112019e2a3fc478ecb02b0d9a82a",
+    "extractedSha256": "50a0e25d304fc8bcea0c4f07e5c1009ed3e729d52dfdcc89a400a206178319f5",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "d150803f72cafbcc2434ac9ddd5ede8ad2b4112019e2a3fc478ecb02b0d9a82a"
+  },
+  {
+    "file": "BoundedSheetsProjection.java",
+    "sourceSha256": "8be684d310aa4db6d6b6ed79b9cd3d9b4f088b032f5464850f722ec8b2ee0a4b",
+    "extractedSha256": "1d689a5a8e72d396f8d3f795a480d11d9e4428f16f4608e5cecbd36579a9f231",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "8be684d310aa4db6d6b6ed79b9cd3d9b4f088b032f5464850f722ec8b2ee0a4b"
+  },
+  {
+    "file": "ErasureLedger.java",
+    "sourceSha256": "92b7e9f025db1c55f53dee0593a52b6453e175c4934bd6a0812fced504dbf023",
+    "extractedSha256": "33ea454421071aae27b12183e088e3742c16edfafb6ff39107ad2dfad32775fc",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "92b7e9f025db1c55f53dee0593a52b6453e175c4934bd6a0812fced504dbf023"
+  },
+  {
+    "file": "FinalMatchEnvelope.java",
+    "sourceSha256": "dce62b96696a2a589f19551af63c35e026ee1c21f53bb85d3ff40fc150271e73",
+    "extractedSha256": "2d5f4b4e00dd759d4426258d8e625857c31757f2dca8c4d8765042ebbf450345",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "10bdca048b84e7442ce39d1f44d8e7f51cefa9557966049fa1054962a07c41dc"
+  },
+  {
+    "file": "GoogleSheetsBinding.java",
+    "sourceSha256": "420fdaa7f8dea1cf3e04044abaff8d7cadebfdf20af264c1b1bdcae07fafb319",
+    "extractedSha256": "037fc4e446a2ea8750a7980fbd8b473dcf945891a86afd543ae7ff4c845a6e01",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "420fdaa7f8dea1cf3e04044abaff8d7cadebfdf20af264c1b1bdcae07fafb319"
+  },
+  {
+    "file": "LegacyWriterGuard.java",
+    "sourceSha256": "2db24fe170669d64329773166f84055fb58675d4ffb23ca67b1f07a349b04fdd",
+    "extractedSha256": "2796133ea5d6fb2345e95f49734a7ee2caea84e1d0325428e1a305965f604b36",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "2db24fe170669d64329773166f84055fb58675d4ffb23ca67b1f07a349b04fdd"
+  },
+  {
+    "file": "LifetimeStatistics.java",
+    "sourceSha256": "f212e3785c313f202b968026ac5488212f701c5894c4aa783c218e60d1a56248",
+    "extractedSha256": "01d4d25ccacfd944cb149266168d7b7e0cabbd8b2a31312cfd7854cf3fee6e82",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "df615cf2cfd35277228a9ef2777e012afa3fc8fab7b1e87823b7535925f03a5b"
+  },
+  {
+    "file": "LocalPlanningSnapshot.java",
+    "sourceSha256": "3f9c3a5a112042ff7526cfe4d2fe31aa1f780ba3ed995c09efb1981918277b8c",
+    "extractedSha256": "db01f449eb877dd724ffdc9711686fa6d8722a5130291f63af35da9d9b8e1b6b",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "3f9c3a5a112042ff7526cfe4d2fe31aa1f780ba3ed995c09efb1981918277b8c"
+  },
+  {
+    "file": "MaintenanceRelease.java",
+    "sourceSha256": "b38350fcecb92d8143b12bdfd02443aeb9506da0d31e475b2da006d83faef4e1",
+    "extractedSha256": "10dc09be3b09a82631fcd6db9489110bd61ec9c5053e0fae71e995d701cf1bcb",
+    "change": "package/import rename; live release unprovisioned and live accessor denied",
+    "normalizedExtractedSha256": "b56ecc63c58362083f4873711995d4e1fd19c5fd88136dc20eefe7a6a628bcd7"
+  },
+  {
+    "file": "ManagedGoogleOAuthExchange.java",
+    "sourceSha256": "c854f14d777ce717c365ba7ed167d88663f7c3e495a06546b54ac485c1c8666f",
+    "extractedSha256": "f4da107bfe120901d0dbe3e40d0d876ef3a26ad7ba8ef40ce4f52c570c284619",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "c854f14d777ce717c365ba7ed167d88663f7c3e495a06546b54ac485c1c8666f"
+  },
+  {
+    "file": "ManagedGoogleServiceAccount.java",
+    "sourceSha256": "2d3716ec51598a1fd8c9c05f4849814e9d2b9a51df490cab29ddcc9f2455bc07",
+    "extractedSha256": "ebbf0c76c96793e02ed2cd6ceb3be7dd92cb83f7af0cbdb6fa6a87a27d57ca8e",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "2d3716ec51598a1fd8c9c05f4849814e9d2b9a51df490cab29ddcc9f2455bc07"
+  },
+  {
+    "file": "ManagedGoogleSheetsFactory.java",
+    "sourceSha256": "bab377a7fde381e157e3ca40b8b7306e714fd1f4270c2b454c9d89925c5b1c68",
+    "extractedSha256": "455b8788e72d891ab22b89c555011e92902a5b641bb4f2f76d403e8b2a8035e9",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "bab377a7fde381e157e3ca40b8b7306e714fd1f4270c2b454c9d89925c5b1c68"
+  },
+  {
+    "file": "ManagedIdentityValidation.java",
+    "sourceSha256": "6e8193da9493246ea9d8143c3cf4b2d3348b46a80135a47cc3c8f3868df8f393",
+    "extractedSha256": "db178ff3fa68acfece9f2c665c96c48fec1e0638dd7582718aff52908334dfbc",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "6e8193da9493246ea9d8143c3cf4b2d3348b46a80135a47cc3c8f3868df8f393"
+  },
+  {
+    "file": "ManualQuarterMaintenance.java",
+    "sourceSha256": "02cfb0b1b3cfe83af4893b6016a799cc840dab0b219e6de1e3b77e2614962100",
+    "extractedSha256": "4d75e9864e9ed818028e6fc5500261c94bf560e36d60b1ada3ad1622f3a6fa0f",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "6b71aab51a276abda80dbf8843652d0f1a9913b6b94decf4a6f0219fc63a94b4"
+  },
+  {
+    "file": "NarrowQuarterPoc.java",
+    "sourceSha256": "3256dc2c70b0677876b35f82ccdd0cb68a00d1368ade6f9bc4936ea5864d7de5",
+    "extractedSha256": "508869df172dd35f836cc708fd8d7878a28b56abce9b6797ae154aad0f603f4e",
+    "change": "package/import rename plus explicitly marked registered settlement drain extension; original runtime retained byte-identical outside extension",
+    "normalizedExtractedSha256": "d6486de00d4073208fd5fcc925fcb41e47942a7b4e7c324a7609d05984056142"
+  },
+  {
+    "file": "NarrowSheetsTransport.java",
+    "sourceSha256": "49336db13c10a9c3add4264e2d866a826ebb546318e125438589e484831d511f",
+    "extractedSha256": "8da30181acb2bcfd514d07fa17ce87e792ee201113e066c605c2accbf8fedead",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "49336db13c10a9c3add4264e2d866a826ebb546318e125438589e484831d511f"
+  },
+  {
+    "file": "NativeSheetsModel.java",
+    "sourceSha256": "9549d0173a511c09d2663d19cf763d962139bc0f546ea6d685db32ea30e943e4",
+    "extractedSha256": "d84ff18776d9b1c5788c3accb16facf34637675c3732bdc54ea7897d77169f27",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "9549d0173a511c09d2663d19cf763d962139bc0f546ea6d685db32ea30e943e4"
+  },
+  {
+    "file": "QuarterMaintenanceGate.java",
+    "sourceSha256": "c60a9a21d72090217d2481fb7630a2f653191aea76af351fa28a1efc9db10d57",
+    "extractedSha256": "e42a5f17562f5f3d61980d264ba3779c4fcf32dbe7f7673d7837ea5651bac6e4",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "c60a9a21d72090217d2481fb7630a2f653191aea76af351fa28a1efc9db10d57"
+  },
+  {
+    "file": "QuarterPlan.java",
+    "sourceSha256": "4416d9282b11faa326cd40df127c25f4963deb4c9677427737379a636c6651ed",
+    "extractedSha256": "5dd8d6ff7a85e6f168203a0e9ede60d9c20a084f760cd694da3b9df4c5af80a4",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "b2c7ce913c85c3986ca80bf960389b316a9d25c86a58fe7fd3f226787dd91c77"
+  },
+  {
+    "file": "QuarterlyRetention.java",
+    "sourceSha256": "e53913ff43e2f78a268e30df1994070ae799f65026226d13a5c66dcbe05a0a56",
+    "extractedSha256": "e915ddada4c0f4fd58657284296b1a1db2b91e8a5e42f7e93fa0bd7b978a4181",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "e53913ff43e2f78a268e30df1994070ae799f65026226d13a5c66dcbe05a0a56"
+  },
+  {
+    "file": "RetentionLedger.java",
+    "sourceSha256": "920690813264257f27c1b9480669252ccfadd61665c4770749fd44b35c8a9ab0",
+    "extractedSha256": "23eae0ad196da877bd0c1f200133db9f943d39b7fde98e7c368c534537d1f8e4",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "920690813264257f27c1b9480669252ccfadd61665c4770749fd44b35c8a9ab0"
+  },
+  {
+    "file": "SharedSheetsBudget.java",
+    "sourceSha256": "0cb48642fd0f567c4dbca00982a80455d0ce1fa4968bdefdcff17218e4eb477d",
+    "extractedSha256": "2fde25eee1d515662c389c612f4a68dd7844e34cd25f076619a84a97048af527",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "0cb48642fd0f567c4dbca00982a80455d0ce1fa4968bdefdcff17218e4eb477d"
+  },
+  {
+    "file": "SheetsGateway.java",
+    "sourceSha256": "a948c205e6a4be813c4c09dd78459f4e212759cb4bdc7f2d218ed4b9391fa5e4",
+    "extractedSha256": "36d4e273a960a3021fc42644f3ca7c48bb5b51fafef57a7f2e473fade7b9f143",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "a948c205e6a4be813c4c09dd78459f4e212759cb4bdc7f2d218ed4b9391fa5e4"
+  },
+  {
+    "file": "SheetsQuery.java",
+    "sourceSha256": "370b59d7d79792ad1284bad9211ac20d8a7bb3ea1a35618a96908baf0e27d298",
+    "extractedSha256": "fc8464bb36d077aa179119e9738ff7f69ebe6e0db06de550867f7a56ab662007",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "370b59d7d79792ad1284bad9211ac20d8a7bb3ea1a35618a96908baf0e27d298"
+  },
+  {
+    "file": "SheetsStatsStore.java",
+    "sourceSha256": "cccbe144d7f9deaba860e49dcce306757993d597e6c812b7c1cca3f917c49654",
+    "extractedSha256": "b624a39e7e901ca9f7746f7952383323bce0e632cd1f0c36a8c55b2f1c5b9db2",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "cccbe144d7f9deaba860e49dcce306757993d597e6c812b7c1cca3f917c49654"
+  },
+  {
+    "file": "StatsStore.java",
+    "sourceSha256": "3b5b42905e9344a53ca9d48f5fefa0407b71616644348e704d08a79371734e65",
+    "extractedSha256": "11ca8a361e52e42e52c3e1471da3060c66853fe09eb758a0dfaa239a24fb9767",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "3b5b42905e9344a53ca9d48f5fefa0407b71616644348e704d08a79371734e65"
+  },
+  {
+    "file": "StrictNativeSheetsResource.java",
+    "sourceSha256": "479448555f1174a20920a852749bcb2773ca38708b29e46d8fad36f8c9b41e20",
+    "extractedSha256": "01c9717ec085e1c555c68a5d1a46717697b9db159381c71e6cb8d519d1c5bd13",
+    "change": "package rename plus explicit decodeLegacyFull read-only bridge; original decodeFull/Streaming unchanged; 29 of 31 core files remain rename-only, alongside existing inert MaintenanceRelease change",
+    "normalizedExtractedSha256": "a71de6f52533eb05e4d762decf04cf0da95f6b6ffa535a4ca9b45bd78f470274"
+  },
+  {
+    "file": "TransportDiagnostic.java",
+    "sourceSha256": "a6f8af056a63305e991ae26b437ff6e2f53ef7e15d7add9199954e05b2d0d1e7",
+    "extractedSha256": "da914d858184b9ba8da9b2a2a6527b0ee74d217bde7e6c1369e6f45999c9acf6",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "a6f8af056a63305e991ae26b437ff6e2f53ef7e15d7add9199954e05b2d0d1e7"
+  },
+  {
+    "file": "WritePermit.java",
+    "sourceSha256": "aa880dcd5053021b0eb4ebdedf59c22e60a1a56d669cd53960facb81b08787dc",
+    "extractedSha256": "63b70f4556e17bea6d9871a3040087204fbd8ffcbcc6ed19fd3fcab5acb076e6",
+    "change": "package/import rename only",
+    "normalizedExtractedSha256": "aa880dcd5053021b0eb4ebdedf59c22e60a1a56d669cd53960facb81b08787dc"
+  }
+]
