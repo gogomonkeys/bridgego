@@ -6,7 +6,6 @@ import java.util.concurrent.*;
 public final class SheetsStatsStore implements StatsStore, AutoCloseable {
     private final SheetsGateway gateway;
     private final Clock clock;
-    private final QuarterMaintenanceGate gate;
     private final ThreadPoolExecutor writer;
     private final ConcurrentHashMap<String, Entry> entries=new ConcurrentHashMap<>();
     private final ArrayDeque<String> terminalOrder=new ArrayDeque<>();
@@ -15,9 +14,7 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
     public SheetsStatsStore(SheetsGateway gateway,int capacity) {
         this(gateway,capacity,Clock.systemUTC());
     }
-    public SheetsStatsStore(SheetsGateway gateway,int capacity,Clock clock) { this(gateway,capacity,clock,QuarterMaintenanceGate.disabled()); }
-    public SheetsStatsStore(SheetsGateway gateway,int capacity,Clock clock,QuarterMaintenanceGate gate) {
-        this.gate=Objects.requireNonNull(gate);
+    public SheetsStatsStore(SheetsGateway gateway,int capacity,Clock clock) {
         this.gateway=gateway;this.clock=Objects.requireNonNull(clock);
         writer=new ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<>(capacity), r->{Thread t=new Thread(r,"private-sheets-writer");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
     }
@@ -28,21 +25,9 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
             if(!old.hash.equals(e.payloadHash())) return SaveStatus.CONFLICT;
             if(old.status!=SaveStatus.REJECTED && old.status!=SaveStatus.FAILED) return old.status;
         }
-        QuarterMaintenanceGate.Permit permit;
-        try {permit=gate.enterWrite();}catch(QuarterMaintenanceGate.Unavailable closed){return SaveStatus.REJECTED;}
         entries.put(e.commitId(),new Entry(e.payloadHash(),SaveStatus.PENDING));
-        try { writer.execute(new PendingWrite(e,permit)); }
-        catch(RejectedExecutionException full) { permit.success();permit.close();finish(e,SaveStatus.REJECTED); }
+        try { writer.execute(()->write(e)); } catch(RejectedExecutionException full) { finish(e,SaveStatus.REJECTED); }
         return entries.get(e.commitId()).status;
-    }
-    private final class PendingWrite implements Runnable {
-        private final FinalMatchEnvelope envelope;private final QuarterMaintenanceGate.Permit permit;
-        PendingWrite(FinalMatchEnvelope e,QuarterMaintenanceGate.Permit p){envelope=e;permit=p;}
-        public void run(){try(permit;var scope=permit.attach()) {
-            write(envelope);
-            if(status(envelope.commitId())==SaveStatus.CONFIRMED)permit.success();
-        }catch(RuntimeException failure){finish(envelope,SaveStatus.FAILED);}}
-        void cancelBeforeRun(){permit.success();permit.close();finish(envelope,SaveStatus.REJECTED);}
     }
     public SaveStatus status(String id) { Entry e=entries.get(id); return e==null?SaveStatus.UNKNOWN:e.status; }
     private void write(FinalMatchEnvelope e) {
@@ -64,7 +49,7 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
                 finish(e,SaveStatus.CONFIRMED);return;
             } catch(SheetsGateway.Conflict conflict) { finish(e,SaveStatus.CONFLICT);return;
             } catch(SheetsGateway.Failure failure) {
-                if(gate.enabled() || !failure.retryable() || failure.retryAfterMillis>30000 || attempt==3) { finish(e,SaveStatus.FAILED);return; }
+                if(!failure.retryable() || failure.retryAfterMillis>30000 || attempt==3) { finish(e,SaveStatus.FAILED);return; }
                 try { Thread.sleep(Math.min(30000,Math.max(failure.retryAfterMillis,(250L<<attempt)+ThreadLocalRandom.current().nextLong(100)))); } catch(InterruptedException stop) { Thread.currentThread().interrupt();finish(e,SaveStatus.FAILED);return; }
             } catch(RuntimeException failure) { finish(e,SaveStatus.FAILED);return; }
         }
@@ -76,9 +61,6 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
         if(finish.isBefore(boundary)||finish.isAfter(now)||start.isAfter(finish))throw new SheetsGateway.Conflict();
     }
     @Override public List<FinalMatchEnvelope> exportCommitted() {
-        try(var permit=gate.enterRead();var scope=permit.attach()){return exportCommittedWithinOperation();}
-    }
-    private List<FinalMatchEnvelope> exportCommittedWithinOperation() {
         QuarterlyRetention.requireCollectionReady(gateway,clock);
         RetentionLedger ledger=new RetentionLedger(gateway.read("retention_ledger"));
         List<FinalMatchEnvelope> current=new ArrayList<>();
@@ -111,9 +93,6 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
         };
     }
     @Override public StatisticsData exportStatistics(String accountId) {
-        try(var permit=gate.enterRead();var scope=permit.attach()){return exportStatisticsWithinOperation(accountId);}
-    }
-    private StatisticsData exportStatisticsWithinOperation(String accountId) {
         Instant boundary=QuarterlyRetention.currentQuarterStart(clock.instant());
         // Three bounded read batches, each still validated by DatasetBinding. Never bypass
         // the first control gate or treat batchGet as a cross-request transaction.
@@ -184,5 +163,5 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
     }
     /** True only after queued work is cancelled and the active worker has exited. */
     public boolean isStopped() { return writer.isTerminated(); }
-    @Override public void close() { for(Runnable pending:writer.shutdownNow())((PendingWrite)pending).cancelBeforeRun(); }
+    @Override public void close() { writer.shutdownNow(); }
 }

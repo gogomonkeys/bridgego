@@ -10,12 +10,6 @@ public class RoomApplication {
   public static void main(String[] args) {
     String mode = System.getenv().getOrDefault("BRIDGE_RUNTIME_MODE", "game");
     if (mode.equals("game")) SpringApplication.run(RoomApplication.class, args);
-    else if (mode.equals("synthetic-quarter-runner")) {
-      try { com.bridge.quartercore.SyntheticQuarterRunnerMain.main(args); } catch (Exception rejected) { throw new IllegalStateException("Synthetic quarter runner unavailable"); }
-    }
-    else if (mode.equals("planned-cutover")) {
-      try { com.bridge.quartercore.PlannedCutoverLauncher.main(args); } catch (Exception rejected) { throw new IllegalStateException("Planned cutover startup rejected"); }
-    }
     else if (mode.equals("erasure")) {
       var app = new SpringApplication(com.bridge.maintenance.ErasureMaintenanceApplication.class);
       app.setAdditionalProfiles("erasure-maintenance");
