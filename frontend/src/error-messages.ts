@@ -35,6 +35,7 @@ export const errorMessages: Record<string, string> = {
   CONTROL_TAKEN_OVER: "目前由電腦代打，請恢復連線後接回控制。",
   SERVER_RESTARTED:
     "服務已重新啟動，原牌局與訪客身分已結束。請輸入名稱重新加入，開始新的遊戲。",
+  QUARTER_MAINTENANCE: "系統維護中，請稍後再試。",
   SERVER_MAINTENANCE: "服務正在重新啟動，原牌局無法延續，請稍後確認服務狀態。",
   ROOM_LIMIT_REACHED: "目前兩桌皆已使用，請加入現有等候室或稍後再試。",
   SESSION_CAPACITY: "目前體驗人數已滿，請稍後再試。",
