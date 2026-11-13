@@ -6,15 +6,10 @@ import java.time.Clock;
 public final class SheetsIdentityStore implements IdentityStore {
     private final SheetsGateway gateway;
     private final Clock clock;
-    private final QuarterMaintenanceGate gate;
     public SheetsIdentityStore(SheetsGateway gateway){this(gateway,Clock.systemUTC());}
-    public SheetsIdentityStore(SheetsGateway gateway,Clock clock){this(gateway,clock,QuarterMaintenanceGate.disabled());}
-    public SheetsIdentityStore(SheetsGateway gateway,Clock clock,QuarterMaintenanceGate gate){this.gateway=gateway;this.clock=Objects.requireNonNull(clock);this.gate=Objects.requireNonNull(gate);}
-    public boolean enabled(){return gate.isOpen();}
+    public SheetsIdentityStore(SheetsGateway gateway,Clock clock){this.gateway=gateway;this.clock=Objects.requireNonNull(clock);}
+    public boolean enabled(){return true;}
     public synchronized String findOrCreateAccount(String issuer,String subject) {
-        try(var permit=gate.enterWrite();var scope=permit.attach()){var result=findOrCreateLegacy(issuer,subject);permit.success();return result;}
-    }
-    private String findOrCreateLegacy(String issuer,String subject) {
         if(!"https://accounts.google.com".equals(issuer)||subject==null||subject.isBlank()||subject.length()>255)throw new IllegalArgumentException("Invalid verified identity");
         for(int attempt=0;attempt<3;attempt++)try {
             QuarterlyRetention.requireCollectionReady(gateway,clock);
@@ -26,15 +21,12 @@ public final class SheetsIdentityStore implements IdentityStore {
             gateway.appendAtomic(Map.of("accounts",List.of(List.of(id,"1")),"auth_identities",List.of(List.of(issuer,subject,id,"1"))));
             String saved=find(issuer,subject); if(!id.equals(saved))throw new SheetsGateway.Conflict();return saved;
         }catch(SheetsGateway.Failure e){
-            if(gate.enabled()||!e.retryable()||e.retryAfterMillis>30000||attempt==2)throw e;
+            if(!e.retryable()||e.retryAfterMillis>30000||attempt==2)throw e;
             try{Thread.sleep(Math.min(30000,Math.max(e.retryAfterMillis,250L<<attempt)));}catch(InterruptedException ex){Thread.currentThread().interrupt();throw new IllegalStateException("Identity persistence unavailable");}
         }
         throw new IllegalStateException("Identity persistence unavailable");
     }
     @Override public synchronized String findOrCreateAccount(String issuer,String subject,String nickname,String verifiedEmail) {
-        try(var permit=gate.enterWrite();var scope=permit.attach()){var result=findOrCreateProfile(issuer,subject,nickname,verifiedEmail);permit.success();return result;}
-    }
-    private String findOrCreateProfile(String issuer,String subject,String nickname,String verifiedEmail) {
         if(!"https://accounts.google.com".equals(issuer)||subject==null||subject.isBlank()||subject.length()>255)throw new IllegalArgumentException("Invalid verified identity");
         if(nickname==null||nickname.isBlank()||nickname.length()>256||nickname.chars().anyMatch(Character::isISOControl))throw new IllegalArgumentException("Invalid nickname");
         String email=verifiedEmail==null?"":verifiedEmail;
