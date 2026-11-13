@@ -2,6 +2,7 @@ package com.bridge.room;
 
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Consumer;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -199,6 +200,18 @@ public class RoomService {
   private final BetaLimits limits;
   private final String instanceEpoch = UUID.randomUUID().toString();
   private boolean stopping;
+  private boolean quarterMaintenance;
+  private boolean quarterFinishing;
+  private java.util.function.BooleanSupplier quarterAdmission = () -> true;
+  private java.util.function.Consumer<String> quarterMatchRegistration = id -> {};
+  private java.util.function.Consumer<String> quarterUncollectedMatch = id -> {};
+  public synchronized void quarterUncollectedMatch(java.util.function.Consumer<String> discard) { quarterUncollectedMatch = Objects.requireNonNull(discard); }
+  public synchronized void quarterMatchRegistration(java.util.function.Consumer<String> registration) { quarterMatchRegistration = Objects.requireNonNull(registration); }
+  public synchronized void quarterAdmission(java.util.function.BooleanSupplier admission) { quarterAdmission = Objects.requireNonNull(admission); }
+  private void requireNewGameAdmission() {
+    requireRunning();
+    if(quarterFinishing || !quarterAdmission.getAsBoolean()) throw fail(503,"SERVER_MAINTENANCE","Existing games are finishing; new games are paused");
+  }
   private final Map<String, Room> rooms = new LinkedHashMap<>();
   private final Map<String, String> membership = new HashMap<>();
   private final Clock clock;
@@ -355,7 +368,7 @@ public class RoomService {
     int count = plannedDeals == null ? 3 : plannedDeals;
     if (count != 1 && count != 3 && count != 5)
       throw fail(400, "INVALID_PLANNED_DEALS", "plannedDeals must be 1, 3 or 5");
-    requireRunning();
+    requireNewGameAdmission();
     expireInitialSubscriptions();
     ensureFree(id);
     if (rooms.values().stream().filter(r -> r.closedAtTick == null).count() >= limits.maxRooms())
@@ -367,7 +380,7 @@ public class RoomService {
   }
 
   public synchronized Snapshot join(String roomId, Identity id) {
-    requireRunning();
+    requireNewGameAdmission();
     expireInitialSubscriptions();
     Room room = room(roomId);
     if (room.members.containsKey(id.playerId())) {
@@ -453,7 +466,7 @@ public class RoomService {
   }
 
   public synchronized Snapshot ready(String roomId, Identity id, boolean ready) {
-    requireRunning();
+    requireNewGameAdmission();
     expireInitialSubscriptions();
     Room room = room(roomId);
     Member m = member(room, id);
@@ -533,7 +546,7 @@ public class RoomService {
   }
 
   public synchronized void disconnect(String roomId, String playerId, String connection) {
-    if (stopping) return;
+    if (stopping || quarterMaintenance) return;
     expireInitialSubscriptions();
     Room r = rooms.get(roomId);
     if (r == null) return;
@@ -574,7 +587,7 @@ public class RoomService {
   // and operation budgets (20s). WAITING disconnects still release immediately.
   @Scheduled(fixedDelay = 100)
   public synchronized void expireInitialSubscriptions() {
-    if (stopping) return;
+    if (stopping || quarterMaintenance) return;
     long now = clock.millis();
     long monotonicNow = ticker.getAsLong();
     for (Room r : new ArrayList<>(rooms.values())) {
@@ -715,6 +728,8 @@ public class RoomService {
 
   public String instanceEpoch() { return instanceEpoch; }
   public synchronized boolean stopping() { return stopping; }
+  /** Routing-only startup probe: no existing rooms or gameplay can be abandoned. */
+  public synchronized boolean emptyForStartupRouting() { return !stopping && rooms.isEmpty(); }
   BetaLimits limits() { return limits; }
 
   public synchronized void beginMaintenance() {
@@ -723,8 +738,32 @@ public class RoomService {
     for (Room r : rooms.values()) if (r.game != null) r.game.pauseTimer();
   }
 
+  /** Admission-only drain: existing actions, timers and final persistence keep running.
+   * Never force-finish/forfeit on a maintenance wait timeout. */
+  public synchronized boolean drainAndFreezeForQuarterMaintenance() {
+    quarterFinishing = true;
+    if(rooms.values().stream().anyMatch(r -> r.game != null && r.game.active())) return false;
+    return freezeForQuarterMaintenance();
+  }
+
+  /** Freeze is never a forfeit. Active games require an explicit drain policy before cleanup. */
+  public synchronized boolean freezeForQuarterMaintenance() {
+    quarterMaintenance = true;
+    for (Room r : rooms.values()) if (r.game != null) r.game.pauseTimer();
+    return rooms.values().stream().noneMatch(r -> r.game != null && r.game.active());
+  }
+
+  public synchronized void finishQuarterMaintenance() {
+    if (stopping || rooms.values().stream().anyMatch(r -> r.game != null && r.game.active()))
+      throw new IllegalStateException("Active games or shutdown prevent reopening");
+    quarterMaintenance = false;
+    quarterFinishing = false;
+  }
+
+  public synchronized boolean quarterMaintenance() { return quarterMaintenance; }
+
   private void requireRunning() {
-    if (stopping) throw fail(503, "SERVER_MAINTENANCE", "Server is stopping; reconnect later");
+    if (stopping || quarterMaintenance) throw fail(503, "SERVER_MAINTENANCE", "Server is stopping; reconnect later");
   }
 
   private boolean hasOnlineHuman(Room r) {
@@ -863,6 +902,7 @@ public class RoomService {
       if (r.persistence != null) {
         r.persistence.finish(r.lastMatch, clock.instant(), statsStore, r.members.values(), accountsByPlayer);
         r.lastPersistence = r.persistence;
+        if(r.persistence.finalizedWithoutSubmission()) quarterUncollectedMatch.accept(r.game.id);
       }
       electTerminalHost(r);
     }
@@ -1007,7 +1047,7 @@ public class RoomService {
 
   public synchronized CommandResult start(
       String roomId, Identity id, String actionId, Long expected) {
-    requireRunning();
+    requireNewGameAdmission();
     expireInitialSubscriptions();
     Room r = room(roomId);
     member(r, id);
@@ -1035,8 +1075,11 @@ public class RoomService {
     if ("FORMAL".equals(r.roomType)
         && SettlementEligibility.evaluate(r.members.values(), accountsByPlayer) != SettlementEligibility.Result.ELIGIBLE)
       throw fail(409, "START_NOT_READY", "Formal matches require four distinct connected humans");
-    r.game = new GameState(random, ticker, r.plannedDeals, r.roomType);
-    r.persistence = new MatchPersistence(r.game.id, r.plannedDeals, clock.instant(),
+    Instant matchStartedAt = clock.instant();
+    GameState candidate = new GameState(random, ticker, r.plannedDeals, r.roomType);
+    quarterMatchRegistration.accept(candidate.id);
+    r.game = candidate;
+    r.persistence = new MatchPersistence(r.game.id, r.plannedDeals, matchStartedAt,
         r.members.values(), accountsByPlayer, r.members.values().stream()
             .filter(m -> !m.computer).allMatch(m -> accountsByPlayer.containsKey(m.identity.playerId())
                 && admittedTesters.contains(m.identity.playerId())), statisticsEnabled(),
