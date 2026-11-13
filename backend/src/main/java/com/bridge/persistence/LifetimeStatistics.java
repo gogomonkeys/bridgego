@@ -146,11 +146,6 @@ public final class LifetimeStatistics {
     AccountProfileRows.validateTable(result);
     return List.copyOf(result);
   }
-  public static boolean eligibleForRetention(FinalMatchEnvelope e) {
-    return RULE.equals(e.payload().path("match").path("lifetime_rule").asText())
-        && SCORE_VERSION.equals(e.payload().path("match").path("score_version").asText())
-        && Set.of("FORMAL", "CASUAL").contains(e.statisticsCategory());
-  }
   private static Map<String,FinalMatchEnvelope> eligibleUnique(Collection<FinalMatchEnvelope> records) {
     if (records == null) reject(); var unique = new LinkedHashMap<String,FinalMatchEnvelope>();
     var all = new LinkedHashMap<String,FinalMatchEnvelope>();
