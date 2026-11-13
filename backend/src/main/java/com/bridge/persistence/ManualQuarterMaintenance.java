@@ -278,7 +278,7 @@ public final class ManualQuarterMaintenance {
       retention.requireAllowed(envelope);
       var root = envelope.payload();
       Set<String> rootNames = new HashSet<>(); root.fieldNames().forEachRemaining(rootNames::add);
-      if (!rootNames.equals(HistoricalCasualAdmission.rootFields(root))) reject();
+      if (!rootNames.equals(Set.of("match", "participants", "completed_deals"))) reject();
       var match = root.path("match"); fields(match, MATCH_FIELDS);
       typedScalars(match, Set.of("revision", "schema_version", "planned_deals", "completed_deals", "ns_total", "ew_total"), Set.of());
       if (!Set.of("0.12.1", "0.12.2", "0.13.0", "0.13.1", "0.13.2").contains(match.path("app_version").asText())

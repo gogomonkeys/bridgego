@@ -9,7 +9,6 @@ import org.springframework.core.env.Environment;
 @ConditionalOnProperty(name="BRIDGE_COLLECTION_MODE",havingValue="single_tester_experiment")
 public class ExperimentRuntimeConfiguration {
   public static ExperimentStorage.Settings settings(Environment env,CollectionPolicy policy) {
-    if(NativePersistenceSelection.selected(env))throw new IllegalStateException("Legacy experiment storage disabled by native cutover");
     if (!policy.experiment() || !Boolean.parseBoolean(env.getProperty("BRIDGE_SHEETS_ENABLED","false")))
       throw new IllegalStateException("Explicit experiment storage required");
     String sheet=env.getRequiredProperty("BRIDGE_TEST_SPREADSHEET_ID");
