@@ -1,0 +1,194 @@
+{
+  "description": "Unmodified display-only properties and issuer cell captured from synthetic C bootstrap batch response. Component fixture only, NOT full GET/comments evidence.",
+  "properties": {
+    "title": "BridgeGo SYNTHETIC maintenance 20261112 C",
+    "locale": "en_US",
+    "autoRecalc": "ON_CHANGE",
+    "timeZone": "America/Los_Angeles",
+    "defaultFormat": {
+      "backgroundColor": {
+        "red": 1,
+        "green": 1,
+        "blue": 1
+      },
+      "padding": {
+        "right": 3,
+        "left": 3
+      },
+      "verticalAlignment": "BOTTOM",
+      "wrapStrategy": "OVERFLOW_CELL",
+      "textFormat": {
+        "foregroundColor": {},
+        "fontFamily": "Carlito",
+        "fontSize": 11,
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "foregroundColorStyle": {
+          "rgbColor": {}
+        }
+      },
+      "backgroundColorStyle": {
+        "rgbColor": {
+          "red": 1,
+          "green": 1,
+          "blue": 1
+        }
+      }
+    },
+    "spreadsheetTheme": {
+      "primaryFontFamily": "Carlito",
+      "themeColors": [
+        {
+          "colorType": "TEXT",
+          "color": {
+            "rgbColor": {}
+          }
+        },
+        {
+          "colorType": "BACKGROUND",
+          "color": {
+            "rgbColor": {
+              "red": 1,
+              "green": 1,
+              "blue": 1
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT1",
+          "color": {
+            "rgbColor": {
+              "red": 0.08235294,
+              "green": 0.3764706,
+              "blue": 0.50980395
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT2",
+          "color": {
+            "rgbColor": {
+              "red": 0.9137255,
+              "green": 0.44313726,
+              "blue": 0.19607843
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT3",
+          "color": {
+            "rgbColor": {
+              "red": 0.09803922,
+              "green": 0.41960785,
+              "blue": 0.14117648
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT4",
+          "color": {
+            "rgbColor": {
+              "red": 0.05882353,
+              "green": 0.61960787,
+              "blue": 0.8352941
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT5",
+          "color": {
+            "rgbColor": {
+              "red": 0.627451,
+              "green": 0.16862746,
+              "blue": 0.5764706
+            }
+          }
+        },
+        {
+          "colorType": "ACCENT6",
+          "color": {
+            "rgbColor": {
+              "red": 0.30588236,
+              "green": 0.654902,
+              "blue": 0.18039216
+            }
+          }
+        },
+        {
+          "colorType": "LINK",
+          "color": {
+            "rgbColor": {
+              "red": 0.27450982,
+              "green": 0.47058824,
+              "blue": 0.5254902
+            }
+          }
+        }
+      ]
+    }
+  },
+  "cell": {
+    "userEnteredValue": {
+      "stringValue": "https://accounts.google.com"
+    },
+    "effectiveValue": {
+      "stringValue": "https://accounts.google.com"
+    },
+    "formattedValue": "https://accounts.google.com",
+    "userEnteredFormat": {
+      "textFormat": {
+        "link": {
+          "uri": "https://accounts.google.com"
+        }
+      }
+    },
+    "effectiveFormat": {
+      "backgroundColor": {
+        "red": 1,
+        "green": 1,
+        "blue": 1
+      },
+      "padding": {
+        "right": 3,
+        "left": 3
+      },
+      "horizontalAlignment": "LEFT",
+      "verticalAlignment": "BOTTOM",
+      "wrapStrategy": "OVERFLOW_CELL",
+      "textFormat": {
+        "foregroundColor": {
+          "red": 0.27450982,
+          "green": 0.47058824,
+          "blue": 0.5254902
+        },
+        "fontFamily": "Carlito",
+        "fontSize": 11,
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": true,
+        "foregroundColorStyle": {
+          "rgbColor": {
+            "red": 0.27450982,
+            "green": 0.47058824,
+            "blue": 0.5254902
+          }
+        },
+        "link": {
+          "uri": "https://accounts.google.com"
+        }
+      },
+      "hyperlinkDisplayType": "LINKED",
+      "backgroundColorStyle": {
+        "rgbColor": {
+          "red": 1,
+          "green": 1,
+          "blue": 1
+        }
+      }
+    },
+    "hyperlink": "https://accounts.google.com"
+  }
+}

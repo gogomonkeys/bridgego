@@ -1,0 +1,13 @@
+# Quarterly graceful drain (local candidate)
+
+The local gate distinguishes FINISHING from DRAINING. Crossing a verified quarter boundary immediately prevents new matches while keeping existing socket actions and health readiness available. RoomService registers each server-created match ID while the gate is OPEN, before publishing the new GameState; this avoids a 30-second scheduler race. Room creation, new joins, ready and start reject during finishing. Existing reconnects use connect, not join.
+
+The domain drain hook does not pause active games. Polling or a long maintenance wait never itself produces a forfeit. Ordinary gameplay rules (including a player's real disconnect) remain unchanged. Only when all games have completed does the hook freeze timers and the gate stop admitting settlement operations. Already queued permits must complete before exclusive maintenance can begin. Unknown storage or ownership is a separate immediate force-freeze path.
+
+Generic writes are denied in FINISHING before dispatch. A server-issued settlement permit can only name a match registered before closing new-match admission. Its nonconstructible grant is bound to the attached, still-active operation/thread, exact match ID and previously verified quarter. It is not a general permission to write under an overdue ledger. The native backend's separate settlement path must independently validate the envelope, old ledger, owner, current-quarter completion and full atomic receipt/journal. No memory defer or permission to discard final results is introduced. Registration survives until exact CONFIRMED settlement (explicit settlementRecorded, not generic permit.success), explicit finalized-without-collection, or verified maintenance reset; the bounded registration set rejects new starts rather than evicting unresolved IDs.
+
+Once current-quarter OPEN is verified, idle scheduler ticks only compare local clock and gate state. Waiting for games/queued writes similarly does not reread the spreadsheet each tick. Startup, a new boundary and explicit gate invalidation still inspect; exclusive maintenance requires another fresh full verification before execution. Wall-clock rollback blocks. Cache freshness is not an ownership lease: each real native operation continues its existing session/journal checks.
+
+These are local tests and code, not a deployment or proof of formal Google cleanup readiness. No force-finish timeout or production migration was enabled.
+
+Queue cancellation/full is not a commit: generic permit.success only means no unknown dispatch occurred, and retains the registered match for a legitimate retry. Room finalization discards registration only for explicit DISABLED noncollection, never PENDING, FAILED, UNKNOWN or REJECTED.

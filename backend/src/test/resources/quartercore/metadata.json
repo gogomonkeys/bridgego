@@ -1,0 +1,123 @@
+{
+  "spreadsheetId": "1hm2CKBAlbTMRVHPZ-7_nTcjGbdb2PNvCgn9Uq_4YY2s",
+  "spreadsheetUrl": "https://docs.google.com/spreadsheets/d/1hm2CKBAlbTMRVHPZ-7_nTcjGbdb2PNvCgn9Uq_4YY2s/edit",
+  "properties": {
+    "title": "BridgeGo SYNTHETIC maintenance 20261112 B",
+    "locale": "en_US",
+    "timeZone": "America/Los_Angeles"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "sheetId": 1118397916,
+        "title": "accounts",
+        "index": 0,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "sheetId": 1056156057,
+        "title": "auth_identities",
+        "index": 1,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "sheetId": 414962000,
+        "title": "commits",
+        "index": 2,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "sheetId": 807625073,
+        "title": "dataset",
+        "index": 3,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "sheetId": 1243726614,
+        "title": "envelopes",
+        "index": 4,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "sheetId": 736708421,
+        "title": "erasure_ledger",
+        "index": 5,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "sheetId": 1056015554,
+        "title": "quarterly_aggregates",
+        "index": 6,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "sheetId": 1569490319,
+        "title": "retention_ledger",
+        "index": 7,
+        "sheetType": "GRID",
+        "gridProperties": {
+          "rowCount": 1000,
+          "columnCount": 26,
+          "rowGroupControlAfter": true,
+          "columnGroupControlAfter": true
+        }
+      }
+    }
+  ]
+}
