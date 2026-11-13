@@ -22,6 +22,7 @@ class StatisticsReadCompatibilityTest {
     var records=List.of(old,modern);String account=MatchCategoryProjectionTest.ACCOUNT;
     var now=MatchCategoryProjectionTest.NOW;var boundary=QuarterlyRetention.currentQuarterStart(now);
     Map<String,List<List<String>>> tabs=new HashMap<>();
+    tabs.put("quarterly_aggregates",List.of(QuarterlyRetention.AGGREGATE_HEADER));
     tabs.put("accounts",List.of(AccountProfileRows.HEADER,List.of(account,"2","Test","")));
     tabs.put("retention_ledger",List.of(RetentionLedger.HEADER,List.of(QuarterlyRetention.quarter(now),boundary.toString(),"COMPLETE",now.toString(),"1")));
     tabs.put("erasure_ledger",List.of(List.of("kind","identifier_hash","schema_version"),List.of("META","erasure-ledger-v1","1")));
@@ -33,6 +34,9 @@ class StatisticsReadCompatibilityTest {
     };
     try(var store=new SheetsStatsStore(gateway,1,Clock.fixed(now,ZoneOffset.UTC))){
       var saved=store.exportStatistics(account);
+      assertTrue(saved.historicalOverall().observed());
+      assertTrue(saved.historicalOverall().quarters().isEmpty());
+      assertTrue(saved.historicalOverall().countsFor("2026-Q3").isEmpty(),"Absent historical counts are unknown, not a zero summary");
       var report=StatisticsService.project(saved.current(),saved.lifetime(),account,now);
       assertEquals("AVAILABLE",report.status());assertEquals(0,report.personal().matches());
       assertEquals(1,report.casualPersonal().matches());assertEquals(1,report.casualPersonal().losses());
