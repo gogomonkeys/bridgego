@@ -92,7 +92,7 @@ public final class OperatorAccountErasure {
             for(FinalMatchEnvelope envelope:envelopes) {
                 ObjectNode payload=(ObjectNode)envelope.payload();
                 Set<String> rootFields=new HashSet<>();payload.fieldNames().forEachRemaining(rootFields::add);
-                if(!rootFields.equals(Set.of("match","participants","completed_deals")))throw new SheetsGateway.Conflict();
+                if(!rootFields.equals(HistoricalCasualAdmission.rootFields(payload)))throw new SheetsGateway.Conflict();
                 requireFields(payload.path("match"),MATCH_FIELDS);
                 for(JsonNode deal:payload.path("completed_deals"))requireFields(deal,DEAL_FIELDS);
                 boolean changed=false;
@@ -107,7 +107,7 @@ public final class OperatorAccountErasure {
                         target.put("erased_marker",UUID.randomUUID().toString());changed=true;affectedSeats++;
                     }
                 }
-                if(changed){affectedMatches++;envelope=FinalMatchEnvelope.create(envelope.matchId(),envelope.revision(),JSON.convertValue(payload,Map.class));}
+                if(changed){HistoricalCasualAdmission.afterAccountErasure(payload);affectedMatches++;envelope=FinalMatchEnvelope.create(envelope.matchId(),envelope.revision(),JSON.convertValue(payload,Map.class));}
                 if(envelope.canonicalJson().contains(accountId))throw new SheetsGateway.Conflict();
                 appendEnvelope(after,envelope);
             }
