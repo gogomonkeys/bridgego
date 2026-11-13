@@ -4,7 +4,7 @@
 <dependencies><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency></dependencies>
 <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><mainClass>com.bridge.room.RoomApplication</mainClass></configuration></plugin>
 <!-- Synthetic proof/fixtures never ship in the normal game, verification or operator JARs. -->
-<plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><configuration><excludes><exclude>com/bridge/quartercore/SyntheticC*</exclude><exclude>synthetic-c/**</exclude><exclude>com/bridge/persistence/LocalSyntheticErasureRehearsal*</exclude><exclude>com/bridge/persistence/ManualQuarterMaintenance*</exclude><exclude>com/bridge/persistence/LocalManualQuarterRehearsal*</exclude><exclude>com/bridge/persistence/LiveQuarter*</exclude><exclude>com/bridge/persistence/SyntheticSheetsErasurePreparation*</exclude><exclude>com/bridge/persistence/SyntheticSheetsReadOnlyAdapter*</exclude><exclude>com/bridge/persistence/SyntheticSheetsReadOnlyTransport*</exclude><exclude>com/bridge/syntheticcleanup/**</exclude><exclude>com/bridge/persistence/SyntheticCleanup*</exclude></excludes></configuration></plugin>
+<plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><configuration><excludes><exclude>com/bridge/persistence/LocalSyntheticErasureRehearsal*</exclude><exclude>com/bridge/persistence/ManualQuarterMaintenance*</exclude><exclude>com/bridge/persistence/LocalManualQuarterRehearsal*</exclude><exclude>com/bridge/persistence/LiveQuarter*</exclude><exclude>com/bridge/persistence/SyntheticSheetsErasurePreparation*</exclude><exclude>com/bridge/persistence/SyntheticSheetsReadOnlyAdapter*</exclude><exclude>com/bridge/persistence/SyntheticSheetsReadOnlyTransport*</exclude><exclude>com/bridge/syntheticcleanup/**</exclude><exclude>com/bridge/persistence/SyntheticCleanup*</exclude></excludes></configuration></plugin>
 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><excludes><exclude>**/syntheticcleanup/**</exclude><exclude>**/SyntheticCleanup*.java</exclude><exclude>**/SyntheticSheetsReadOnlyTransport*.java</exclude><exclude>**/LiveQuarter*.java</exclude></excludes><testExcludes><testExclude>**/syntheticcleanup/**</testExclude><testExclude>**/SyntheticCleanup*.java</testExclude><testExclude>**/SyntheticSheetsReadOnlyTransport*.java</testExclude><testExclude>**/LiveQuarter*.java</testExclude></testExcludes></configuration></plugin>
 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><configuration><excludes><exclude>**/syntheticcleanup/**</exclude><exclude>**/SyntheticCleanup*Test*</exclude><exclude>**/SyntheticSheetsReadOnlyTransportTest*</exclude><exclude>**/LiveQuarter*Test*</exclude></excludes></configuration></plugin>
 </plugins></build>
@@ -37,7 +37,6 @@
 <include>com/bridge/persistence/LifetimeStatistics*</include>
 <include>com/bridge/persistence/SheetsGateway*</include>
 <include>com/bridge/persistence/SheetsStatsStore*</include>
-<include>com/bridge/persistence/QuarterMaintenanceGate*</include>
 <include>com/bridge/persistence/SheetsIdentityStore*</include>
 <include>com/bridge/persistence/StatsStore*</include>
 <include>com/bridge/persistence/QuarterlyRetention*</include>
@@ -80,7 +79,6 @@
 <include>com/bridge/persistence/LifetimeStatistics*</include>
 <include>com/bridge/persistence/SheetsGateway*</include>
 <include>com/bridge/persistence/SheetsStatsStore*</include>
-<include>com/bridge/persistence/QuarterMaintenanceGate*</include>
 <include>com/bridge/persistence/SheetsIdentityStore*</include>
 <include>com/bridge/persistence/StatsStore*</include>
 <include>com/bridge/persistence/QuarterlyRetention*</include>
@@ -116,7 +114,6 @@
 <include>com/bridge/persistence/LifetimeStatistics*</include>
 <include>com/bridge/persistence/SheetsGateway*</include>
 <include>com/bridge/persistence/SheetsStatsStore*</include>
-<include>com/bridge/persistence/QuarterMaintenanceGate*</include>
 <include>com/bridge/persistence/StatsStore*</include>
 <include>com/bridge/persistence/QuarterlyRetention*</include>
 <include>com/bridge/persistence/RetentionLedger*</include>
@@ -154,7 +151,6 @@
 <include>com/bridge/persistence/LifetimeStatistics*</include>
 <include>com/bridge/persistence/SheetsGateway*</include>
 <include>com/bridge/persistence/SheetsStatsStore*</include>
-<include>com/bridge/persistence/QuarterMaintenanceGate*</include>
 <include>com/bridge/persistence/StatsStore*</include>
 <include>com/bridge/persistence/QuarterlyRetention*</include>
 <include>com/bridge/persistence/RetentionLedger*</include>
