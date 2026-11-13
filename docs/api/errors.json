@@ -680,6 +680,21 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "QUARTER_MAINTENANCE",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/QuarterMaintenanceFilter.java",
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "系統維護中，請稍後再試。",
+      "category": "maintenance",
+      "meaning": "季度維護期間暫停遊戲操作",
+      "handling": "保留目前狀態，稍後查看服務狀態；不要自動重送遊戲或寫入操作",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "RATE_LIMITED",
       "httpStatuses": [
         429
