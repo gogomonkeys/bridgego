@@ -12,7 +12,9 @@ public final class QuarterlyRetention {
     private static final Set<String> TABS=Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","retention_ledger","quarterly_aggregates");
     public enum State { DRY_RUN, PENDING, COMPLETE, FAILED, UNCERTAIN }
     /** Thresholds are candidate policy, not anonymity guarantees; disabled by default. */
-    public record AggregatePolicy(boolean approved,int minimumMatches,int minimumHumans,int rounding) {
+    public record AggregatePolicy(boolean approved,int minimumMatches,int minimumHumans,int rounding,boolean internalCounts) {
+        public AggregatePolicy(boolean approved,int minimumMatches,int minimumHumans,int rounding){this(approved,minimumMatches,minimumHumans,rounding,false);}
+        public static AggregatePolicy retainOverallV2(){return new AggregatePolicy(false,50,20,10,true);}
         public AggregatePolicy {if(minimumMatches<50||minimumHumans<20||rounding<10||rounding%10!=0)throw new IllegalArgumentException("Conservative minimum required");}
         public static AggregatePolicy suppressAll(){return new AggregatePolicy(false,50,20,10);}
     }
@@ -102,6 +104,7 @@ public final class QuarterlyRetention {
     }
     private boolean withinWindow(Plan p){Instant now=clock.instant();return p.expiresAt.isAfter(now)&&p.preview.cutoff().equals(currentQuarterStart(now));}
     private List<String> aggregate(String quarter,List<FinalMatchEnvelope> envelopes){
+        if(policy.internalCounts())return QuarterlyOverallSummary.encodeRow(quarter,QuarterlyOverallSummary.summarize(quarter,envelopes,clock.instant()));
         Set<String> humans=new HashSet<>(),matches=new HashSet<>();long deals=0;boolean eligible=true;
         for(var e:envelopes){
             // Multiple revisions cannot double count; finished_at assigns the quarter.
@@ -116,10 +119,7 @@ public final class QuarterlyRetention {
     private Map<String,List<List<String>>> snapshot(){var result=new TreeMap<String,List<List<String>>>();for(String tab:TABS)result.put(tab,gateway.read(tab));result.put("dataset",gateway.read("dataset"));
         for(var rows:result.values())if(rows==null||rows.isEmpty())throw new SheetsGateway.Conflict();
         new RetentionLedger(result.get("retention_ledger"));var aggregate=result.get("quarterly_aggregates");if(!aggregate.get(0).equals(AGGREGATE_HEADER))throw new SheetsGateway.Conflict();Set<String> seen=new HashSet<>();for(var row:aggregate.subList(1,aggregate.size())){
-            if(row.size()!=5||!seen.add(row.get(0))||!row.get(0).matches("[0-9]{4}-Q[1-4]")||!row.get(4).equals("1"))throw new SheetsGateway.Conflict();
-            if(row.get(1).equals("SUPPRESSED")){if(!row.get(2).isEmpty()||!row.get(3).isEmpty())throw new SheetsGateway.Conflict();}
-            else if(row.get(1).equals("CANDIDATE_COUNTS")){for(int i=2;i<=3;i++)try{if(!row.get(i).matches("[0-9]+")||Long.parseLong(row.get(i))%10!=0)throw new IllegalArgumentException();}catch(RuntimeException bad){throw new SheetsGateway.Conflict();}}
-            else throw new SheetsGateway.Conflict();
+            try{var decoded=QuarterlyOverallSummary.decodeRow(row);if(!seen.add(decoded.quarter()))throw new SheetsGateway.Conflict();}catch(RuntimeException invalid){throw new SheetsGateway.Conflict();}
         }return copy(result);}
     private static SheetsGateway memory(Map<String,List<List<String>>> snapshot){return new SheetsGateway(){public List<List<String>> read(String tab){return snapshot.get(tab);}public void appendAtomic(Map<String,List<List<Object>>> rows){throw new UnsupportedOperationException();}};}
     private static Map<String,List<List<String>>> copy(Map<String,List<List<String>>> source){var result=new TreeMap<String,List<List<String>>>();source.forEach((k,v)->result.put(k,new ArrayList<>(v.stream().map(List::copyOf).toList())));return result;}
