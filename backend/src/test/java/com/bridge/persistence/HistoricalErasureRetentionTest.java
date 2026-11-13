@@ -1,0 +1,10 @@
+package com.bridge.persistence;
+import org.junit.jupiter.api.Test;import java.time.*;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+class HistoricalErasureRetentionTest {
+ @Test void realOperatorErasureThenQuarterPurgeRetainsOtherAccountAndNoOldIdentity()throws Exception{
+  var f=new OperatorAccountErasureTest.Fixture();var e=HistoricalCasualAdmission.migrate(HistoricalAdmissionTest.original(f.account),UUID.randomUUID().toString());
+  f.db.tabs.put("envelopes",new ArrayList<>(List.of(List.of("commit_id","payload_hash","chunk_index","chunk_count","canonical_json_chunk"),List.of(e.commitId(),e.payloadHash(),"0","1",e.canonicalJson()))));f.db.tabs.put("commits",new ArrayList<>(List.of(List.of("commit_id","payload_hash","chunk_count","match_id","revision"),List.of(e.commitId(),e.payloadHash(),"1",e.matchId(),"2"))));f.db.tabs.put("quarterly_aggregates",new ArrayList<>(List.of(QuarterlyRetention.AGGREGATE_HEADER)));
+  var erasure=f.service(true);assertEquals(OperatorAccountErasure.Outcome.VERIFIED,f.execute(erasure,f.preview(erasure),"owner"));assertFalse(f.db.tabs.toString().contains(f.account));var saved=f.db.tabs.get("commits").get(1);var erased=new FinalMatchEnvelope(saved.get(0),saved.get(3),2,f.db.tabs.get("envelopes").get(1).get(4),saved.get(1));assertTrue(LifetimeStatistics.eligibleForRetention(erased));assertTrue(erased.payload().path("participants").get(0).path("account_id").isNull());
+  var preserved=f.db.tabs.get("accounts");var identity=f.db.tabs.get("auth_identities");var clock=Clock.fixed(Instant.parse("2027-01-01T00:00:01Z"),ZoneOffset.UTC);var retention=new QuarterlyRetention(f.db,clock,()->true,true,QuarterlyRetention.AggregatePolicy.suppressAll());var preview=retention.preview();var outcome=retention.execute(preview.planId(),preview.confirmationText());assertEquals(QuarterlyRetention.State.COMPLETE,outcome.state());assertEquals(1,f.db.tabs.get("commits").size());assertEquals(1,f.db.tabs.get("envelopes").size());assertEquals(preserved,f.db.tabs.get("accounts"));assertEquals(identity,f.db.tabs.get("auth_identities"));assertFalse(f.db.tabs.toString().contains(f.account));
+ }
+}

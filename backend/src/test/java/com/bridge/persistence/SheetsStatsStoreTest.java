@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SheetsStatsStoreTest {
     static class Fake implements SheetsGateway {
         final Map<String,List<List<String>>> tabs=new ConcurrentHashMap<>(); int writes; int failStatus; boolean timeoutAfter; CountDownLatch block;
-        Fake(){Instant b=QuarterlyRetention.currentQuarterStart(Instant.now());tabs.put("retention_ledger",new ArrayList<>(List.of(RetentionLedger.HEADER,List.of(QuarterlyRetention.quarter(b),b.toString(),"COMPLETE",Instant.now().toString(),"1"))));tabs.put("erasure_ledger",new ArrayList<>(List.of(ErasureLedger.HEADER,ErasureLedger.SENTINEL)));}
+        Fake(){tabs.put("quarterly_aggregates",new ArrayList<>(List.of(QuarterlyRetention.AGGREGATE_HEADER)));Instant b=QuarterlyRetention.currentQuarterStart(Instant.now());tabs.put("retention_ledger",new ArrayList<>(List.of(RetentionLedger.HEADER,List.of(QuarterlyRetention.quarter(b),b.toString(),"COMPLETE",Instant.now().toString(),"1"))));tabs.put("erasure_ledger",new ArrayList<>(List.of(ErasureLedger.HEADER,ErasureLedger.SENTINEL)));}
         public synchronized List<List<String>> read(String tab){return new ArrayList<>(tabs.getOrDefault(tab,List.of()));}
         public void appendAtomic(Map<String,List<List<Object>>> rows){
             if(block!=null)try{block.await();}catch(InterruptedException e){Thread.currentThread().interrupt();throw new Failure(0,0);}

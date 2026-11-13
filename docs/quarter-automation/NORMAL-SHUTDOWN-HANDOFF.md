@@ -1,0 +1,11 @@
+# Explicit orderly shutdown handoff (local, not installed as a Spring hook)
+
+`NativeShutdownHandoff` is one-shot and admits only an idle OPEN or quarter-boundary FINISHING owner. It blocks new admission, requires no registered matches, active permits, queued or accepted unsettled results, then writes native CLOSE with its receipt/journal and verifies the full readback. A completed handoff can be CLEAN_CURRENT or READY_DUE; READY_DUE still needs maintenance before a new process may serve games. Existing PENDING/APPLIED maintenance is not converted to a clean handoff.
+
+The caller's monotonic budget is at most 15 seconds. Timeout/error is terminal UNKNOWN. One daemon schedules resource-only `backend.close()`; that daemon may wait behind the existing serial operation, but the caller does not. It never retries CLOSE, interrupts a serial holder, or reports cancelled queued work as saved. A late CLOSE or subsequent resource release cannot turn UNKNOWN into COMPLETE. The release callback is consumed once by backend lifecycle locking. Ordinary `close()` is still resource disposal, not an implicit handoff.
+
+This helper does not authorize restart, prove old-process termination, or solve an unannounced kill with volatile accepted work. Durable readback assessment and restart authority remain separate. No deployment or real-data access is performed by these tests.
+
+## Spring integration
+
+Native-only `NativeShutdownLifecycle` runs before bean destruction; legacy has no new hook. It first irreversibly stops scheduled tick admission without taking the coordinator's I/O lock. An already active tick disqualifies clean handoff. An attached stage delegates to the exact selected backend, while inert stages do not claim ownership or write CLOSE. Actual RoomService active-game checks use admission drain/freeze, never forced forfeiture. The attempt has a ten-second I/O budget and a separate eleven-second watchdog that completes Spring's stop callback and schedules resource disposal even if a local domain lock is blocked. Resource disposal may finish later; it is not clean-handoff success. Runtime resource finalizers must run after SmartLifecycle, not in an early ContextClosedEvent listener.
