@@ -16,7 +16,7 @@ public record FinalMatchEnvelope(String commitId, String matchId, int revision, 
         var match = payload().path("match");
         return switch (match.path("statistics_rule").asText()) {
             case LEGACY_STATISTICS_RULE -> "FORMAL";
-            case SETTLEMENT_STATISTICS_RULE, STATISTICS_RULE -> match.path("match_category").textValue();
+            case HistoricalCasualAdmission.RULE, SETTLEMENT_STATISTICS_RULE, STATISTICS_RULE -> match.path("match_category").textValue();
             default -> null;
         };
     }
@@ -46,9 +46,11 @@ public record FinalMatchEnvelope(String commitId, String matchId, int revision, 
             || !people.isArray() || people.size()!=4 || !deals.isArray()
             || !match.path("completed_deals").isIntegralNumber() || match.path("completed_deals").asInt()!=deals.size())
             throw new IllegalArgumentException("Invalid match schema");
+        HistoricalCasualAdmission.validate(root);
+        boolean historical = HistoricalCasualAdmission.RULE.equals(match.path("statistics_rule").asText());
         boolean statistics = match.has("statistics_rule");
         boolean fixed = STATISTICS_RULE.equals(match.path("statistics_rule").textValue());
-        boolean categorized = fixed || SETTLEMENT_STATISTICS_RULE.equals(match.path("statistics_rule").textValue());
+        boolean categorized = historical || fixed || SETTLEMENT_STATISTICS_RULE.equals(match.path("statistics_rule").textValue());
         boolean legacyStatistics = LEGACY_STATISTICS_RULE.equals(match.path("statistics_rule").textValue());
         if (statistics && (!match.path("statistics_rule").isTextual()
             || !(categorized || legacyStatistics)
@@ -59,7 +61,7 @@ public record FinalMatchEnvelope(String commitId, String matchId, int revision, 
             : match.has("match_category")) throw new IllegalArgumentException("Invalid statistics category");
         if (fixed ? !match.path("match_category").asText().equals(match.path("room_type").textValue())
             : match.has("room_type")) throw new IllegalArgumentException("Invalid fixed room type");
-        if (match.has("lifetime_rule") && (!fixed || !LifetimeStatistics.RULE.equals(match.path("lifetime_rule").textValue())))
+        if (match.has("lifetime_rule") && (!(fixed || historical) || !LifetimeStatistics.RULE.equals(match.path("lifetime_rule").textValue())))
             throw new IllegalArgumentException("Invalid lifetime statistics marker");
         int settlementBots = 0, originalHumans = 0;
         Set<String> accounts = new HashSet<>();
@@ -83,7 +85,7 @@ public record FinalMatchEnvelope(String commitId, String matchId, int revision, 
                 if (fixed && "FORMAL".equals(match.path("room_type").asText())
                     && (!human || !"HUMAN".equals(control)))
                     throw new IllegalArgumentException("Formal room cannot contain automated control");
-                if (categorized) {
+                if (categorized && !historical) {
                     String settled = person.path("settlement_control").asText();
                     if (!Set.of("HUMAN", "BOT").contains(settled)
                         || bot && !"BOT".equals(settled)
@@ -96,7 +98,7 @@ public record FinalMatchEnvelope(String commitId, String matchId, int revision, 
             }
         }
         if (fixed && originalHumans == 0) throw new IllegalArgumentException("Room must start with a human");
-        if (categorized && (fixed
+        if (categorized && !historical && (fixed
             ? "FORMAL".equals(match.path("room_type").asText()) && settlementBots != 0
               || settlementBots == 4 && !"NO_CONTEST".equals(match.path("outcome").asText())
             : settlementBots == 4 || !(settlementBots == 0 ? "FORMAL" : "CASUAL").equals(match.path("match_category").textValue())))

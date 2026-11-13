@@ -1,0 +1,11 @@
+# Exclusive native source cutover candidate
+
+BRIDGE_PERSISTENCE_DRIVER defaults to legacy. Only legacy or native-journal-v1 is accepted; unknown values fail. Native selection requires Sheets enabled, an enabled quarter gate, fixed DatasetBinding and BRIDGE_NATIVE_CUTOVER_BASELINE_SHA256. These values are configuration, not authority: the factory must independently verify source freeze, baseline, ownership, capability and journal readiness. The shipped production factory remains unavailable, so merely setting flags fails startup and cannot mint permission.
+
+In native mode the legacy SheetsGateway is an inert rejecting object created before any legacy credential/client access. Both StatsStore and IdentityStore select interface-only facades over the same singleton NativePersistenceBackend. Failure cannot fall back to legacy. Experiment settings also reject native selection before constructing a Google client. Separate manual/operator/maintenance processes still require explicit shutdown; this gate cannot stop them remotely.
+
+NativeStoresBackend is a local assembly implementation with package-private constructor, no credentials or public provider. It uses one already verified native Service + JournaledNativeTransport for identity/profile/matches. Statistics obtain one full journal-verified immutable snapshot and reuse the existing read-only decoder, preserving current/lifetime and formal/casual semantics. It never constructs a legacy write client. Native Google operation scopes cover all eight tables and retain a 60-second bound.
+
+Match writes use a bounded 128-task queue. Admission permits are acquired before enqueue and released on cancellation/rejection. Workers serialize the entire native operation, including exact receipt/journal verification, and unknown results block further admission without retry. Status reads/submissions do not wait for the network-held Service lock. Unstarted queued work is rejected at shutdown. No persistent outbox is invented; crash recovery and provider lifecycle remain subject to journal/ownership verification.
+
+This source-cutover assembly is tested with in-memory native transport only. The default provider is not provisioned; real Google service authority, successful source migration and native writer activation have not occurred. Do not enable the driver in production yet.
