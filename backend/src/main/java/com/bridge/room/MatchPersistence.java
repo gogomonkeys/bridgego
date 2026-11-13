@@ -159,9 +159,6 @@ final class MatchPersistence {
     }
   }
 
-  /** Explicit noncollection, not failure/rejection or pending asynchronous persistence. */
-  boolean finalizedWithoutSubmission() { return finalized && initialStatus.equals("DISABLED"); }
-
   String status(StatsStore store) {
     if (envelope == null || store == null || !initialStatus.equals("PENDING")) return initialStatus;
     return store.status(envelope.commitId()).name();
