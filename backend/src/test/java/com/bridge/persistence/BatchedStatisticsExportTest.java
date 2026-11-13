@@ -31,7 +31,7 @@ class BatchedStatisticsExportTest {
       var data=store.exportStatistics(account(f));
       assertEquals(1,data.current().size());assertEquals(LifetimeStatsExportTest.carry(),data.lifetime());
       assertEquals(3,f.batches);assertEquals(0,f.singles);assertEquals(writes,f.writes);
-      assertEquals(Set.of("dataset","retention_ledger","erasure_ledger","accounts","quarterly_aggregates"),new HashSet<>(f.requested.get(0)));
+      assertEquals(Set.of("dataset","retention_ledger","erasure_ledger","accounts"),new HashSet<>(f.requested.get(0)));
       assertEquals(Set.of("dataset","envelopes","commits"),new HashSet<>(f.requested.get(1)));
       assertEquals(f.requested.get(0),f.requested.get(2));
     }
