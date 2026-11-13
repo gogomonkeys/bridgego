@@ -1,6 +1,5 @@
 package com.bridge.room;
 
-import com.bridge.persistence.QuarterMaintenanceGate;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,7 +36,6 @@ public class RoomSocket extends TextWebSocketHandler {
     final Queue<Runnable> writes = new ArrayDeque<>();
     final CompletableFuture<Void> transportClosed = new CompletableFuture<>();
     boolean writerRunning;
-    boolean maintenanceNotified;
     long textWindowStarted;
     int textWindowCount;
     long lastSnapshotRevision = -1;
@@ -63,7 +61,6 @@ public class RoomSocket extends TextWebSocketHandler {
 
   private final Map<String, Client> clients = new ConcurrentHashMap<>();
   private final RoomService service;
-  private final QuarterMaintenanceGate maintenance;
   private final ObjectMapper json;
   private final LongSupplier nanoTime;
   private final Executor io;
@@ -71,21 +68,9 @@ public class RoomSocket extends TextWebSocketHandler {
   private final AtomicLong probeSequence = new AtomicLong();
   private long lastHeartbeat;
   private final AtomicBoolean shutdownStarted = new AtomicBoolean();
-  private final boolean nativeShutdown;
 
   @Autowired
-  public RoomSocket(RoomService service, ObjectMapper json, QuarterMaintenanceGate maintenance,
-      org.springframework.core.env.Environment environment) {
-    this(service, json, maintenance,
-        com.bridge.persistence.NativePersistenceSelection.selected(environment));
-  }
-
-  public RoomSocket(RoomService service, ObjectMapper json, QuarterMaintenanceGate maintenance) {
-    this(service, json, maintenance, false);
-  }
-
-  private RoomSocket(RoomService service, ObjectMapper json, QuarterMaintenanceGate maintenance,
-      boolean nativeShutdown) {
+  public RoomSocket(RoomService service, ObjectMapper json) {
     this(
         service,
         json,
@@ -96,7 +81,7 @@ public class RoomSocket extends TextWebSocketHandler {
               thread.setDaemon(true);
               return thread;
             }, new ThreadPoolExecutor.AbortPolicy()),
-        true, maintenance, nativeShutdown);
+        true);
   }
 
   RoomSocket(RoomService service, ObjectMapper json, LongSupplier nanoTime) {
@@ -105,18 +90,6 @@ public class RoomSocket extends TextWebSocketHandler {
 
   RoomSocket(
       RoomService service, ObjectMapper json, LongSupplier nanoTime, Executor io, boolean owned) {
-    this(service, json, nanoTime, io, owned, QuarterMaintenanceGate.disabled());
-  }
-
-  RoomSocket(RoomService service, ObjectMapper json, LongSupplier nanoTime, Executor io,
-      boolean owned, QuarterMaintenanceGate maintenance) {
-    this(service, json, nanoTime, io, owned, maintenance, false);
-  }
-
-  RoomSocket(RoomService service, ObjectMapper json, LongSupplier nanoTime, Executor io,
-      boolean owned, QuarterMaintenanceGate maintenance, boolean nativeShutdown) {
-    this.nativeShutdown = nativeShutdown;
-    this.maintenance = maintenance;
     this.nanoTime = nanoTime;
     this.io = io;
     this.ownedIo = owned ? (ExecutorService) io : null;
@@ -131,22 +104,7 @@ public class RoomSocket extends TextWebSocketHandler {
 
   @PreDestroy
   public void shutdown() {
-    if (nativeShutdown) service.requestNativeShutdown();
     if (!shutdownStarted.compareAndSet(false, true)) return;
-    if (nativeShutdown) {
-      // ContextClosedEvent runs before SmartLifecycle.stop. Never wait here for the
-      // domain lock or transport: the bounded native handoff owns its own deadline.
-      Thread worker = new Thread(this::shutdownTransports, "native-room-socket-shutdown");
-      worker.setDaemon(true);
-      worker.start();
-      return;
-    }
-    shutdownTransports();
-  }
-
-  private boolean nativeStopping() { return nativeShutdown && shutdownStarted.get(); }
-
-  private void shutdownTransports() {
     // Domain freeze MUST precede transport close callbacks and scheduler sweeps.
     service.beginMaintenance();
     List<Client> closing = new ArrayList<>(clients.values());
@@ -176,20 +134,9 @@ public class RoomSocket extends TextWebSocketHandler {
 
   @Override
   public void afterConnectionEstablished(WebSocketSession session) {
-    if (nativeStopping()) {
-      try { session.close(new CloseStatus(1012, "SERVER_STOPPING")); }
-      catch (java.io.IOException ignored) { }
-      return;
-    }
     session.setTextMessageSizeLimit(4096);
     session.setBinaryMessageSizeLimit(4096);
     synchronized (clients) {
-      if (!maintenance.isOpen()) {
-        // Not admitted: no domain identity or membership exists for this connection.
-        try { session.close(new CloseStatus(1013, "QUARTER_MAINTENANCE")); }
-        catch (java.io.IOException ignored) { }
-        return;
-      }
       if (service.stopping() || clients.size() >= service.limits().maxSockets()) {
         try { session.close(new CloseStatus(service.stopping() ? 1012 : 1008,
             service.stopping() ? "SERVER_STOPPING" : "CONNECTION_LIMIT")); }
@@ -202,32 +149,8 @@ public class RoomSocket extends TextWebSocketHandler {
 
   @Override
   protected void handleTextMessage(WebSocketSession socket, TextMessage message) {
-    if (nativeStopping()) return;
     Client c = clients.get(socket.getId());
     if (c == null) return;
-    QuarterMaintenanceGate.Permit admission;
-    try { admission = maintenance.enterRead(); }
-    catch (QuarterMaintenanceGate.Unavailable closed) {
-      notifyMaintenance(c);
-      return;
-    }
-    try (admission) { handleAdmittedTextMessage(socket, message); }
-  }
-
-  private void notifyMaintenance(Client c) {
-    // No deliberate close of an admitted member; repeated messages produce at most one notice.
-    synchronized (c) {
-      if (c.maintenanceNotified) return;
-      c.maintenanceNotified = true;
-    }
-    send(c, Map.of("type", "maintenance", "code", "QUARTER_MAINTENANCE",
-        "message", "系統維護中，請稍後再試。"));
-  }
-
-  private void handleAdmittedTextMessage(WebSocketSession socket, TextMessage message) {
-    Client c = clients.get(socket.getId());
-    if (c == null) return;
-    c.maintenanceNotified = false;
     boolean rateLimited;
     synchronized (c) {
       long now = nanoTime.getAsLong();
@@ -250,7 +173,7 @@ public class RoomSocket extends TextWebSocketHandler {
         if (!type.equals("subscribe"))
           throw RoomService.fail(401, "UNAUTHORIZED", "Subscribe with your guest session first");
         synchronized (service) {
-          if (c.closed || !maintenance.isOpen()) return;
+          if (c.closed) return;
           RoomService.Identity id = service.authenticate(node.path("token").asText());
           String roomId = node.path("roomId").asText();
           service.get(roomId, id);
@@ -465,8 +388,8 @@ public class RoomSocket extends TextWebSocketHandler {
       }
     }
     diagnostics(c, reason);
-    if (!nativeStopping()) synchronized (service) {
-      if (!nativeStopping() && maintenance.isOpen() && c.identity != null) service.disconnect(c.roomId, c.identity.playerId(), c.socket.getId());
+    synchronized (service) {
+      if (c.identity != null) service.disconnect(c.roomId, c.identity.playerId(), c.socket.getId());
     }
     Runnable closeSocket =
         () -> {
@@ -496,8 +419,8 @@ public class RoomSocket extends TextWebSocketHandler {
     c.closed = true;
     c.transportClosed.complete(null);
     diagnostics(c, new CloseStatus(status.getCode(), "PEER_CLOSED"));
-    if (!nativeStopping()) synchronized (service) {
-      if (!nativeStopping() && maintenance.isOpen() && c.identity != null) service.disconnect(c.roomId, c.identity.playerId(), socket.getId());
+    synchronized (service) {
+      if (c.identity != null) service.disconnect(c.roomId, c.identity.playerId(), socket.getId());
     }
   }
 
@@ -535,8 +458,7 @@ public class RoomSocket extends TextWebSocketHandler {
 
   @Scheduled(fixedDelay = HEARTBEAT_CADENCE_MS)
   public synchronized void heartbeat() {
-    if (nativeStopping()) return;
-    if (service.stopping() || !maintenance.isOpen()) return;
+    if (service.stopping()) return;
     long tick = nanoTime.getAsLong();
     long gap = tick - lastHeartbeat;
     lastHeartbeat = tick;
