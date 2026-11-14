@@ -25,15 +25,24 @@ export default function App() {
     (room) => (room.roomType ?? "CASUAL") === roomType,
   );
   const [plannedDeals, setPlannedDeals] = useState<1 | 3 | 5>(3);
-  const [route, setPage] = useState<"room" | "help" | "statistics">(() =>
+  const [route, setPage] = useState<
+    "room" | "help" | "statistics" | "leaderboard"
+  >(() =>
     typeof window !== "undefined" && window.location?.hash === "#help"
       ? "help"
       : typeof window !== "undefined" && window.location?.hash === "#statistics"
         ? "statistics"
-        : "room",
+        : typeof window !== "undefined" &&
+            window.location?.hash === "#leaderboard"
+          ? "leaderboard"
+          : "room",
   );
-  const page = route === "statistics" && state.room ? "room" : route;
-  const navigate = (next: "room" | "help" | "statistics") => {
+  const page =
+    (route === "statistics" || route === "leaderboard") && state.room
+      ? "room"
+      : route;
+  const statisticsPage = page === "statistics" || page === "leaderboard";
+  const navigate = (next: "room" | "help" | "statistics" | "leaderboard") => {
     setPage(next);
     window.location.hash = next;
   };
@@ -44,7 +53,9 @@ export default function App() {
           ? "help"
           : window.location.hash === "#statistics"
             ? "statistics"
-            : "room",
+            : window.location.hash === "#leaderboard"
+              ? "leaderboard"
+              : "room",
       );
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
@@ -167,12 +178,12 @@ export default function App() {
         className={
           page === "help"
             ? "help-page"
-            : page === "statistics"
+            : statisticsPage
               ? "statistics-page"
               : undefined
         }
       >
-        {(page === "help" || page === "statistics") && (
+        {(page === "help" || statisticsPage) && (
           <div className="help-version">
             <span className="eyebrow">v0.13.2</span>
           </div>
@@ -219,7 +230,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {state.notice && page !== "statistics" && (
+        {state.notice && !statisticsPage && (
           <p className="notice" role="status">
             {state.notice}
           </p>
@@ -306,9 +317,10 @@ export default function App() {
               setEnteredToken(token);
             }}
           />
-        ) : page === "statistics" && canSeeStatistics ? (
+        ) : statisticsPage && canSeeStatistics ? (
           <StatisticsPanel
-            key={`${state.session!.token}:${accountEpoch}`}
+            key={`${state.session!.token}:${accountEpoch}:${page}`}
+            initialTab={page === "leaderboard" ? "leaderboard" : "personal"}
             token={state.session!.token}
             onBack={() => navigate("room")}
           />
@@ -480,24 +492,44 @@ export default function App() {
                   <h2>你好，{state.session!.displayName}</h2>
                 </div>
                 {canSeeStatistics && (
-                  <button
-                    type="button"
-                    className="secondary lobby-statistics-button"
-                    onClick={() => navigate("statistics")}
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      aria-hidden="true"
-                      focusable="false"
+                  <div className="lobby-statistics-actions">
+                    <button
+                      type="button"
+                      className="secondary lobby-statistics-button"
+                      onClick={() => navigate("statistics")}
                     >
-                      <path d="M3 16.5h14M5 13V9m5 4V3.5m5 9.5V6" />
-                    </svg>
-                    <span>戰績統計</span>
-                  </button>
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path d="M3 16.5h14M5 13V9m5 4V3.5m5 9.5V6" />
+                      </svg>
+                      <span>戰績統計</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary lobby-statistics-button"
+                      onClick={() => navigate("leaderboard")}
+                    >
+                      <svg
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path d="M7 17V4h6v13M2 17V9h5m6 2h5v6M1 17h18" />
+                      </svg>
+                      <span>排行榜</span>
+                    </button>
+                  </div>
                 )}
               </div>
               <p>開一個新房間，或加入朋友的邀請。</p>

@@ -7,7 +7,7 @@ export function isManagedCollection(config: AuthConfig | null): boolean {
 }
 
 export const managedLoginConsent =
-  "登入表示同意將 Google 識別碼、已驗證信箱（如有）、遊戲帳號、暱稱及合資格戰績存入營運者的私人 Google 試算表。帳號與生涯累計保留，原始戰績每季人工清理；刪帳一併移除生涯，解除連結不是刪除。";
+  "登入表示同意將 Google 識別碼、已驗證信箱（如有）、遊戲帳號、暱稱及合資格戰績存入營運者的私人 Google 試算表；符合條件時自動列入排行榜，向其他登入玩家顯示暱稱及正式場戰績。";
 
 export function isSingleTesterExperiment(config: AuthConfig | null): boolean {
   return config?.collectionMode === "single_tester_experiment";

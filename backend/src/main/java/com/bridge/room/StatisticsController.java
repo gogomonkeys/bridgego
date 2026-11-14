@@ -47,6 +47,17 @@ public final class StatisticsController {
     return statistics.read(identity(bearer));
   }
 
+  @GetMapping("/leaderboard") public Leaderboard.Report leaderboard(
+      @RequestHeader(value = "Authorization", required = false) String bearer,
+      @RequestParam(defaultValue = "SEASON") String period,
+      @RequestParam(defaultValue = "FORMAL") String category) {
+    RoomService.Identity who = identity(bearer);
+    Leaderboard.Period p; Leaderboard.Category c;
+    try { p = Leaderboard.Period.valueOf(period); c = Leaderboard.Category.valueOf(category); }
+    catch (IllegalArgumentException invalid) { throw RoomService.fail(400, "LEADERBOARD_FILTER_INVALID", "Invalid leaderboard filter"); }
+    return statistics.readLeaderboard(who, p, c);
+  }
+
   @ExceptionHandler(RoomService.Failure.class) public ResponseEntity<?> failure(RoomService.Failure e) {
     return ResponseEntity.status(e.status).body(Map.of("code", e.code, "message", e.getMessage()));
   }

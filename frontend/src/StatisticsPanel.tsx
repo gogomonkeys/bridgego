@@ -1,3 +1,4 @@
+import LeaderboardPanel from "./LeaderboardPanel";
 import PersonalStatisticsSummary from "./PersonalStatisticsSummary";
 import { taiwanSettlementTime } from "./statistics-format";
 import { useEffect, useState } from "react";
@@ -106,44 +107,32 @@ export function StatisticsContent({
           </div>
         </dl>
       )}
-      <details className="statistics-disclosure">
-        <summary>資料與保存說明</summary>
-        <p className="fine">
-          資料截至{" "}
-          {new Date(data.asOf).toLocaleString("zh-TW", {
-            timeZone: "Asia/Taipei",
-            hour12: false,
-          })}
-          （台灣時間）
-        </p>
-        {lifetime ? (
-          <p className="fine">
-            僅含新版已同意保存的紀錄，不補算舊未同意或已清除資料。
-            {!data.lifetimeTrackedFromQuarter && "尚無可確認的生涯起始季度。"}
-          </p>
-        ) : (
-          <p className="fine">結算至以上下一季切換時間，並非自動清理時間。</p>
-        )}
-        {tab === "overall" && (
-          <p className="fine">
-            總場次＝完成場次＋中途離席＋無勝負場次。完成場次僅計正常打完的場次，不含判負與中止；平手是完成場次的一部分。中途離席指因離席判負的場次，並非本人離席次數；包含隊友或對手離席造成的判負。無勝負場次不計勝敗。完成局數也包含判負或中止前已打完的局，不等於完成場次。
-          </p>
-        )}
-        <p className="fine">
-          僅計入已確認保存的結果；正式場與休閒場分開計算。訪客只計入整體，沒有個人統計。保存失敗或結果未確認的場次不計入，詳細規則見使用說明。
-        </p>
-      </details>
+      <p className="fine">
+        更新於{" "}
+        {new Date(data.asOf).toLocaleString("zh-TW", {
+          timeZone: "Asia/Taipei",
+          hour12: false,
+        })}
+        （台灣時間）
+      </p>
+      <p className="fine">
+        僅計已保存戰績。<a href="#help">統計與資料說明</a>
+      </p>
     </div>
   );
 }
 export default function StatisticsPanel({
   token,
   onBack,
+  initialTab = "personal",
 }: {
   token: string;
+  initialTab?: "personal" | "leaderboard";
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<"personal" | "overall">("personal");
+  const [tab, setTab] = useState<"personal" | "overall" | "leaderboard">(
+    initialTab,
+  );
   const [category, setCategory] = useState<"formal" | "casual">("formal");
   const [period, setPeriod] = useState<"quarter" | "lifetime">("quarter");
   const [attempt, setAttempt] = useState(0);
@@ -154,6 +143,7 @@ export default function StatisticsPanel({
     error?: string;
   } | null>(null);
   const [clockNow, setClockNow] = useState(() => Date.now());
+  const statisticsActive = tab !== "leaderboard";
   const current = result?.token === token ? result : null;
   const retryAt = current?.retryAt ?? 0;
   const remaining = statisticsRemainingSeconds(retryAt, clockNow);
@@ -167,6 +157,7 @@ export default function StatisticsPanel({
     return () => window.clearInterval(timer);
   }, [retryAt]);
   useEffect(() => {
+    if (!statisticsActive) return;
     let live = true;
     setResult(null);
     void (async () => {
@@ -202,7 +193,7 @@ export default function StatisticsPanel({
     return () => {
       live = false;
     };
-  }, [token, attempt]);
+  }, [token, attempt, statisticsActive]);
   return (
     <section className="panel statistics-panel" aria-label="戰績統計">
       <h2>戰績統計</h2>
@@ -214,49 +205,60 @@ export default function StatisticsPanel({
         onCategory={setCategory}
         onPeriod={setPeriod}
       />
-      <div
-        className="statistics-results"
-        aria-live="polite"
-        aria-busy={!current}
-      >
-        <div className="statistics-results-heading">
-          <h3>
-            {tab === "personal"
-              ? `我的${period === "quarter" ? "本季" : "生涯"}戰績`
-              : "本季整體概況"}
-          </h3>
-          <span className="statistics-category-label">
-            {category === "formal" ? "正式場" : "休閒場"}
-          </span>
-        </div>
-        {!current ? (
-          <p role="status">正在讀取戰績統計…</p>
-        ) : current.error ? (
-          <p role="alert">{current.error}</p>
-        ) : (
-          current.data && (
-            <StatisticsContent
-              data={current.data}
-              tab={tab}
-              category={category}
-              period={period}
-            />
-          )
-        )}
-      </div>
+      {tab === "leaderboard" ? (
+        <LeaderboardPanel token={token} />
+      ) : (
+        <>
+          <div
+            className="statistics-results"
+            aria-live="polite"
+            aria-busy={!current}
+          >
+            <div className="statistics-results-heading">
+              <h3>
+                {tab === "personal"
+                  ? `我的${period === "quarter" ? "本季" : "生涯"}戰績`
+                  : "本季整體概況"}
+              </h3>
+              <span className="statistics-category-label">
+                {category === "formal" ? "正式場" : "休閒場"}
+              </span>
+            </div>
+            {!current ? (
+              <p role="status">正在讀取戰績統計…</p>
+            ) : current.error ? (
+              <p role="alert">{current.error}</p>
+            ) : (
+              current.data && (
+                <StatisticsContent
+                  data={current.data}
+                  tab={tab}
+                  category={category}
+                  period={period}
+                />
+              )
+            )}
+          </div>
+        </>
+      )}
       <div className="statistics-actions">
-        <button
-          className="secondary"
-          disabled={!current || remaining > 0}
-          onClick={() => {
-            if (!current || statisticsRemainingSeconds(retryAt, Date.now()) > 0)
-              return;
-            setResult(null);
-            setAttempt((value) => value + 1);
-          }}
-        >
-          {remaining > 0 ? `${remaining} 秒後可重試` : "重新讀取統計"}
-        </button>
+        {tab !== "leaderboard" && (
+          <button
+            className="secondary"
+            disabled={!current || remaining > 0}
+            onClick={() => {
+              if (
+                !current ||
+                statisticsRemainingSeconds(retryAt, Date.now()) > 0
+              )
+                return;
+              setResult(null);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            {remaining > 0 ? `${remaining} 秒後可重試` : "重新讀取統計"}
+          </button>
+        )}
         <button className="text-button" onClick={onBack}>
           回到大廳
         </button>
@@ -266,10 +268,10 @@ export default function StatisticsPanel({
 }
 
 type StatisticsControlsProps = {
-  tab: "personal" | "overall";
+  tab: "personal" | "overall" | "leaderboard";
   category: "formal" | "casual";
   period: "quarter" | "lifetime";
-  onTab: (value: "personal" | "overall") => void;
+  onTab: (value: "personal" | "overall" | "leaderboard") => void;
   onCategory: (value: "formal" | "casual") => void;
   onPeriod: (value: "quarter" | "lifetime") => void;
 };
@@ -285,69 +287,75 @@ export function StatisticsControls({
   return (
     <div className="statistics-controls">
       <div className="statistics-audience" role="group" aria-label="統計範圍">
-        {(["personal", "overall"] as const).map((value) => (
+        {(["personal", "overall", "leaderboard"] as const).map((value) => (
           <button
             type="button"
             key={value}
             aria-pressed={tab === value}
             onClick={() => onTab(value)}
           >
-            {value === "personal" ? "我的戰績" : "整體概況"}
+            {value === "personal"
+              ? "我的戰績"
+              : value === "overall"
+                ? "整體概況"
+                : "排行榜"}
           </button>
         ))}
       </div>
-      <div className="statistics-filters">
-        <div className="statistics-filter">
-          <span
-            id="statistics-category-caption"
-            className="statistics-filter-caption"
-          >
-            場次
-          </span>
-          <div
-            className="statistics-segment"
-            role="group"
-            aria-labelledby="statistics-category-caption"
-          >
-            {(["formal", "casual"] as const).map((value) => (
-              <button
-                type="button"
-                key={value}
-                aria-pressed={category === value}
-                onClick={() => onCategory(value)}
-              >
-                {value === "formal" ? "正式場" : "休閒場"}
-              </button>
-            ))}
-          </div>
-        </div>
-        {tab === "personal" && (
+      {tab !== "leaderboard" && (
+        <div className="statistics-filters">
           <div className="statistics-filter">
             <span
-              id="statistics-period-caption"
+              id="statistics-category-caption"
               className="statistics-filter-caption"
             >
-              期間
+              場次
             </span>
             <div
               className="statistics-segment"
               role="group"
-              aria-labelledby="statistics-period-caption"
+              aria-labelledby="statistics-category-caption"
             >
-              {(["quarter", "lifetime"] as const).map((value) => (
+              {(["formal", "casual"] as const).map((value) => (
                 <button
                   type="button"
                   key={value}
-                  aria-pressed={period === value}
-                  onClick={() => onPeriod(value)}
+                  aria-pressed={category === value}
+                  onClick={() => onCategory(value)}
                 >
-                  {value === "quarter" ? "本季" : "生涯"}
+                  {value === "formal" ? "正式場" : "休閒場"}
                 </button>
               ))}
             </div>
           </div>
-        )}
-      </div>
+          {tab === "personal" && (
+            <div className="statistics-filter">
+              <span
+                id="statistics-period-caption"
+                className="statistics-filter-caption"
+              >
+                期間
+              </span>
+              <div
+                className="statistics-segment"
+                role="group"
+                aria-labelledby="statistics-period-caption"
+              >
+                {(["quarter", "lifetime"] as const).map((value) => (
+                  <button
+                    type="button"
+                    key={value}
+                    aria-pressed={period === value}
+                    onClick={() => onPeriod(value)}
+                  >
+                    {value === "quarter" ? "本季" : "生涯"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

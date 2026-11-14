@@ -4,6 +4,8 @@ export class AccountRequestError extends Error {}
 
 export interface AuthStatus {
   signedIn: boolean;
+  nicknameRequired?: boolean;
+  nickname?: string | null;
 }
 export interface AuthConfig {
   enabled: boolean;
@@ -51,9 +53,9 @@ export async function accountRequest<T>(
     // Linking waits for several Sheets reads and an atomic write/readback. Do not
     // revoke a valid Google sign-in just because that work outlasts a UI read.
     signal: AbortSignal.timeout(
-      path === "/auth/google" ||
+      path === "/auth/google" || path === "/auth/nickname" ||
         path === "/auth/google/recover" ||
-        path === "/statistics"
+        path === "/statistics" || path.startsWith("/statistics/leaderboard")
         ? 60000
         : 8000,
     ),

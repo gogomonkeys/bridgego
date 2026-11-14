@@ -763,6 +763,15 @@ export const client = {
     });
     return created;
   },
+  adoptNickname: (expectedToken: string, displayName: string) => {
+    if (state.session?.token !== expectedToken || state.room) return false;
+    const checked = nicknameValidation(displayName);
+    if (checked.error) return false;
+    const session = { ...state.session, displayName: checked.normalized };
+    localStorage.setItem(KEY, JSON.stringify(session));
+    emit({ session });
+    return true;
+  },
   create: (plannedDeals: 1 | 3 | 5 = 3, roomType: RoomType = "CASUAL") =>
     run(async () =>
       enter(await api<Room>("/rooms", "POST", { plannedDeals, roomType })),

@@ -52,6 +52,8 @@ export default function WelcomeEntry({
         if (live.current) setStatisticsFailed(true);
       });
   };
+  const [nicknameUncertain, setNicknameUncertain] = useState(false);
+  const [nicknameStep, setNicknameStep] = useState<"guest" | "account" | null>(null);
   const [name, setName] = useState("");
   const [composing, setComposing] = useState(false);
   const nickname = nicknameValidation(name);
@@ -74,15 +76,28 @@ export default function WelcomeEntry({
   const enter = useRef(onEnter);
   enter.current = onEnter;
   const choiceFlight = useRef(false);
+  const entryChoice = useRef<"account" | "guest" | null>(null);
   const pending = useRef<{ token: string; purpose: LoginPurpose } | null>(null);
   const token = session?.token;
   const experimentNow = useExperimentClock(config);
   const availablePurpose = entryAccountPurpose(config, experimentNow);
   const experiment = isSingleTesterExperiment(config);
   const managed = isManagedCollection(config);
+  const configRef = useRef(config);
+  configRef.current = config;
   const experimentRef = useRef(experiment);
   experimentRef.current = experiment;
   const experimentMessage = experimentNotice(config, experimentNow);
+  const finishAccount = async (expected: string) => {
+    try {
+      const result = await accountRequest<AuthStatus>("/auth/status", "GET", undefined, expected);
+      if (!live.current || entryChoice.current !== "account" || !canCompleteEntry(expected, getClientState().session?.token, Boolean(getClientState().room))) return;
+      if (!result.signedIn) return;
+      if (result.nicknameRequired) { setName(""); setNicknameStep("account"); return; }
+      if (result.nickname && !client.adoptNickname(expected, result.nickname)) return;
+      enter.current(expected, experimentRef.current);
+    } catch { if (live.current) setMessage("尚無法確認暱稱，請重新確認登入狀態。"); }
+  };
   useEffect(() => {
     live.current = true;
     let current = true;
@@ -134,7 +149,7 @@ export default function WelcomeEntry({
         accountRequest(
           "/auth/google",
           "POST",
-          { credential, consent: true, profileConsentVersion: "account-profile-v1" },
+          { credential, consent: true, profileConsentVersion: "account-profile-v1", nicknameAfterLogin: isManagedCollection(configRef.current) },
           token,
         ),
       recover: (credential) =>
@@ -166,7 +181,7 @@ export default function WelcomeEntry({
             live.current,
           )
         ) {
-          enter.current(token, experimentRef.current);
+          void finishAccount(token);
         }
       },
     });
@@ -215,7 +230,9 @@ export default function WelcomeEntry({
         (!availablePurpose || phase !== "idle" || pending.current))
     )
       return;
-    if (!session && (composing || nickname.error)) return;
+    if (choice === "guest" && (composing || nickname.error)) return;
+    entryChoice.current = choice;
+    setNicknameUncertain(false);
     const chosenPurpose = availablePurpose;
     choiceFlight.current = true;
     setPreparing(true);
@@ -224,7 +241,7 @@ export default function WelcomeEntry({
     try {
       const preparedToken = await prepareEntryChoice({
         previousToken,
-        createSession: () => client.login(name),
+        createSession: () => client.login(choice === "account" ? "玩家" : name),
         current: () => ({
           token: getClientState().session?.token,
           hasRoom: Boolean(getClientState().room),
@@ -249,6 +266,8 @@ export default function WelcomeEntry({
           if (status.signedIn !== false)
             throw new Error("Guest status not confirmed");
         }
+        const guest = await accountRequest<Session>("/sessions/nickname", "POST", { displayName: nickname.normalized }, expectedToken);
+        if (!client.adoptNickname(expectedToken, guest.displayName)) return;
         if (
           live.current &&
           canCompleteEntry(
@@ -322,7 +341,7 @@ export default function WelcomeEntry({
         )
       )
         return;
-      if (result.signedIn === true) enter.current(token, experimentRef.current);
+      if (result.signedIn === true) await finishAccount(token);
       else
         setMessage(
           recoverySubmitted
@@ -339,13 +358,18 @@ export default function WelcomeEntry({
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    void choose("guest");
+    if (nicknameStep === "guest") { void choose("guest"); return; }
+    if (!token || composing || nickname.error || choiceFlight.current || nicknameUncertain) return;
+    choiceFlight.current = true; setPreparing(true);
+    void accountRequest<AuthStatus>("/auth/nickname", "POST", { nickname: nickname.normalized }, token)
+      .then(() => finishAccount(token))
+      .catch(() => { if (live.current) { setNicknameUncertain(true); setMessage("暱稱儲存尚未確認。請返回身分選擇並重新登入 Google 讀取已保存暱稱；不要重複送出。"); } })
+      .finally(() => { choiceFlight.current = false; if (live.current) setPreparing(false); });
   };
   const disabled =
     !statisticsConfig ||
     busy ||
-    preparing ||
-    (!session && (composing || Boolean(nickname.error)));
+    preparing;
   return (
     <div className="welcome-grid">
       <section
@@ -367,7 +391,7 @@ export default function WelcomeEntry({
             )}
           </p>
         )}
-        {!session && (
+        {nicknameStep && (
           <form onSubmit={submit}>
             <label htmlFor="guest-name">遊戲暱稱</label>
             <input
@@ -393,9 +417,11 @@ export default function WelcomeEntry({
                 ? "正在輸入…"
                 : `${nickname.count}／5 字${name && nickname.error ? ` · ${nickname.error}` : ""}`}
             </small>
+            <button className="primary" type="submit" disabled={disabled || composing || Boolean(nickname.error) || nicknameUncertain}>確認暱稱並進入大廳</button>
+            <button type="button" className="text-button" disabled={disabled} onClick={() => { setNicknameStep(null); setMessage(""); }}>返回身分選擇</button>
           </form>
         )}
-        {verified ? (
+        {!nicknameStep && (verified ? (
           <p className="entry-verified" role="status">
             ✓ Google 驗證成功（僅驗證）
           </p>
@@ -423,7 +449,7 @@ export default function WelcomeEntry({
                     ? "Google 登入尚未開放"
                     : "正在確認 Google 服務…"}
           </button>
-        )}
+        ))}
         {experimentMessage && (
           <p className="fine" role="status">
             {experimentMessage}
@@ -470,7 +496,7 @@ export default function WelcomeEntry({
         <button
           className="secondary entry-continue"
           disabled={disabled || recoverySubmitted || phase === "submitting"}
-          onClick={() => void choose("guest")}
+          onClick={() => { entryChoice.current = "guest"; setNicknameUncertain(false); controller.current?.cancel(); setNicknameStep("guest"); setName(""); setMessage(""); }}
         >
           以訪客身分遊玩
         </button>

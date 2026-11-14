@@ -34,9 +34,9 @@ class GoogleAuthControllerTest {
         .andExpect(status().isOk()).andExpect(jsonPath("$.expiresInSeconds").value(300));
     mvc.perform(post("/api/auth/google").header("Authorization",bearer).header("Origin","https://bridge.example")
         .contentType(MediaType.APPLICATION_JSON).content("{\"credential\":\"signed-token\",\"consent\":true}"))
-        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":true}",true));
+        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":true,\"nicknameRequired\":false,\"nickname\":null}",true));
     mvc.perform(post("/api/auth/logout").header("Authorization",bearer).header("Origin","https://bridge.example"))
-        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false}",true));
+        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false,\"nicknameRequired\":false,\"nickname\":null}",true));
     Assertions.assertEquals(guest,rooms.authenticate(guest.token()));
   }
   @Test void explicitVerificationReturnsOnlyVerifiedPairAndDoesNotLink() throws Exception {
@@ -57,12 +57,12 @@ class GoogleAuthControllerTest {
     mvc.perform(post("/api/auth/nonce").header("Authorization",bearer).header("Origin","https://bridge.example"))
         .andExpect(status().isOk());
     mvc.perform(get("/api/auth/status").header("Authorization",bearer))
-        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false}",true));
+        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false,\"nicknameRequired\":false,\"nickname\":null}",true));
     mvc.perform(post("/api/auth/google").header("Authorization",bearer).header("Origin","https://bridge.example")
         .contentType(MediaType.APPLICATION_JSON).content("{\"credential\":\"signed-token\",\"consent\":false}"))
         .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CONSENT_REQUIRED"));
     mvc.perform(get("/api/auth/status").header("Authorization",bearer))
-        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false}",true));
+        .andExpect(status().isOk()).andExpect(content().json("{\"signedIn\":false,\"nicknameRequired\":false,\"nickname\":null}",true));
     Assertions.assertEquals(guest,rooms.authenticate(guest.token()));
   }
 

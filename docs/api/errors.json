@@ -16,6 +16,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "ACCOUNT_NICKNAME_REQUIRED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "請使用帳號已保存的暱稱。",
+      "category": "auth",
+      "meaning": "請使用帳號已保存的暱稱。",
+      "handling": "重新確認狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "ACTION_ID_REUSED",
       "httpStatuses": [
         409
@@ -594,6 +608,34 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "LEADERBOARD_FILTER_INVALID",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/StatisticsService.java"
+      ],
+      "exampleMessage": "排行榜篩選條件不正確。",
+      "category": "statistics",
+      "meaning": "排行榜篩選條件不正確。",
+      "handling": "重新確認狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "NICKNAME_REQUIRED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "請先選擇遊戲暱稱。",
+      "category": "auth",
+      "meaning": "請先選擇遊戲暱稱。",
+      "handling": "重新確認狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "NOT_COMPUTER_PLAYER",
       "httpStatuses": [
         409
@@ -677,6 +719,34 @@
       "category": "auth",
       "meaning": "請求來源不受信任",
       "handling": "使用設定的網站來源，不放寬萬用來源",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "PROFILE_CONSENT_REQUIRED",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "請返回入口確認資料使用說明。",
+      "category": "auth",
+      "meaning": "請返回入口確認資料使用說明。",
+      "handling": "重新確認狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "PROFILE_NOT_PENDING",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleAuthService.java"
+      ],
+      "exampleMessage": "帳號狀態已變更，請重新登入。",
+      "category": "auth",
+      "meaning": "帳號狀態已變更，請重新登入。",
+      "handling": "重新確認狀態，不自動重送修改。",
       "automaticMutationRetry": false
     },
     {

@@ -6,6 +6,7 @@ import {
   canRecoverAccount,
   entryAccountPurpose,
   experimentNotice,
+  managedLoginConsent,
 } from "./entry-account";
 import type { AuthConfig } from "./google-login";
 const configured: AuthConfig = {
@@ -165,7 +166,7 @@ it("preselects one deal only on actual experimental account entry", () => {
     "utf8",
   );
   expect(app).toContain("if (experiment) setPlannedDeals(1)");
-  expect(entry).toContain("enter.current(token, experimentRef.current)");
+  expect(entry).toContain("enter.current(expected, experimentRef.current)");
   expect(entry).toContain("enter.current(expectedToken)");
 });
 
@@ -212,4 +213,11 @@ describe("explicit one-time recovery offer", () => {
       expect(source).toContain("Google 恢復既有帳號（限一次）");
     }
   });
+});
+
+ it("discloses automatic formal ranking without exposing account identifiers", () => {
+  expect(managedLoginConsent).toContain("私人 Google 試算表");
+  expect(managedLoginConsent).toContain("自動列入排行榜");
+  expect(managedLoginConsent).toContain("向其他登入玩家顯示暱稱及正式場戰績");
+  expect(managedLoginConsent).not.toContain("休閒場戰績");
 });

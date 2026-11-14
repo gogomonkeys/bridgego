@@ -64,6 +64,21 @@ public final class SheetsIdentityStore implements IdentityStore {
         if(!matched)throw new SheetsGateway.Conflict();
         return id;
     }
+    @Override public synchronized Profile findOrCreateForEntry(String issuer,String subject) {
+        String id=findOrCreateAccount(issuer,subject);
+        QuarterlyRetention.requireCollectionReady(gateway,clock);
+        var rows=gateway.read("accounts"); AccountProfileRows.validateTable(rows);
+        if(new ErasureLedger(gateway.read("erasure_ledger")).contains("ACCOUNT",id))throw new SheetsGateway.Conflict();
+        var row=rows.stream().skip(1).filter(r->r.get(0).equals(id)).findFirst().orElseThrow(SheetsGateway.Conflict::new);
+        return new Profile(id,"2".equals(row.get(1))?row.get(2):null);
+    }
+    @Override public synchronized Profile completeEntryProfile(String issuer,String subject,String nickname,String email) {
+        var profile=findOrCreateForEntry(issuer,subject);
+        if(profile.nickname()!=null)return profile;
+        String id=findOrCreateAccount(issuer,subject,nickname,email);
+        if(!id.equals(profile.accountId()))throw new SheetsGateway.Conflict();
+        return findOrCreateForEntry(issuer,subject);
+    }
     private String find(String issuer,String subject) {
         Set<String> accounts=new HashSet<>();
         for(List<String> row:gateway.read("accounts")){if(row.isEmpty()||row.get(0).equals("account_id"))continue;AccountProfileRows.validateRow(row);try{UUID.fromString(row.get(0));}catch(Exception e){throw new SheetsGateway.Conflict();}accounts.add(row.get(0));}

@@ -57,6 +57,6 @@ describe("five visible-character guest names", () => {
     expect(input).toContain("onCompositionStart");
     expect(input).toContain("onCompositionEnd");
     expect(input).not.toContain("maxLength");
-    expect(source).toContain("if (!session && (composing || nickname.error)) return;");
+    expect(source).toContain("if (choice === \"guest\" && (composing || nickname.error)) return;");
   });
 });

@@ -78,9 +78,6 @@ describe("managed optional Google collection", () => {
       "遊戲帳號",
       "合資格戰績",
       "私人 Google 試算表",
-      "帳號與生涯累計保留",
-      "每季人工清理",
-      "解除連結不是刪除",
     ])
       expect(managedLoginConsent).toContain(text);
     expect(managedLoginConsent).toContain("已驗證信箱（如有）");
@@ -133,7 +130,7 @@ describe("managed optional Google collection", () => {
       "帳號、暱稱及信箱持續保留",
       "不含個人識別的整體季度數字可依政策保留",
       "原季度清理彙總仍隱藏",
-      "只有登入玩家可查看本季個人",
+      "只有登入玩家可查看本季、生涯個人",
       "不代表所有帳號刪除或季度清理已完成實機驗收",
       "Asia/Taipei",
       "SUPPRESSED",

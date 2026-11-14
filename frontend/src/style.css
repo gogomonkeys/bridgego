@@ -7198,3 +7198,24 @@ body {
   .statistics-panel .statistics-counts > div { padding: 14px; }
   .statistics-results-heading h3 { font-size: 18px; }
 }
+
+/* A connected list keeps names, rank and scores readable on narrow phones. */
+.statistics-panel .statistics-audience { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.leaderboard-list { list-style: none; padding: 0; margin: 18px 0; border: 1px solid #e3d7c2; border-radius: 14px; overflow: hidden; }
+.leaderboard-row { display: grid; grid-template-columns: 34px minmax(0,1fr) minmax(54px,auto); align-items: center; gap: 12px; padding: 16px; background: #fffaf1; }
+.leaderboard-row + .leaderboard-row { border-top: 1px solid #e3d7c2; }
+.leaderboard-row.is-me { background: #f3ead2; box-shadow: inset 3px 0 #a87a28; }
+.leaderboard-rank { font-size: 20px; font-weight: 750; color: #8b6a33; text-align: center; font-variant-numeric: tabular-nums; }
+.leaderboard-player { min-width: 0; overflow-wrap: anywhere; }
+.leaderboard-player > strong { font-size: 16px; }
+.leaderboard-me { display: inline-block; margin-inline-start: 6px; padding: 1px 5px; border-radius: 4px; background: #ded1ad; color: #624c29; font-size: 11px; vertical-align: middle; }
+.leaderboard-detail { display: block; margin-top: 5px; color: #79684f; font-size: 12px; line-height: 1.5; }
+.leaderboard-score { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.leaderboard-score strong { display: block; font-size: 23px; line-height: 1.2; }
+.leaderboard-score span { font-size: 11px; color: #79684f; }
+.leaderboard-reload { margin-top: 20px; min-height: 44px; }
+@media (max-width: 380px) { .leaderboard-row { gap: 8px; padding: 12px 10px; grid-template-columns: 25px minmax(0,1fr) minmax(44px,auto); } .leaderboard-score strong { font-size: 21px; } }
+
+.lobby-statistics-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 500px) { .lobby-statistics-actions { width: 100%; } .lobby-statistics-actions .lobby-statistics-button { flex: 1 1 0; justify-content: center; } }
+@media (max-width: 500px) { .lobby-panel-heading { flex-wrap: wrap; } }

@@ -138,6 +138,7 @@ public class RoomService {
     }
   }
 
+  private final Set<String> pendingNicknames = new HashSet<>();
   private final Map<String, String> accountsByPlayer = new HashMap<>();
   private final Set<String> admittedTesters = new HashSet<>();
   private com.bridge.persistence.StatsStore statsStore;
@@ -251,6 +252,24 @@ public class RoomService {
     return id;
   }
 
+  /** Only the same live out-of-room session may update its display label. */
+  public synchronized void requireNicknameBeforeEntry(Identity who) {
+    requireOutsideRoom(who); pendingNicknames.add(who.playerId());
+  }
+  public synchronized Identity renameOutsideRoom(Identity who, String name) {
+    requireOutsideRoom(who);
+    Identity renamed = new Identity(who.token(), who.playerId(), Nickname.validate(name));
+    sessions.put(who.token(), renamed);
+    pendingNicknames.remove(who.playerId());
+    return renamed;
+  }
+  public synchronized Identity guestNickname(Identity who, String name) {
+    requireOutsideRoom(who);
+    if (accountsByPlayer.containsKey(who.playerId()))
+      throw fail(409, "ACCOUNT_NICKNAME_REQUIRED", "Use the linked account nickname");
+    return renameOutsideRoom(who, name);
+  }
+
   public synchronized Identity authenticate(String token) {
     expireInitialSubscriptions();
     Identity id = sessions.get(token);
@@ -290,6 +309,7 @@ public class RoomService {
   public synchronized void unlinkAccountOutsideRoom(Identity who) {
     requireOutsideRoom(who);
     accountsByPlayer.remove(who.playerId());
+    pendingNicknames.remove(who.playerId());
     admittedTesters.remove(who.playerId());
   }
 
@@ -835,6 +855,7 @@ public class RoomService {
   }
 
   private void ensureFree(Identity id) {
+    if (pendingNicknames.contains(id.playerId())) throw fail(409, "NICKNAME_REQUIRED", "Choose your nickname before entering a room");
     Room previous = rooms.get(membership.get(id.playerId()));
     if (previous != null && previous.closedAtTick != null) remove(previous, id.playerId());
     if (membership.containsKey(id.playerId()))

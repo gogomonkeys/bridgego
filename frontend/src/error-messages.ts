@@ -1,5 +1,11 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  ACCOUNT_NICKNAME_REQUIRED: "請使用帳號已保存的暱稱。",
+  NICKNAME_REQUIRED: "請先選擇遊戲暱稱。",
+  PROFILE_CONSENT_REQUIRED: "請返回入口確認資料使用說明。",
+  PROFILE_NOT_PENDING: "帳號狀態已變更，請重新登入。",
+  LEADERBOARD_FILTER_INVALID: "排行榜篩選條件不正確。",
+
   INVALID_ROOM_TYPE: "場次類型不正確，請選正式場或休閒場。",
   FORMAL_COMPUTER_FORBIDDEN: "正式場只能由四位真人參加，不能加入電腦。",
   AUTH_ORIGIN: "請從本遊戲網站重新操作。",

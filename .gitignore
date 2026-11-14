@@ -10,3 +10,7 @@ backend/target/
 qa/client-under-test.mjs
 
 qa/ui-preview/dist/
+
+frontend/.vitest/
+
+qa/leaderboard-preview/dist/

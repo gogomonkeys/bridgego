@@ -23,9 +23,8 @@ describe("compact personal statistics", () => {
       "<dt>積分</dt><dd>-3</dd>",
     ])
       expect(html).toContain(pair);
-    expect(html).toContain("勝場＋敗場＋平手");
-    expect(html).toContain("不含中止");
-    expect(html).toContain("並非本人離席次數");
+    expect(html).toContain("不含中止場");
+    expect(html).toContain('href="#help"');
     expect(html).toContain("<dt>完成場次</dt><dd>3</dd>");
     expect(html).toContain("<dt>中途離席</dt><dd>1</dd>");
   });
@@ -35,16 +34,16 @@ describe("compact personal statistics", () => {
     expect(html).not.toContain("<details open");
     expect(html).toContain("<dt>無勝負場次</dt><dd>1</dd>");
   });
-  it("keeps the visible summary short and groups precise rules inside details", () => {
+  it("keeps numeric details and links to rules in help", () => {
     const html = render(<PersonalStatisticsSummary counts={counts} />);
     const [visible, details] = html.split(
       '<details class="statistics-breakdown">',
     );
     expect(visible).toContain("勝率不含中止場；積分僅累計已完成局。");
     expect(visible).not.toContain("勝場＋敗場＋平手");
-    expect(details).toContain("場次明細與計算方式");
-    expect(details).toContain("勝場＋敗場＋平手");
-    expect(details).toContain("未確認保存的結果不計");
-    expect(details).toContain("判負仍可能有正積分");
+    expect(details).toContain("場次明細");
+    expect(details).not.toContain("勝場＋敗場＋平手");
+    expect(details).toContain("計算說明");
+    expect(details).not.toContain("判負仍可能有正積分");
   });
 });

@@ -129,6 +129,44 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
         if(!boundary.equals(QuarterlyRetention.currentQuarterStart(asOf)))throw new SheetsGateway.Conflict();
         return new StatisticsData(current,lifetime,asOf);
     }
+    @Override public LeaderboardData exportLeaderboard(String requestingAccount) {
+        Instant boundary = QuarterlyRetention.currentQuarterStart(clock.instant());
+        var before = statisticsTables(STATISTICS_CONTROLS);
+        QuarterlyRetention.requireCollectionReady(snapshotReader(before), clock);
+        var accounts = before.get("accounts");
+        AccountProfileRows.validateTable(accounts);
+        var erasure = new ErasureLedger(before.get("erasure_ledger"));
+        if (erasure.contains("ACCOUNT", requestingAccount)
+            || accounts.stream().skip(1).noneMatch(r -> r.get(0).equals(requestingAccount)))
+            throw new SheetsGateway.Conflict();
+        var people = new ArrayList<LeaderboardAccount>();
+        for (var row : accounts.subList(1, accounts.size())) {
+            if (erasure.contains("ACCOUNT", row.get(0))) throw new SheetsGateway.Conflict();
+            var carry = row.size() == 5 ? LifetimeStatistics.decode(row.get(4)) : LifetimeStatistics.empty();
+            if (carry.through() != null && carry.through().isAfter(boundary)) throw new SheetsGateway.Conflict();
+            // Legacy accounts without a user-provided nickname are not given invented names.
+            if (row.size() >= 3 && "2".equals(row.get(1)))
+                people.add(new LeaderboardAccount(row.get(0), row.get(2), carry));
+        }
+        var snapshot = new LinkedHashMap<>(before);
+        snapshot.putAll(statisticsTables(STATISTICS_RECORDS));
+        var current = new ArrayList<FinalMatchEnvelope>();
+        var retention = new RetentionLedger(before.get("retention_ledger"));
+        for (var envelope : readVerified(snapshotReader(snapshot)).values()) {
+            if (QuarterlyRetention.finishedAt(envelope).isBefore(boundary)) continue;
+            QuarterlyRetention.requireCurrent(envelope, clock, retention);
+            current.add(envelope);
+        }
+        var after = statisticsTables(STATISTICS_CONTROLS);
+        // Unlike a personal read, every account contributes: any rename, erase or carry
+        // change invalidates the entire projection. Never cache across deletion/quarter.
+        if (!before.equals(after) || !boundary.equals(QuarterlyRetention.currentQuarterStart(clock.instant())))
+            throw new SheetsGateway.Conflict();
+        QuarterlyRetention.requireCollectionReady(snapshotReader(after), clock);
+        Instant asOf = clock.instant();
+        if (!boundary.equals(QuarterlyRetention.currentQuarterStart(asOf))) throw new SheetsGateway.Conflict();
+        return new LeaderboardData(current, people, asOf);
+    }
     /** Read-only decoder: no writer or thread resources are created. */
     static Map<String,FinalMatchEnvelope> readVerified(SheetsGateway gateway) {
         List<List<String>> rows=gateway.read("envelopes"), commits=gateway.read("commits");

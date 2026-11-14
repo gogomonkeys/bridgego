@@ -7,7 +7,7 @@ describe("compact entry presentation", () => {
     const html = renderToStaticMarkup(
       <WelcomeEntry session={null} busy={false} onEnter={vi.fn()} />,
     );
-    expect(html).toContain('id="guest-name"');
+    expect(html).not.toContain('id="guest-name"');
     expect(html).toContain('class="primary" disabled="">正在確認 Google 服務…');
     expect(html).toContain(">以訪客身分遊玩</button>");
     expect(html).not.toContain("已登入");

@@ -13,7 +13,8 @@ describe("help data policy", () => {
       "訪客不保存名稱或識別碼",
       "已驗證信箱（如有）",
       "信箱不向其他玩家公開",
-      "每次登入以當次遊戲暱稱",
+      "登入後填寫暱稱",
+      "不會被本次輸入的名稱覆寫",
       "沒有個人統計或統計入口",
       "私人 Google 試算表",
       "每季人工清理",
@@ -22,6 +23,42 @@ describe("help data policy", () => {
     ])
       expect(html).toContain(text);
     expect(html).not.toContain("入口會先顯示資料使用說明");
+  });
+  it("centralizes metrics and discloses automatic formal-only ranking", () => {
+    const html = renderToStaticMarkup(<DataPrivacyHelp />);
+    for (const text of [
+      "總場次＝完成場次＋中途離席＋無勝負場次",
+      "包含平手",
+      "不代表查看統計的人就是離席者",
+      "中途結束前已完成的局",
+      "積分為已完成局結算加減分的累計",
+      "判負仍可能有正積分",
+      "勝場數 ÷（勝場數＋敗場數＋平手場數）",
+      "無勝負場次不算入分母",
+      "結果未知或保存失敗不算入統計",
+      "訪客只納入整體數字",
+      "不代表屆時已自動清理資料",
+      "生涯累計跨季保留",
+      "正式場排行榜",
+      "本季／生涯，只計正式場",
+      "先按積分由高到低排序",
+      "同分再比較勝率",
+      "並列名次",
+      "前 100 名及自己的位置",
+      "積分可為負數",
+      "Google 登入玩家自動列入，不需另行報名",
+      "訪客與休閒場不參與排名",
+      "不顯示信箱、Google 識別碼或內部帳號編號",
+      "選擇登入表示同意這項使用",
+      "不變更季度清理或生涯保存規則",
+      "同一 Google 帳號仍視為同一人",
+      "已有暱稱就直接沿用",
+    ])
+      expect(html).toContain(text);
+    expect(html).not.toContain("每次登入以當次遊戲暱稱");
+    expect(html).not.toContain("登入不更換遊戲暱稱");
+    expect(html).not.toContain("參與方式與公開同意流程尚未定案");
+    expect(html).not.toContain("正式／休閒排行榜");
   });
   it("discloses bounded experimental collection without claiming deletion readiness", () => {
     const html = renderToStaticMarkup(<DataPrivacyHelp />);

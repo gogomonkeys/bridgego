@@ -9,7 +9,11 @@ public final class GoogleAuthService {
   public record Config(boolean enabled, String clientId, boolean verificationEnabled, String collectionMode, boolean collectionReady, String privacyContact, String retention, boolean experimentReady, String experimentExpiresAt, Integer experimentMaxMatches, boolean experimentRecoveryEnabled) {}
   public record VerifiedIdentity(String issuer, String subject, boolean admittedTester) {}
   public record Challenge(String nonce, int expiresInSeconds) {}
-  public record Status(boolean signedIn) {}
+  public record Status(boolean signedIn, boolean nicknameRequired, String nickname) {
+    public Status(boolean signedIn) { this(signedIn, false, null); }
+  }
+  private record EntryProfile(String account, String issuer, String subject, String email, String nickname) {}
+  private final Map<String, EntryProfile> entryProfiles = new HashMap<>();
   private record Pending(String nonce, long expires, String purpose) {}
   @FunctionalInterface public interface Recovery { String recover(String issuer, String subject); }
   private final Recovery recovery;
@@ -46,7 +50,44 @@ public final class GoogleAuthService {
         policy.experiment() ? "single_tester_experiment" : policy.managed() ? "managed" : "restricted", policy.ready(), policy.privacyContact(), policy.retention(),
         experimentReady, policy.experiment() ? policy.experimentExpiresAt().toString() : null, policy.experiment() ? 1 : null, recovery != null && enabled && experimentReady);
   }
-  public Status status(RoomService.Identity who) { return new Status(rooms.accountId(who) != null); }
+  public synchronized Status status(RoomService.Identity who) {
+    String account = rooms.accountId(who);
+    var profile = entryProfiles.get(who.playerId());
+    if (account == null) return new Status(false);
+    if (profile == null || !profile.account.equals(account)) return new Status(true, false, who.displayName());
+    return new Status(true, profile.nickname == null, profile.nickname);
+  }
+  public Status loginForEntry(RoomService.Identity who, String origin, String credential, Boolean consent, String profileConsentVersion) {
+    if (!policy.managed() || !"account-profile-v1".equals(profileConsentVersion))
+      throw RoomService.fail(400, "PROFILE_CONSENT_REQUIRED", "Current account profile consent required");
+    return link(who, origin, credential, consent, false, true, true);
+  }
+  public Status completeNickname(RoomService.Identity who, String origin, String nickname) {
+    checkOrigin(origin); enabled(); rooms.requireOutsideRoom(who);
+    String validated = Nickname.validate(nickname);
+    EntryProfile before;
+    synchronized (this) {
+      before = entryProfiles.get(who.playerId());
+      if (before == null || !before.account.equals(rooms.accountId(who)))
+        throw RoomService.fail(409, "PROFILE_NOT_PENDING", "Start Google sign-in again");
+    }
+    IdentityStore.Profile saved;
+    try {
+      saved = before.nickname != null ? new IdentityStore.Profile(before.account, before.nickname)
+          : store.completeEntryProfile(before.issuer, before.subject, validated, before.email);
+    } catch (RuntimeException failure) {
+      throw RoomService.fail(503, "IDENTITY_STORAGE_UNAVAILABLE", "Nickname save not confirmed");
+    }
+    synchronized (this) {
+      if (entryProfiles.get(who.playerId()) != before || !before.account.equals(rooms.accountId(who)))
+        throw RoomService.fail(409, "AUTH_CANCELLED", "Account changed while saving nickname");
+      if (!before.account.equals(saved.accountId()) || saved.nickname() == null)
+        throw RoomService.fail(503, "IDENTITY_STORAGE_UNAVAILABLE", "Nickname save not confirmed");
+      rooms.renameOutsideRoom(who, saved.nickname());
+      entryProfiles.put(who.playerId(), new EntryProfile(before.account, before.issuer, before.subject, before.email, saved.nickname()));
+      return new Status(true, false, saved.nickname());
+    }
+  }
   public Challenge nonce(RoomService.Identity who, String origin) { return nonce(who, origin, "link"); }
   public synchronized Challenge nonce(RoomService.Identity who, String origin, String purpose) {
     checkOrigin(origin);
@@ -67,7 +108,7 @@ public final class GoogleAuthService {
     // alone is read-only and must never change an existing link.
     if (purpose.equals("recover") && rooms.accountId(who) != null)
       throw RoomService.fail(409, "EXPERIMENT_RECOVERY_UNAVAILABLE", "Already linked; use existing session");
-    if (purpose.equals("link")) rooms.unlinkAccountOutsideRoom(who);
+    if (purpose.equals("link")) { rooms.unlinkAccountOutsideRoom(who); entryProfiles.remove(who.playerId()); }
     inFlight.remove(who.playerId());
     pending.put(who.playerId(), new Pending(value, now + 300000, purpose));
     return new Challenge(value, 300);
@@ -82,6 +123,9 @@ public final class GoogleAuthService {
     return link(who, origin, credential, consent, false, "account-profile-v1".equals(profileConsentVersion));
   }
   private Status link(RoomService.Identity who, String origin, String credential, Boolean consent, boolean recovering, boolean profileConsent) {
+    return link(who, origin, credential, consent, recovering, profileConsent, false);
+  }
+  private Status link(RoomService.Identity who, String origin, String credential, Boolean consent, boolean recovering, boolean profileConsent, boolean entryFlow) {
     checkOrigin(origin); enabled();
     if (recovering) recoveryEnabled(); else normalAdmission();
     rooms.requireOutsideRoom(who);
@@ -112,11 +156,18 @@ public final class GoogleAuthService {
     // prevents session attachment below. Do not hold auth or gameplay locks over network IO.
     // Cancel/logout are not account deletion operations.
     String account;
+    IdentityStore.Profile profile = null;
     try {
-      account = recovering ? recovery.recover(principal.issuer(), principal.subject())
-          : policy.managed() && profileConsent ? store.findOrCreateAccount(principal.issuer(), principal.subject(), who.displayName(), principal.verifiedEmail())
+      if (entryFlow) {
+        profile = store.findOrCreateForEntry(principal.issuer(), principal.subject());
+        account = profile.accountId();
+      } else if (!recovering && policy.managed() && profileConsent) {
+        profile = store.completeEntryProfile(principal.issuer(), principal.subject(), who.displayName(), principal.verifiedEmail());
+        account = profile.accountId();
+      } else account = recovering ? recovery.recover(principal.issuer(), principal.subject())
           : store.findOrCreateAccount(principal.issuer(), principal.subject());
       UUID.fromString(account);
+      if (profile != null && profile.nickname() != null) Nickname.validate(profile.nickname());
     } catch (Exception failure) {
       if (policy.experiment()) throw RoomService.fail(503, "EXPERIMENT_UNAVAILABLE", "Experiment admission is unavailable or uncertain; do not retry");
       throw RoomService.fail(503, "IDENTITY_STORAGE_UNAVAILABLE", "Account storage is unavailable; continue as guest");
@@ -127,8 +178,13 @@ public final class GoogleAuthService {
         throw RoomService.fail(409, "AUTH_CANCELLED", "Google sign-in was cancelled");
       experimentWindow();
       rooms.linkAccountOutsideRoom(who, account, true);
+      if (profile != null) {
+        if (profile.nickname() == null) rooms.requireNicknameBeforeEntry(who);
+        entryProfiles.put(who.playerId(), new EntryProfile(account, principal.issuer(), principal.subject(), principal.verifiedEmail(), profile.nickname()));
+        if (profile.nickname() != null) rooms.renameOutsideRoom(who, profile.nickname());
+      }
     }
-    return new Status(true);
+    return profile != null ? new Status(true, profile.nickname() == null, profile.nickname()) : new Status(true);
     } finally {
       synchronized (this) { inFlight.remove(who.playerId(), challenge); }
     }
@@ -163,7 +219,7 @@ public final class GoogleAuthService {
     checkOrigin(origin);
     synchronized (this) {
       rooms.unlinkAccountOutsideRoom(who);
-      pending.remove(who.playerId()); inFlight.remove(who.playerId());
+      pending.remove(who.playerId()); inFlight.remove(who.playerId()); entryProfiles.remove(who.playerId());
     }
     return new Status(false);
   }

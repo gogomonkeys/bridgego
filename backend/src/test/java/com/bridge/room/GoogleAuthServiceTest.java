@@ -25,6 +25,41 @@ class GoogleAuthServiceTest {
     rooms=new RoomService();guest=rooms.createSession("Guest");store=new FakeStore();verifier=new FakeVerifier();clock=new MutableClock();
     auth=new GoogleAuthService(rooms,store,verifier,"client",Set.of(ORIGIN),clock,new CollectionPolicy(Set.of(new GoogleCredentialVerifier.Principal("https://accounts.google.com","subject")),"test contact","test retention"));
   }
+  @Test void entryNicknameIsChosenAfterIdentityAndReusedAcrossSessions() {
+    class Profiles extends FakeStore {
+      String nickname;
+      public Profile findOrCreateForEntry(String issuer,String subject){return new Profile(account,nickname);}
+      public Profile completeEntryProfile(String issuer,String subject,String value,String email){if(nickname==null)nickname=value;return new Profile(account,nickname);}
+    }
+    var profiles=new Profiles();
+    var managed=new GoogleAuthService(rooms,profiles,verifier,"client",Set.of(ORIGIN),clock,CollectionPolicy.managed("contact","retention"));
+    managed.nonce(guest,ORIGIN);
+    assertTrue(managed.loginForEntry(guest,ORIGIN,"credential",true,"account-profile-v1").nicknameRequired());
+    assertThrows(RoomService.Failure.class,()->rooms.create(guest,1));
+    assertThrows(RoomService.Failure.class,()->managed.completeNickname(guest,ORIGIN,""));
+    assertEquals("小白",managed.completeNickname(guest,ORIGIN,"小白").nickname());
+    var current=rooms.authenticate(guest.token());
+    assertEquals(guest.playerId(),current.playerId());
+    assertEquals("小白",current.displayName());
+    assertEquals("小白",managed.completeNickname(current,ORIGIN,"小黑").nickname());
+    var another=rooms.createSession("任意名稱");
+    managed.nonce(another,ORIGIN);
+    var status=managed.loginForEntry(another,ORIGIN,"credential",true,"account-profile-v1");
+    assertFalse(status.nicknameRequired());assertEquals("小白",status.nickname());
+    assertEquals(profiles.account,rooms.accountId(rooms.authenticate(another.token())));
+    // The legacy lobby link must also reuse the stable saved profile.
+    var lobby=rooms.createSession("不同名字"); managed.nonce(lobby,ORIGIN);
+    assertEquals("小白",managed.login(lobby,ORIGIN,"credential",true,"account-profile-v1").nickname());
+    assertEquals("小白",rooms.authenticate(lobby.token()).displayName());
+    rooms.create(current,1);
+    assertThrows(RoomService.Failure.class,()->managed.completeNickname(current,ORIGIN,"小黑"));
+  }
+  @Test void guestCanChooseNicknameButCannotRenameLinkedAccount() {
+    var renamed=rooms.guestNickname(guest,"小白");
+    assertEquals(guest.token(),renamed.token());assertEquals(guest.playerId(),renamed.playerId());
+    rooms.linkAccountOutsideRoom(renamed,store.account,true);
+    assertThrows(RoomService.Failure.class,()->rooms.guestNickname(renamed,"小黑"));
+  }
   @Test void managedLoginUsesSessionNicknameAndVerifiedEmailOnly() {
     List<String> captured=new ArrayList<>();
     IdentityStore profiles=new IdentityStore(){

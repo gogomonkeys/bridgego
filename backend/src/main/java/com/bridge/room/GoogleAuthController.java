@@ -10,7 +10,8 @@ public class GoogleAuthController {
   private final RoomService rooms;
   private final GoogleAuthService auth;
   public GoogleAuthController(RoomService rooms, GoogleAuthService auth) { this.rooms = rooms; this.auth = auth; }
-  public record LoginRequest(String credential, Boolean consent, String profileConsentVersion) {}
+  public record LoginRequest(String credential, Boolean consent, String profileConsentVersion, Boolean nicknameAfterLogin) {}
+  public record NicknameRequest(String nickname) {}
   public record CancelRequest(String nonce) {}
   public record NonceRequest(String purpose) {}
   private RoomService.Identity identity(String bearer) {
@@ -29,7 +30,14 @@ public class GoogleAuthController {
   @PostMapping("/google") public GoogleAuthService.Status login(
       @RequestHeader(value="Authorization", required=false) String bearer,
       @RequestHeader(value="Origin", required=false) String origin, @RequestBody LoginRequest request) {
-    return auth.login(identity(bearer), origin, request.credential(), request.consent(), request.profileConsentVersion());
+    return Boolean.TRUE.equals(request.nicknameAfterLogin())
+        ? auth.loginForEntry(identity(bearer), origin, request.credential(), request.consent(), request.profileConsentVersion())
+        : auth.login(identity(bearer), origin, request.credential(), request.consent(), request.profileConsentVersion());
+  }
+  @PostMapping("/nickname") public GoogleAuthService.Status nickname(
+      @RequestHeader(value="Authorization", required=false) String bearer,
+      @RequestHeader(value="Origin", required=false) String origin, @RequestBody NicknameRequest request) {
+    return auth.completeNickname(identity(bearer), origin, request.nickname());
   }
   @PostMapping("/google/recover") public GoogleAuthService.Status recover(
       @RequestHeader(value="Authorization", required=false) String bearer,

@@ -11,6 +11,7 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.Semaphore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /** Read-only, account-scoped current-quarter statistics. No raw records leave this service. */
@@ -33,6 +34,7 @@ public final class StatisticsService {
     Personal personal() { return new Personal(mine, myDeals, wins, losses, myDraws, score, myScored, myForfeits, myInterrupted); }
     Overall overall() { return new Overall(matches, deals, draws, scored, forfeits, interrupted); }
   }
+  private final boolean leaderboardEnabled;
   private final RoomService rooms;
   private final StatsStore store;
   private final Clock clock;
@@ -41,9 +43,17 @@ public final class StatisticsService {
   private final Semaphore reader = new Semaphore(1);
   private final StatisticsReadDiagnostics diagnostics = new StatisticsReadDiagnostics();
 
-  @Autowired public StatisticsService(RoomService rooms, StatsStore store) { this(rooms, store, Clock.systemUTC()); }
+  @Autowired public StatisticsService(RoomService rooms, StatsStore store,
+      @Value("${BRIDGE_LEADERBOARD_ENABLED:false}") boolean leaderboardEnabled) {
+    this(rooms, store, Clock.systemUTC(), System::nanoTime, leaderboardEnabled);
+  }
+  public StatisticsService(RoomService rooms, StatsStore store) { this(rooms, store, Clock.systemUTC()); }
   StatisticsService(RoomService rooms, StatsStore store, Clock clock) { this(rooms,store,clock,System::nanoTime); }
   StatisticsService(RoomService rooms, StatsStore store, Clock clock, LongSupplier ticker) {
+    this(rooms, store, clock, ticker, false);
+  }
+  StatisticsService(RoomService rooms, StatsStore store, Clock clock, LongSupplier ticker, boolean leaderboardEnabled) {
+    this.leaderboardEnabled = leaderboardEnabled;
     this.rooms = rooms; this.store = store; this.clock = clock; this.ticker=Objects.requireNonNull(ticker);
   }
   private synchronized void rateLimited(long retryAfterMillis) {
@@ -96,6 +106,28 @@ public final class StatisticsService {
     // A logout/account switch during I/O must never receive the prior account's data.
     rooms.requireStatisticsAccountUnchanged(who, account);
     return rooms.statisticsEnabled() ? report : unavailable("DISABLED", clock.instant());
+  }
+
+  public Leaderboard.Report readLeaderboard(RoomService.Identity who, Leaderboard.Period period, Leaderboard.Category category) {
+    String account = rooms.statisticsAccount(who);
+    if (!leaderboardEnabled || !rooms.statisticsEnabled())
+      return Leaderboard.unavailable("DISABLED", clock.instant(), period, category, null, null);
+    int retry = retrySeconds();
+    if (retry > 0) return Leaderboard.unavailable("UNAVAILABLE", clock.instant(), period, category, "RATE_LIMITED", retry);
+    if (!reader.tryAcquire()) return Leaderboard.unavailable("UNAVAILABLE", clock.instant(), period, category, "BUSY", 2);
+    Leaderboard.Report result;
+    try {
+      retry = retrySeconds();
+      result = retry > 0 ? Leaderboard.unavailable("UNAVAILABLE", clock.instant(), period, category, "RATE_LIMITED", retry)
+          : Leaderboard.project(store.exportLeaderboard(account), account, clock.instant(), period, category);
+    } catch (RuntimeException failure) {
+      if (failure instanceof SheetsGateway.Failure upstream && upstream.status == 429) {
+        rateLimited(upstream.retryAfterMillis);
+        result = Leaderboard.unavailable("UNAVAILABLE", clock.instant(), period, category, "RATE_LIMITED", retrySeconds());
+      } else result = Leaderboard.unavailable("UNAVAILABLE", clock.instant(), period, category, "STORAGE_UNAVAILABLE", null);
+    } finally { reader.release(); }
+    rooms.requireStatisticsAccountUnchanged(who, account);
+    return rooms.statisticsEnabled() ? result : Leaderboard.unavailable("DISABLED", clock.instant(), period, category, null, null);
   }
 
   private static Report unavailable(String status, Instant now) {
@@ -183,7 +215,7 @@ public final class StatisticsService {
         "RECORDED_SINCE_FEATURE", trackedFrom,null,null);
   }
 
-  private static String quarterEndsAt(Instant now) {
+  static String quarterEndsAt(Instant now) {
     return QuarterlyRetention.currentQuarterStart(now).atZone(QuarterlyRetention.TAIPEI).plusMonths(3).toInstant().toString();
   }
   private static String earliestQuarter(String left, String right) {

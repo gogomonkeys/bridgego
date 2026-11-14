@@ -148,8 +148,8 @@ describe("statistics consent and presentation", () => {
       expect(html).toContain("<dt>總場次</dt><dd>7</dd>");
       expect(html).toContain("<dt>中途離席</dt><dd>2</dd>");
       expect((html.match(/<dt>/g) ?? []).length).toBe(6);
-      expect(html).toContain("不含判負與中止");
-      expect(html).toContain("並非本人離席次數");
+      expect(html).toContain("統計與資料說明");
+      expect(html).toContain('href="#help"');
       expect(result.overall).toEqual(counts);
     },
   );
@@ -215,7 +215,7 @@ describe("statistics consent and presentation", () => {
       <StatisticsContent data={lifetime} tab="personal" />,
     );
     expect(quarter).toContain("結算至 2027年01月01日00時");
-    expect(quarter).toContain("並非自動清理時間");
+    expect(quarter).toContain("統計與資料說明");
     expect(quarter).toContain("<dt>積分</dt><dd>9</dd>");
     const overall = renderToStaticMarkup(
       <StatisticsContent data={lifetime} tab="overall" period="lifetime" />,

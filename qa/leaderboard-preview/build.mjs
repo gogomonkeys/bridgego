@@ -1,0 +1,11 @@
+import {createRequire} from 'node:module';
+import {dirname,resolve} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {writeFileSync} from 'node:fs';
+const root=dirname(fileURLToPath(import.meta.url));
+const frontend=resolve(root,'../../frontend');
+const require=createRequire(resolve(frontend,'package.json'));
+const {build}=await import(pathToFileURL(resolve(frontend,'node_modules/vite/dist/node/index.js')));
+const react=(await import(pathToFileURL(require.resolve('@vitejs/plugin-react')))).default;
+process.chdir(frontend);
+await build({configFile:false,root,publicDir:resolve(frontend,'public'),base:'./',plugins:[react()],resolve:{alias:[{find:'react',replacement:dirname(require.resolve('react/package.json'))},{find:'react-dom',replacement:dirname(require.resolve('react-dom/package.json'))}]},css:{postcss:frontend},build:{outDir:resolve(root,'dist'),emptyOutDir:true}});

@@ -28,7 +28,7 @@ export default function PersonalStatisticsSummary({
       </dl>
       <p className="fine">勝率不含中止場；積分僅累計已完成局。</p>
       <details className="statistics-breakdown">
-        <summary>場次明細與計算方式</summary>
+        <summary>場次明細</summary>
         <dl className="statistics-counts">
           <div>
             <dt>完成場次</dt>
@@ -55,18 +55,9 @@ export default function PersonalStatisticsSummary({
             <dd>{counts.completedDeals}</dd>
           </div>
         </dl>
-        <ul className="fine statistics-explanation">
-          <li>勝率＝勝場 ÷（勝場＋敗場＋平手），含判負、不含中止。</li>
-          <li>
-            總場次＝完成場次＋中途離席＋無勝負場次；未確認保存的結果不計。
-          </li>
-          <li>
-            中途離席指因離席判負的場次，並非本人離席次數；包含隊友或對手離席造成的判負。無勝負場次不計勝敗。
-          </li>
-          <li>
-            積分為各場我方已完成局的結算分數總和；未完成局不計，判負仍可能有正積分。
-          </li>
-        </ul>
+        <p className="fine">
+          <a href="#help">計算說明</a>
+        </p>
       </details>
     </>
   );

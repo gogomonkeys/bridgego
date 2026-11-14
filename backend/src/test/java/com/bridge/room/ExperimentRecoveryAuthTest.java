@@ -75,7 +75,7 @@ class ExperimentRecoveryAuthTest {
   mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/auth/google/recover").header("Authorization",token).header("Origin",ORIGIN)
     .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"credential\":\"synthetic\",\"consent\":true}"))
     .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
-    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().json("{\"signedIn\":true}",true));
+    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().json("{\"signedIn\":true,\"nicknameRequired\":false,\"nickname\":null}",true));
   assertEquals(1,calls);
  }
  @Test void recoveryNonceCannotBeUsedForVerifyOrLogin(){

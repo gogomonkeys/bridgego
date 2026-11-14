@@ -6,7 +6,7 @@ describe("account and persistence disclosure", () => {
   it("keeps guest identity and best-effort limitation explicit without external embeds", () => {
     const html = renderToStaticMarkup(<GoogleAccount token="test" />);
     expect(html).toContain("訪客也能完整遊玩");
-    expect(html).toContain("不會將先前訪客場次補登至帳號");
+    expect(html).toContain("訪客戰績不補登");
     expect(html).toContain("盡力而為");
     expect(html).not.toContain("<script");
     expect(html).not.toContain("<iframe");

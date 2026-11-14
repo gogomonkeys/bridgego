@@ -11,6 +11,17 @@ class SheetsAccountProfileTest {
       if(timeoutAfter){timeoutAfter=false;throw new Failure(0,0);}
     }
   }
+  @Test void entryPreservesStableNicknameAndIdentityAndReconcilesUncertainSave() {
+    var db=new Memory();var store=new SheetsIdentityStore(db);
+    var entry=store.findOrCreateForEntry("https://accounts.google.com","sub");
+    assertNull(entry.nickname());
+    db.timeoutAfter=true;
+    assertThrows(SheetsGateway.Failure.class,()->store.completeEntryProfile("https://accounts.google.com","sub","小白","a@example.test"));
+    int writes=db.writes;
+    var saved=store.completeEntryProfile("https://accounts.google.com","sub","小黑","other@example.test");
+    assertEquals(entry.accountId(),saved.accountId());assertEquals("小白",saved.nickname());
+    assertEquals(writes,db.writes);assertEquals(2,db.read("accounts").size());
+  }
   @Test void productionDatasetBindingForwardsProfileOnlyForCorrectTarget(){
     var db=new Memory();String dataset=UUID.randomUUID().toString();
     db.tabs.put("dataset",List.of(List.of("purpose","dataset_id"),List.of("bridgego-managed",dataset)));

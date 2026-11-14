@@ -8,7 +8,7 @@ import {
   managedLoginConsent,
 } from "./entry-account";
 export { canLinkAccount } from "./entry-account";
-import { getClientState } from "./client";
+import { client, getClientState } from "./client";
 import { useExperimentClock } from "./use-experiment-clock";
 import {
   accountRequest,
@@ -68,14 +68,29 @@ export default function GoogleAccount({ token }: { token: string }) {
       verified: setVerified,
       load: loadGoogleIdentity,
       link: (credential) =>
-        accountRequest(
+        accountRequest<AuthStatus>(
           "/auth/google",
           "POST",
-          { credential, consent: true, profileConsentVersion: "account-profile-v1" },
+          {
+            credential,
+            consent: true,
+            profileConsentVersion: "account-profile-v1",
+          },
           token,
-        ),
+        ).then((result) => {
+          if (result.nickname) client.adoptNickname(token, result.nickname);
+          return result;
+        }),
       readStatus: () =>
-        accountRequest<AuthStatus>("/auth/status", "GET", undefined, token),
+        accountRequest<AuthStatus>(
+          "/auth/status",
+          "GET",
+          undefined,
+          token,
+        ).then((result) => {
+          if (result.nickname) client.adoptNickname(token, result.nickname);
+          return result;
+        }),
       cancel: (nonce) =>
         accountRequest("/auth/cancel", "POST", { nonce }, token),
       eligible: () =>
@@ -153,6 +168,7 @@ export default function GoogleAccount({ token }: { token: string }) {
         setMessage("尚無法確認帳號狀態，請重新確認；未確認解除連結。");
         return;
       }
+      if (result.nickname) client.adoptNickname(token, result.nickname);
       setSignedIn(result.signedIn);
       setMessage(
         logout
@@ -184,10 +200,7 @@ export default function GoogleAccount({ token }: { token: string }) {
               : "已連結 Google（收集尚未開放）"
           : "訪客也能完整遊玩"}
       </h3>
-      <p>
-        Google
-        登入為選用，只能在房間外操作。不會更換目前的訪客名稱或身分，也不會將先前訪客場次補登至帳號。
-      </p>
+      <p>Google 登入為選用；已有帳號沿用儲存暱稱，訪客戰績不補登。</p>
       {experimentMessage && (
         <p className="fine" role="status">
           {experimentMessage}
@@ -198,10 +211,7 @@ export default function GoogleAccount({ token }: { token: string }) {
       </p>
       {signedIn ? (
         <>
-          <p className="fine">
-            解除連結僅解除本次 Google
-            連結，原訪客身分繼續使用，不會刪除已保存的紀錄。帳號連結不保證每場可保存，仍由伺服器判斷全場是否符合保存條件。
-          </p>
+          <p className="fine">解除連結後以訪客遊玩，已存紀錄不會刪除。</p>
           <button
             className="secondary"
             disabled={checking}

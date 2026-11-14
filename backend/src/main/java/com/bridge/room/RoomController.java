@@ -31,6 +31,12 @@ public class RoomController {
     return service.createSession(request.displayName());
   }
 
+  @PostMapping("/sessions/nickname")
+  public RoomService.Identity nickname(@RequestHeader(value = "Authorization", required = false) String auth,
+      @RequestBody SessionRequest request) {
+    return service.guestNickname(identity(auth), request.displayName());
+  }
+
   @GetMapping("/me")
   public RoomService.Me me(@RequestHeader(value = "Authorization", required = false) String auth) {
     return service.me(identity(auth));
