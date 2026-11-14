@@ -64,20 +64,78 @@ public final class SheetsIdentityStore implements IdentityStore {
         if(!matched)throw new SheetsGateway.Conflict();
         return id;
     }
+    private static final List<String> ENTRY_TABLES = List.of("retention_ledger", "erasure_ledger", "accounts", "auth_identities");
+    private record EntrySnapshot(Map<String,List<List<String>>> tables, String account, int row) {
+        Profile profile() {
+            if(account==null)return null;
+            var value=tables.get("accounts").get(row-1);
+            return new Profile(account,"2".equals(value.get(1))?value.get(2):null);
+        }
+    }
+    /** A bounded, dataset-bound snapshot, with no persistent cache or write retries. */
+    private EntrySnapshot entrySnapshot(String issuer,String subject) {
+        if(!"https://accounts.google.com".equals(issuer)||subject==null||subject.isBlank()||subject.length()>255)
+            throw new IllegalArgumentException("Invalid verified identity");
+        var tables=SheetsGateway.immutableBatch(ENTRY_TABLES,gateway.readBatch(ENTRY_TABLES));
+        var retention=new RetentionLedger(tables.get("retention_ledger"));
+        if(!retention.complete()||!retention.cutoff().equals(QuarterlyRetention.currentQuarterStart(clock.instant())))
+            throw new IllegalStateException("Quarter cleanup pending; collection blocked");
+        var ledger=new ErasureLedger(tables.get("erasure_ledger"));
+        if(ledger.contains("IDENTITY",ErasureLedger.identityKey(issuer,subject)))throw new SheetsGateway.Conflict();
+        var accounts=tables.get("accounts");AccountProfileRows.validateTable(accounts);
+        var ids=new HashMap<String,Integer>();
+        for(int i=1;i<accounts.size();i++)ids.put(accounts.get(i).get(0),i+1);
+        String account=null;
+        for(var row:tables.get("auth_identities")) {
+            if(row.isEmpty()||row.get(0).equals("issuer"))continue;
+            if(row.size()!=4||!"1".equals(row.get(3))||!ids.containsKey(row.get(2)))throw new SheetsGateway.Conflict();
+            if(row.get(0).equals(issuer)&&row.get(1).equals(subject)) {
+                if(account!=null&&!account.equals(row.get(2)))throw new SheetsGateway.Conflict();
+                account=row.get(2);
+            }
+        }
+        if(account!=null&&ledger.contains("ACCOUNT",account))throw new SheetsGateway.Conflict();
+        return new EntrySnapshot(tables,account,account==null?0:ids.get(account));
+    }
     @Override public synchronized Profile findOrCreateForEntry(String issuer,String subject) {
-        String id=findOrCreateAccount(issuer,subject);
-        QuarterlyRetention.requireCollectionReady(gateway,clock);
-        var rows=gateway.read("accounts"); AccountProfileRows.validateTable(rows);
-        if(new ErasureLedger(gateway.read("erasure_ledger")).contains("ACCOUNT",id))throw new SheetsGateway.Conflict();
-        var row=rows.stream().skip(1).filter(r->r.get(0).equals(id)).findFirst().orElseThrow(SheetsGateway.Conflict::new);
-        return new Profile(id,"2".equals(row.get(1))?row.get(2):null);
+        var snapshot=entrySnapshot(issuer,subject);
+        if(snapshot.account()!=null)return snapshot.profile();
+        // Existing creation path is retained; only the subsequent profile read is batched.
+        String created=findOrCreateAccount(issuer,subject);
+        var saved=entrySnapshot(issuer,subject);
+        if(!created.equals(saved.account()))throw new SheetsGateway.Conflict();
+        return saved.profile();
     }
     @Override public synchronized Profile completeEntryProfile(String issuer,String subject,String nickname,String email) {
-        var profile=findOrCreateForEntry(issuer,subject);
-        if(profile.nickname()!=null)return profile;
-        String id=findOrCreateAccount(issuer,subject,nickname,email);
-        if(!id.equals(profile.accountId()))throw new SheetsGateway.Conflict();
-        return findOrCreateForEntry(issuer,subject);
+        if(!AccountProfileRows.validNickname(nickname)||!AccountProfileRows.validEmail(email==null?"":email))
+            throw new IllegalArgumentException("Invalid profile");
+        var before=entrySnapshot(issuer,subject);
+        if(before.account()==null) {
+            // Legacy lobby linking may complete the profile without the entry-login step.
+            String created=findOrCreateAccount(issuer,subject);
+            before=entrySnapshot(issuer,subject);
+            if(!created.equals(before.account()))throw new SheetsGateway.Conflict();
+        }
+        if(before.profile().nickname()!=null)return before.profile();
+        var checked=entrySnapshot(issuer,subject);
+        if(!before.tables().equals(checked.tables()))throw new SheetsGateway.Conflict();
+        var desired=List.of(before.account(),"2",nickname,email==null?"":email);
+        // Exactly one narrow write. Do not retry an unknown response, including failed readback.
+        gateway.saveAccountProfile(before.row(),desired,null);
+        var after=entrySnapshot(issuer,subject);
+        if(!before.account().equals(after.account())||before.row()!=after.row())throw new SheetsGateway.Conflict();
+        for(String tab:List.of("retention_ledger","erasure_ledger","auth_identities"))
+            if(!before.tables().get(tab).equals(after.tables().get(tab)))throw new SheetsGateway.Conflict();
+        var oldRows=before.tables().get("accounts");var saved=after.tables().get("accounts");
+        if(saved.size()!=oldRows.size()||!saved.get(0).equals(AccountProfileRows.LIFETIME_HEADER.equals(oldRows.get(0))
+                ?AccountProfileRows.LIFETIME_HEADER:AccountProfileRows.HEADER))throw new SheetsGateway.Conflict();
+        for(int i=1;i<saved.size();i++) {
+            if(i!=before.row()-1) {if(!oldRows.get(i).equals(saved.get(i)))throw new SheetsGateway.Conflict();continue;}
+            var value=new ArrayList<>(saved.get(i));while(value.size()<4)value.add("");
+            String priorLifetime=oldRows.get(i).size()==5?oldRows.get(i).get(4):"";
+            if(!value.subList(0,4).equals(desired)||!priorLifetime.equals(value.size()==5?value.get(4):""))throw new SheetsGateway.Conflict();
+        }
+        return after.profile();
     }
     private String find(String issuer,String subject) {
         Set<String> accounts=new HashSet<>();

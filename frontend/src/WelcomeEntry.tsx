@@ -52,8 +52,13 @@ export default function WelcomeEntry({
         if (live.current) setStatisticsFailed(true);
       });
   };
+  const [nicknameProgress, setNicknameProgress] = useState<
+    "idle" | "saving" | "checking"
+  >("idle");
   const [nicknameUncertain, setNicknameUncertain] = useState(false);
-  const [nicknameStep, setNicknameStep] = useState<"guest" | "account" | null>(null);
+  const [nicknameStep, setNicknameStep] = useState<"guest" | "account" | null>(
+    null,
+  );
   const [name, setName] = useState("");
   const [composing, setComposing] = useState(false);
   const nickname = nicknameValidation(name);
@@ -71,6 +76,7 @@ export default function WelcomeEntry({
   const [recoverySubmitted, setRecoverySubmitted] = useState(false);
   const [linkAttempted, setLinkAttempted] = useState(false);
   const button = useRef<HTMLDivElement>(null);
+  const loginUpdates = useRef(0);
   const controller = useRef<ReturnType<typeof createLoginAttempt> | null>(null);
   const live = useRef(true);
   const enter = useRef(onEnter);
@@ -88,15 +94,62 @@ export default function WelcomeEntry({
   const experimentRef = useRef(experiment);
   experimentRef.current = experiment;
   const experimentMessage = experimentNotice(config, experimentNow);
-  const finishAccount = async (expected: string) => {
+  const finishAccount = async (expected: string, afterSave = false) => {
+    setNicknameProgress("checking");
     try {
-      const result = await accountRequest<AuthStatus>("/auth/status", "GET", undefined, expected);
-      if (!live.current || entryChoice.current !== "account" || !canCompleteEntry(expected, getClientState().session?.token, Boolean(getClientState().room))) return;
-      if (!result.signedIn) return;
-      if (result.nicknameRequired) { setName(""); setNicknameStep("account"); return; }
-      if (result.nickname && !client.adoptNickname(expected, result.nickname)) return;
+      const result = await accountRequest<AuthStatus>(
+        "/auth/status",
+        "GET",
+        undefined,
+        expected,
+      );
+      if (
+        !live.current ||
+        entryChoice.current !== "account" ||
+        !canCompleteEntry(
+          expected,
+          getClientState().session?.token,
+          Boolean(getClientState().room),
+        )
+      )
+        return;
+      if (!result.signedIn) {
+        setMessage("尚未確認登入狀態，請重新確認；目前不會進入大廳。");
+        if (afterSave) setNicknameUncertain(true);
+        return;
+      }
+      if (result.nicknameRequired) {
+        setComposing(false);
+        setNicknameStep("account");
+        setMessage(
+          afterSave
+            ? "已收到保存回應，但尚未確認暱稱完成。請返回身分選擇重新登入讀取結果，不要重複送出。"
+            : "請設定遊戲暱稱，之後登入將直接沿用。",
+        );
+        if (afterSave) setNicknameUncertain(true);
+        return;
+      }
+      if (
+        (isManagedCollection(configRef.current) &&
+          (typeof result.nickname !== "string" ||
+            Boolean(nicknameValidation(result.nickname).error))) ||
+        (result.nickname && !client.adoptNickname(expected, result.nickname))
+      ) {
+        setMessage("暱稱同步尚未確認，請重新確認登入狀態；目前不會進入大廳。");
+        if (afterSave) setNicknameUncertain(true);
+        return;
+      }
       enter.current(expected, experimentRef.current);
-    } catch { if (live.current) setMessage("尚無法確認暱稱，請重新確認登入狀態。"); }
+    } catch {
+      if (live.current) {
+        setMessage(
+          "尚無法確認登入及暱稱，請重新確認登入狀態；不會重複送出保存。",
+        );
+        if (afterSave) setNicknameUncertain(true);
+      }
+    } finally {
+      if (live.current) setNicknameProgress("idle");
+    }
   };
   useEffect(() => {
     live.current = true;
@@ -149,7 +202,12 @@ export default function WelcomeEntry({
         accountRequest(
           "/auth/google",
           "POST",
-          { credential, consent: true, profileConsentVersion: "account-profile-v1", nicknameAfterLogin: isManagedCollection(configRef.current) },
+          {
+            credential,
+            consent: true,
+            profileConsentVersion: "account-profile-v1",
+            nicknameAfterLogin: isManagedCollection(configRef.current),
+          },
           token,
         ),
       recover: (credential) =>
@@ -169,6 +227,7 @@ export default function WelcomeEntry({
       eligible,
       update: (next, text, signedIn) => {
         if (!eligible()) return;
+        loginUpdates.current++;
         setPhase(next);
         setMessage(text ?? "");
         if (next === "idle") button.current?.replaceChildren();
@@ -202,12 +261,31 @@ export default function WelcomeEntry({
     }
     setPurpose(requested.purpose);
     setLinkAttempted(requested.purpose !== "verify");
-    if (button.current)
-      void controller.current?.start(
-        config.clientId,
-        button.current,
-        requested.purpose,
+    const target = button.current;
+    const attempt = controller.current;
+    if (!target || !attempt) {
+      setMessage(
+        "Google 登入介面尚未準備好，請稍後重新選擇登入；尚未啟動帳號選擇。",
       );
+      return;
+    }
+    const before = loginUpdates.current;
+    void attempt
+      .start(config.clientId, target, requested.purpose)
+      .then(() => {
+        if (
+          live.current &&
+          getClientState().session?.token === requested.token &&
+          loginUpdates.current === before
+        )
+          setMessage(
+            "本次 Google 登入未能啟動，請重新確認登入狀態；不會重複送出暱稱保存。",
+          );
+      })
+      .catch(() => {
+        if (live.current && getClientState().session?.token === requested.token)
+          setMessage("Google 登入介面載入失敗，請稍後重新選擇登入。");
+      });
   }, [config, availablePurpose, requested, token]);
   useEffect(() => {
     // An open Google prompt must not silently remain a linking offer after expiry.
@@ -233,6 +311,7 @@ export default function WelcomeEntry({
     if (choice === "guest" && (composing || nickname.error)) return;
     entryChoice.current = choice;
     setNicknameUncertain(false);
+    setComposing(false);
     const chosenPurpose = availablePurpose;
     choiceFlight.current = true;
     setPreparing(true);
@@ -248,7 +327,13 @@ export default function WelcomeEntry({
         }),
         isMounted: () => live.current,
       });
-      if (!preparedToken) return;
+      if (!preparedToken) {
+        if (live.current)
+          setMessage(
+            "目前遊戲身分無法確認，請重新確認登入狀態；尚未啟動 Google 登入。",
+          );
+        return;
+      }
       expectedToken = preparedToken;
       if (choice === "guest") {
         pending.current = null;
@@ -266,7 +351,12 @@ export default function WelcomeEntry({
           if (status.signedIn !== false)
             throw new Error("Guest status not confirmed");
         }
-        const guest = await accountRequest<Session>("/sessions/nickname", "POST", { displayName: nickname.normalized }, expectedToken);
+        const guest = await accountRequest<Session>(
+          "/sessions/nickname",
+          "POST",
+          { displayName: nickname.normalized },
+          expectedToken,
+        );
         if (!client.adoptNickname(expectedToken, guest.displayName)) return;
         if (
           live.current &&
@@ -358,18 +448,47 @@ export default function WelcomeEntry({
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (nicknameStep === "guest") { void choose("guest"); return; }
-    if (!token || composing || nickname.error || choiceFlight.current || nicknameUncertain) return;
-    choiceFlight.current = true; setPreparing(true);
-    void accountRequest<AuthStatus>("/auth/nickname", "POST", { nickname: nickname.normalized }, token)
-      .then(() => finishAccount(token))
-      .catch(() => { if (live.current) { setNicknameUncertain(true); setMessage("暱稱儲存尚未確認。請返回身分選擇並重新登入 Google 讀取已保存暱稱；不要重複送出。"); } })
-      .finally(() => { choiceFlight.current = false; if (live.current) setPreparing(false); });
+    if (nicknameStep === "guest") {
+      void choose("guest");
+      return;
+    }
+    if (
+      !token ||
+      composing ||
+      nickname.error ||
+      choiceFlight.current ||
+      nicknameUncertain
+    )
+      return;
+    choiceFlight.current = true;
+    setPreparing(true);
+    setNicknameProgress("saving");
+    setMessage("");
+    void accountRequest<AuthStatus>(
+      "/auth/nickname",
+      "POST",
+      { nickname: nickname.normalized },
+      token,
+    )
+      .then(() => finishAccount(token, true))
+      .catch(() => {
+        if (live.current) {
+          setNicknameUncertain(true);
+          setMessage(
+            "暱稱儲存尚未確認。請返回身分選擇並重新登入 Google 讀取已保存暱稱；不要重複送出。",
+          );
+        }
+      })
+      .finally(() => {
+        choiceFlight.current = false;
+        if (live.current) {
+          setPreparing(false);
+          setNicknameProgress("idle");
+        }
+      });
   };
   const disabled =
-    !statisticsConfig ||
-    busy ||
-    preparing;
+    !statisticsConfig || busy || preparing || nicknameProgress !== "idle";
   return (
     <div className="welcome-grid">
       <section
@@ -417,39 +536,66 @@ export default function WelcomeEntry({
                 ? "正在輸入…"
                 : `${nickname.count}／5 字${name && nickname.error ? ` · ${nickname.error}` : ""}`}
             </small>
-            <button className="primary" type="submit" disabled={disabled || composing || Boolean(nickname.error) || nicknameUncertain}>確認暱稱並進入大廳</button>
-            <button type="button" className="text-button" disabled={disabled} onClick={() => { setNicknameStep(null); setMessage(""); }}>返回身分選擇</button>
+            <button
+              className="primary"
+              type="submit"
+              disabled={
+                disabled ||
+                composing ||
+                Boolean(nickname.error) ||
+                nicknameUncertain
+              }
+            >
+              {nicknameProgress === "saving"
+                ? "正在保存暱稱…"
+                : nicknameProgress === "checking"
+                  ? "正在確認登入…"
+                  : "確認暱稱並進入大廳"}
+            </button>
+            <button
+              type="button"
+              className="text-button"
+              disabled={disabled}
+              onClick={() => {
+                setNicknameStep(null);
+                setComposing(false);
+                setMessage("");
+              }}
+            >
+              返回身分選擇
+            </button>
           </form>
         )}
-        {!nicknameStep && (verified ? (
-          <p className="entry-verified" role="status">
-            ✓ Google 驗證成功（僅驗證）
-          </p>
-        ) : (
-          <button
-            className="primary"
-            disabled={
-              disabled ||
-              recoverySubmitted ||
-              !availablePurpose ||
-              phase !== "idle" ||
-              Boolean(requested)
-            }
-            onClick={() => void choose("account")}
-          >
-            {availablePurpose === "recover"
-              ? "Google 恢復既有帳號（限一次）"
-              : availablePurpose === "link"
-                ? experiment
-                  ? "Google 登入（單人一場實驗）"
-                  : "使用 Google 登入"
-                : availablePurpose === "verify"
-                  ? "Google 驗證（測試）"
-                  : config || configFailed
-                    ? "Google 登入尚未開放"
-                    : "正在確認 Google 服務…"}
-          </button>
-        ))}
+        {!nicknameStep &&
+          (verified ? (
+            <p className="entry-verified" role="status">
+              ✓ Google 驗證成功（僅驗證）
+            </p>
+          ) : (
+            <button
+              className="primary"
+              disabled={
+                disabled ||
+                recoverySubmitted ||
+                !availablePurpose ||
+                phase !== "idle" ||
+                Boolean(requested)
+              }
+              onClick={() => void choose("account")}
+            >
+              {availablePurpose === "recover"
+                ? "Google 恢復既有帳號（限一次）"
+                : availablePurpose === "link"
+                  ? experiment
+                    ? "Google 登入（單人一場實驗）"
+                    : "使用 Google 登入"
+                  : availablePurpose === "verify"
+                    ? "Google 驗證（測試）"
+                    : config || configFailed
+                      ? "Google 登入尚未開放"
+                      : "正在確認 Google 服務…"}
+            </button>
+          ))}
         {experimentMessage && (
           <p className="fine" role="status">
             {experimentMessage}
@@ -496,7 +642,15 @@ export default function WelcomeEntry({
         <button
           className="secondary entry-continue"
           disabled={disabled || recoverySubmitted || phase === "submitting"}
-          onClick={() => { entryChoice.current = "guest"; setNicknameUncertain(false); controller.current?.cancel(); setNicknameStep("guest"); setName(""); setMessage(""); }}
+          onClick={() => {
+            entryChoice.current = "guest";
+            setNicknameUncertain(false);
+            controller.current?.cancel();
+            setNicknameStep("guest");
+            setComposing(false);
+            setName("");
+            setMessage("");
+          }}
         >
           以訪客身分遊玩
         </button>
@@ -509,7 +663,16 @@ export default function WelcomeEntry({
             重新確認登入狀態
           </button>
         )}
-        {message && !verified && <p role="status">{message}</p>}
+        {nicknameProgress !== "idle" && (
+          <p role="status" aria-live="polite">
+            {nicknameProgress === "saving"
+              ? "正在保存暱稱，請稍候；不需要再次按確認。"
+              : "正在確認登入與暱稱，請稍候。"}
+          </p>
+        )}
+        {message && !verified && nicknameProgress === "idle" && (
+          <p role="status">{message}</p>
+        )}
         {verified && (
           <details className="entry-details">
             <summary>查看測試識別碼</summary>
