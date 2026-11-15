@@ -132,13 +132,39 @@ describe("tutorial flow", () => {
   });
   it("offers unseen guests a choice and remembers skip on device", async () => {
     const done = await mount();
-    act(() => button("先進大廳").props.onClick());
+    act(() => button("稍後再說").props.onClick());
     expect(localStorage.setItem).toHaveBeenCalledWith(
       "bridge-tutorial-offered-v1",
       "yes",
     );
     expect(done).toHaveBeenCalledOnce();
     expect(request).toHaveBeenCalledTimes(1);
+  });
+  it("does not re-offer a skipped guest unless manually requested", async () => {
+    vi.mocked(localStorage.getItem).mockReturnValue("yes");
+    const done = await mount(false);
+    expect(done).toHaveBeenCalledOnce();
+    expect(request.mock.calls.every((c) => c[1] === "GET")).toBe(true);
+    act(() => tree.unmount());
+    const manualDone = await mount(false, null, true);
+    expect(manualDone).not.toHaveBeenCalled();
+    expect(button("開始教學")).toBeTruthy();
+  });
+  it("offers an unseen Google identity before lobby", async () => {
+    request.mockResolvedValueOnce({
+      enabled: true,
+      signedIn: true,
+      offered: false,
+      game: null,
+    });
+    const done = vi.fn();
+    await act(async () => {
+      tree = create(<TutorialFlow token="new-google" onDone={done} />);
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain("要先體驗新手教學嗎？");
+    expect(button("稍後再說")).toBeTruthy();
+    expect(done).not.toHaveBeenCalled();
+    expect(localStorage.setItem).not.toHaveBeenCalled();
   });
   it("does not pretend to remember a Google account on this device", async () => {
     const done = await mount(true);
@@ -168,7 +194,7 @@ describe("tutorial flow", () => {
       offered: true,
       game: null,
     });
-    await act(async () => button("先進大廳").props.onClick());
+    await act(async () => button("稍後再說").props.onClick());
     expect(request).toHaveBeenLastCalledWith(
       "/tutorial/choice",
       "POST",
@@ -253,7 +279,7 @@ describe("tutorial flow", () => {
     });
     await flush();
     request.mockRejectedValueOnce(new Error("lost response"));
-    await act(async () => button("先進大廳").props.onClick());
+    await act(async () => button("稍後再說").props.onClick());
     request.mockRejectedValueOnce(new Error("read unavailable"));
     await act(async () => button("讀取教學狀態").props.onClick());
     expect(done).not.toHaveBeenCalled();

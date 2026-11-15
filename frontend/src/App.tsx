@@ -132,7 +132,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.14.1", disconnects: diagnostics },
+    { version: "0.14.2", disconnects: diagnostics },
     null,
     2,
   );
@@ -196,7 +196,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.14.1</span>
+            <span className="eyebrow">v0.14.2</span>
           </div>
         )}
         <PwaStatus
@@ -226,7 +226,7 @@ export default function App() {
         {page === "room" && (!state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.14.1</span>
+              <span className="eyebrow">v0.14.2</span>
               <h1>
                 {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
               </h1>
@@ -553,6 +553,27 @@ export default function App() {
                   <span className="eyebrow">LET’S GET TOGETHER</span>
                   <h2>你好，{state.session!.displayName}</h2>
                 </div>
+                <TutorialHelpEntry
+                  key={`${state.session!.token}:${tutorialAccountEpoch}`}
+                  token={state.session!.token}
+                  direct
+                  enabled={
+                    tutorialAvailability?.key ===
+                    `${state.session!.token}:${tutorialAccountEpoch}`
+                      ? tutorialAvailability.enabled
+                      : null
+                  }
+                  onAvailability={(enabled) =>
+                    setTutorialAvailability({
+                      key: `${state.session!.token}:${tutorialAccountEpoch}`,
+                      enabled,
+                    })
+                  }
+                  onStart={() => {
+                    setTutorialRequested(true);
+                    navigate("room");
+                  }}
+                />
                 {canSeeStatistics && (
                   <div className="lobby-statistics-actions">
                     <button

@@ -90,3 +90,104 @@ describe("Help tutorial readonly recovery", () => {
     expect(source).toContain("setTutorialAvailability");
   });
 });
+
+describe("lobby tutorial entry", () => {
+  it("checks availability read-only on every direct entry and retries safely", async () => {
+    const available = vi.fn();
+    await act(async () => {
+      tree = create(
+        <TutorialHelpEntry
+          token="token"
+          direct
+          enabled={true}
+          onAvailability={available}
+          onStart={start}
+        />,
+      );
+    });
+    request.mockRejectedValueOnce(new Error("offline"));
+    await act(async () => button("新手教學").props.onClick());
+    expect(start).not.toHaveBeenCalled();
+    expect(button("新手教學").props.disabled).toBe(false);
+    request.mockResolvedValueOnce({ enabled: false });
+    await act(async () => button("新手教學").props.onClick());
+    expect(start).not.toHaveBeenCalled();
+    request.mockResolvedValueOnce({ enabled: true });
+    await act(async () => button("新手教學").props.onClick());
+    expect(start).toHaveBeenCalledOnce();
+    expect(
+      request.mock.calls.every(
+        (c) => c[0] === "/tutorial/status" && c[1] === "GET",
+      ),
+    ).toBe(true);
+    expect(localStorage.setItem).not.toHaveBeenCalled();
+  });
+  it("ignores an old identity response and deduplicates pending clicks", async () => {
+    let resolve!: (value: unknown) => void;
+    request.mockReturnValueOnce(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    const oldStart = vi.fn(),
+      newStart = vi.fn();
+    await act(async () => {
+      tree = create(
+        <TutorialHelpEntry
+          token="old"
+          direct
+          enabled={null}
+          onAvailability={vi.fn()}
+          onStart={oldStart}
+        />,
+      );
+    });
+    const enter = button("新手教學");
+    act(() => {
+      enter.props.onClick();
+      enter.props.onClick();
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      tree.update(
+        <TutorialHelpEntry
+          token="new"
+          direct
+          enabled={null}
+          onAvailability={vi.fn()}
+          onStart={newStart}
+        />,
+      ),
+    );
+    await act(async () => resolve({ enabled: true }));
+    expect(oldStart).not.toHaveBeenCalled();
+    expect(newStart).not.toHaveBeenCalled();
+    request.mockResolvedValueOnce({ enabled: true });
+    await act(async () => button("新手教學").props.onClick());
+    expect(request).toHaveBeenLastCalledWith(
+      "/tutorial/status",
+      "GET",
+      undefined,
+      "new",
+    );
+    expect(newStart).toHaveBeenCalledOnce();
+  });
+  it("App keeps entry after nickname and lobby entry outside room branches", () => {
+    const source = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    expect(source.indexOf("needsEntry(")).toBeLessThan(
+      source.indexOf("<TutorialFlow"),
+    );
+    expect(source.indexOf("<TutorialFlow")).toBeLessThan(
+      source.indexOf('className="lobby-panel-heading"'),
+    );
+    const lobby = source.slice(
+      source.indexOf('className="lobby-panel-heading"'),
+    );
+    expect(lobby).toContain("<TutorialHelpEntry");
+    expect(lobby).toContain("direct");
+    expect(source).toContain("!state.room &&");
+    expect(source).toContain(
+      "key={`${state.session!.token}:${tutorialAccountEpoch}`}",
+    );
+  });
+});

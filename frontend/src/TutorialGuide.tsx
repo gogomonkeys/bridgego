@@ -32,7 +32,7 @@ export function TutorialInvitation({
       className="tutorial-guide"
       aria-labelledby="tutorial-invitation-title"
     >
-      <h2 id="tutorial-invitation-title">先試一局教學？</h2>
+      <h2 id="tutorial-invitation-title">要先體驗新手教學嗎？</h2>
       <p>與三位電腦練習，前三次出牌有提示。</p>
       <div className="tutorial-actions">
         <button
@@ -49,7 +49,7 @@ export function TutorialInvitation({
           disabled={busy}
           onClick={onSkip}
         >
-          先進大廳
+          稍後再說
         </button>
       </div>
     </section>
