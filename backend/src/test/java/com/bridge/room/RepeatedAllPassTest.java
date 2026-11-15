@@ -31,8 +31,8 @@ class RepeatedAllPassTest {
       for(int call=0;call<4;call++) {
         var auction=f.view(0);
         assertEquals(call,auction.game().auction().calls().size());
-        assertEquals(20_000,auction.game().operationTimer().remainingMs());
-        f.clock.now.addAndGet(19_999);f.service.expireInitialSubscriptions();
+        assertEquals(30_000,auction.game().operationTimer().remainingMs());
+        f.clock.now.addAndGet(29_999);f.service.expireInitialSubscriptions();
         assertEquals(call,f.view(0).game().auction().calls().size());
         f.clock.now.incrementAndGet();f.service.expireInitialSubscriptions();
       }

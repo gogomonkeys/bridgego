@@ -89,7 +89,26 @@ class OperationTimerTest {
     assertEquals("TIMEOUT", s.game().privilege().yourChoiceSource());
     assertEquals("MANUAL", view(0).game().privilege().yourChoiceSource());
     assertEquals(Map.of("NS", true, "EW", false), s.game().privilege().usedByTeam());
-    assertEquals(20_000, s.game().operationTimer().remainingMs());
+    assertEquals(30_000, s.game().operationTimer().remainingMs());
+  }
+
+  @Test
+  void biddingExpiresOnlyAtThirtySecondsAndPlayKeepsTwentySeconds() {
+    bidding();
+    assertEquals(30_000, view(0).game().operationTimer().remainingMs());
+    clock.now.addAndGet(20_000);
+    assertTrue(view(0).game().auction().calls().isEmpty());
+    assertEquals(10_000, view(0).game().operationTimer().remainingMs());
+    clock.now.addAndGet(9_999);
+    assertEquals(1, view(0).game().operationTimer().remainingMs());
+    clock.now.incrementAndGet();
+    assertEquals("TIMEOUT", view(0).game().auction().calls().get(0).source());
+    call(1, "BID", 1, "CLUB");
+    call(2, "PASS", null, null);
+    call(3, "PASS", null, null);
+    call(0, "PASS", null, null);
+    assertEquals("PLAYING", view(0).phase());
+    assertEquals(20_000, view(0).game().operationTimer().remainingMs());
   }
 
   @Test
@@ -99,7 +118,7 @@ class OperationTimerTest {
     var s = view(0);
     assertEquals(1, s.game().auction().calls().size());
     assertEquals("TIMEOUT", s.game().auction().calls().get(0).source());
-    assertEquals(20_000, s.game().operationTimer().remainingMs());
+    assertEquals(30_000, s.game().operationTimer().remainingMs());
     assertEquals(1, view(0).game().auction().calls().size());
   }
 
@@ -108,7 +127,7 @@ class OperationTimerTest {
     bidding();
     String oldDeal = view(0).game().dealId();
     for (int i = 0; i < 4; i++) {
-      clock.now.addAndGet(20_000);
+      clock.now.addAndGet(30_000);
       view(0);
     }
     KeepDealFixture.keep(service, room, players);
@@ -121,7 +140,7 @@ class OperationTimerTest {
     call(0, "BID", 1, "CLUB");
     assertEquals("MANUAL", view(0).game().auction().calls().get(0).source());
     for (int i = 0; i < 3; i++) {
-      clock.now.addAndGet(20_000);
+      clock.now.addAndGet(30_000);
       view(0);
     }
     assertEquals("PLAYING", view(0).phase());
@@ -137,11 +156,11 @@ class OperationTimerTest {
     service.disconnect(room, players[1].playerId(), "socket-1");
     service.connect(room, players[0], "new-0");
     clock.now.addAndGet(3_000);
-    assertEquals(13_000, view(2).game().operationTimer().remainingMs());
+    assertEquals(23_000, view(2).game().operationTimer().remainingMs());
     assertTrue(view(2).game().operationTimer().paused());
     service.connect(room, players[1], "new-1");
     service.disconnect(room, players[0].playerId(), "socket-0");
-    clock.now.addAndGet(12_999);
+    clock.now.addAndGet(22_999);
     assertEquals(1, view(2).game().operationTimer().remainingMs());
     clock.now.incrementAndGet();
     assertEquals(1, view(2).game().auction().calls().size());
@@ -185,9 +204,9 @@ class OperationTimerTest {
             1,
             "CLUB");
     assertEquals("REPLAYED", replay.outcome());
-    assertEquals(15_000, replay.room().game().operationTimer().remainingMs());
+    assertEquals(25_000, replay.room().game().operationTimer().remainingMs());
     var due = view(1);
-    clock.now.addAndGet(15_000);
+    clock.now.addAndGet(25_000);
     assertThrows(
         RoomService.Failure.class,
         () ->
@@ -221,7 +240,7 @@ class OperationTimerTest {
   void concurrentExpiryAndManualCommandApplyOnlyOnce() throws Exception {
     bidding();
     var before = view(0);
-    clock.now.addAndGet(20_000);
+    clock.now.addAndGet(30_000);
     var pool = Executors.newFixedThreadPool(2);
     var gate = new CountDownLatch(1);
     try {
@@ -277,7 +296,7 @@ class OperationTimerTest {
     clock.now.addAndGet(20_000);
     view(0);
     for (int i = 0; i < 4; i++) {
-      clock.now.addAndGet(20_000);
+      clock.now.addAndGet(30_000);
       view(0);
     }
     assertNull(view(0).game().privilege().yourChoiceSource());

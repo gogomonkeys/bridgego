@@ -55,7 +55,8 @@ export async function accountRequest<T>(
     signal: AbortSignal.timeout(
       path === "/auth/google" || path === "/auth/nickname" ||
         path === "/auth/google/recover" ||
-        path === "/statistics" || path.startsWith("/statistics/leaderboard")
+        path === "/statistics" || path.startsWith("/statistics/leaderboard") ||
+        path === "/tutorial/status" || path === "/tutorial/choice"
         ? 60000
         : 8000,
     ),

@@ -1,0 +1,328 @@
+import TutorialBidding from "./TutorialBidding";
+import { useEffect, useRef, useState } from "react";
+import { accountRequest } from "./google-login";
+import type { Card, Play } from "./model";
+import { rankLabel, sortedHand, symbols } from "./game-view";
+import TutorialGuide, { TutorialInvitation } from "./TutorialGuide";
+import {
+  guestTutorialOffered,
+  markGuestTutorialOffered,
+  type TutorialStatus,
+  type TutorialSnapshot,
+} from "./tutorial";
+
+const cardKey = (card: Card) => `${card.suit}:${card.rank}`;
+const cardLabel = (card: Card) =>
+  `${symbols[card.suit]}${rankLabel(card.rank)}`;
+export default function TutorialFlow({
+  token,
+  force = false,
+  onDone,
+  onAvailability,
+}: {
+  token: string;
+  force?: boolean;
+  onDone: () => void;
+  onAvailability?: (enabled: boolean) => void;
+}) {
+  const [status, setStatus] = useState<TutorialStatus | null>(null);
+  const [biddingPractice, setBiddingPractice] = useState(false);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState("");
+  const [uncertain, setUncertain] = useState(false);
+  const [selected, setSelected] = useState<Card | null>(null);
+  const active = useRef(true),
+    pending = useRef(false);
+  const leaveAfterReadback = useRef(false);
+  const done = useRef(onDone);
+  done.current = onDone;
+  const availability = useRef(onAvailability);
+  availability.current = onAvailability;
+  useEffect(() => {
+    active.current = true;
+    let live = true;
+    void readStatus(token)
+      .then((next) => {
+        if (!live) return;
+        setStatus(next);
+        availability.current?.(next.enabled);
+        if (!next.enabled && !next.game) {
+          done.current();
+          return;
+        }
+        if (
+          !force &&
+          !next.game &&
+          (next.signedIn ? next.offered : guestTutorialOffered())
+        )
+          done.current();
+      })
+      .catch(() => {
+        if (live) setError("教學暫時無法讀取，可以先進大廳。");
+      })
+      .finally(() => {
+        if (live) setBusy(false);
+      });
+    return () => {
+      live = false;
+      active.current = false;
+    };
+  }, [token, force]);
+  const update = async (path: string, body: unknown, leave = false) => {
+    if (
+      pending.current ||
+      uncertain ||
+      (!status?.enabled &&
+        (path === "/tutorial" || path === "/tutorial/choice"))
+    )
+      return;
+    pending.current = true;
+    leaveAfterReadback.current = leave;
+    setBusy(true);
+    setError("");
+    setSelected(null);
+    try {
+      const result = await accountRequest<
+        TutorialStatus | TutorialSnapshot | { exited: boolean }
+      >(path, "POST", body, token);
+      const next: TutorialStatus =
+        "signedIn" in result
+          ? result
+          : {
+              enabled: status!.enabled,
+              signedIn: status!.signedIn,
+              offered: status!.offered,
+              game: "sessionId" in result ? result : null,
+            };
+      if (!active.current) return;
+      setStatus(next);
+      if (
+        next.enabled &&
+        !next.signedIn &&
+        (path === "/tutorial" || path === "/tutorial/choice")
+      )
+        markGuestTutorialOffered();
+      if (leave) done.current();
+    } catch {
+      if (!active.current) return;
+      setUncertain(true);
+      setError("結果尚未確認，請先讀取狀態，不要重複送出。");
+    } finally {
+      pending.current = false;
+      if (active.current) setBusy(false);
+    }
+  };
+  const refresh = async () => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    try {
+      const next = await readStatus(token);
+      if (!active.current) return;
+      setStatus(next);
+      availability.current?.(next.enabled);
+      setUncertain(false);
+      setError("");
+      setSelected(null);
+      if (!next.enabled && !next.game) {
+        done.current();
+        return;
+      }
+      if (
+        leaveAfterReadback.current &&
+        !next.game &&
+        (!next.signedIn || next.offered)
+      )
+        done.current();
+    } catch {
+      if (active.current) setError("仍無法讀取教學，請稍後再確認。");
+    } finally {
+      pending.current = false;
+      if (active.current) setBusy(false);
+    }
+  };
+  const skip = () => {
+    if (pending.current || !status) return;
+    if (!status.enabled) {
+      done.current();
+      return;
+    }
+    if (status.signedIn && !status.offered) {
+      void update("/tutorial/choice", { start: false }, true);
+      return;
+    }
+    if (!status.signedIn) markGuestTutorialOffered();
+    done.current();
+  };
+  const game = status?.game;
+  return (
+    <section className="panel tutorial-panel" aria-label="教學場">
+      {error && <p role="alert">{error}</p>}
+      {uncertain ? (
+        <button disabled={busy} onClick={() => void refresh()}>
+          讀取教學狀態
+        </button>
+      ) : !status ? (
+        <>
+          <p role="status">
+            {busy ? "正在準備教學…" : "可稍後從使用說明進入教學。"}
+          </p>
+          <button disabled={busy} onClick={() => done.current()}>
+            先進大廳
+          </button>
+        </>
+      ) : !game && !status.enabled ? (
+        <p role="status">教學暫停開放。</p>
+      ) : !game && biddingPractice ? (
+        <TutorialBidding
+          busy={busy}
+          onBack={() => setBiddingPractice(false)}
+          onBegin={() =>
+            void update(
+              status.signedIn && !status.offered
+                ? "/tutorial/choice"
+                : "/tutorial",
+              status.signedIn && !status.offered ? { start: true } : {},
+            )
+          }
+        />
+      ) : !game ? (
+        <TutorialInvitation
+          busy={busy}
+          onStart={() => setBiddingPractice(true)}
+          onSkip={() => skip()}
+        />
+      ) : (
+        <>
+          <h2>
+            練習牌桌 <small>♠ 為王</small>
+          </h2>
+          {game.lesson === "COMPLETE" ? (
+            <p role="status">教學完成！</p>
+          ) : (
+            <TutorialGuide lesson={game.lesson} />
+          )}
+          <TutorialTable game={game} />
+          {game.lesson !== "COMPLETE" && (
+            <>
+              <div className="tutorial-hand" aria-label="你的手牌">
+                {sortedHand(game.hand).map((card) => (
+                  <button
+                    type="button"
+                    key={cardKey(card)}
+                    className={`tutorial-card ${["HEART", "DIAMOND"].includes(card.suit) ? "red" : ""}`}
+                    aria-label={cardLabel(card)}
+                    aria-pressed={
+                      selected !== null && cardKey(selected) === cardKey(card)
+                    }
+                    disabled={
+                      busy ||
+                      !game.legalCards.some(
+                        (legal) => cardKey(legal) === cardKey(card),
+                      )
+                    }
+                    onClick={() => setSelected(card)}
+                  >
+                    {cardLabel(card)}
+                  </button>
+                ))}
+              </div>
+              <button
+                className="primary"
+                disabled={busy || !selected}
+                onClick={() =>
+                  selected &&
+                  void update("/tutorial/play", {
+                    sessionId: game.sessionId,
+                    expectedRevision: game.revision,
+                    card: selected,
+                  })
+                }
+              >
+                {selected ? `出 ${cardLabel(selected)}` : "先選一張牌"}
+              </button>
+            </>
+          )}
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() =>
+              void update("/tutorial/exit", { sessionId: game.sessionId }, true)
+            }
+          >
+            {game.lesson === "COMPLETE" ? "進入大廳" : "離開教學"}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+function TutorialTable({ game }: { game: TutorialSnapshot }) {
+  const last = game.completedTricks.at(-1);
+  return (
+    <div className="tutorial-table">
+      {last && (
+        <section aria-label="上一墩回顧">
+          <p>
+            上一墩：{last.winnerSeat === 0 ? "你" : `電腦${last.winnerSeat}`}
+            獲勝
+          </p>
+          <TutorialCards
+            plays={last.plays}
+            label="上一墩出牌"
+            winner={last.winnerSeat}
+          />
+        </section>
+      )}
+      {game.currentTrick.length > 0 && (
+        <section aria-label="目前牌桌">
+          <p>本墩</p>
+          <TutorialCards plays={game.currentTrick} label="本墩出牌" />
+        </section>
+      )}
+      <p>已完成 {game.completedTricks.length} / 13 墩</p>
+    </div>
+  );
+}
+function TutorialCards({
+  plays,
+  label,
+  winner,
+}: {
+  plays: Play[];
+  label: string;
+  winner?: number;
+}) {
+  return (
+    <div className="tutorial-public-cards" aria-label={label}>
+      {plays.map((p) => (
+        <div key={p.seat} className="tutorial-public-slot">
+          <small>
+            {p.seat === 0 ? "你" : `電腦${p.seat}`}
+            {winner === p.seat ? " · 勝" : ""}
+          </small>
+          <span
+            className={`tutorial-public-card ${["HEART", "DIAMOND"].includes(p.card.suit) ? "red" : ""}`}
+          >
+            {cardLabel(p.card)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+async function readStatus(token: string): Promise<TutorialStatus> {
+  const status = await accountRequest<TutorialStatus>(
+    "/tutorial/status",
+    "GET",
+    undefined,
+    token,
+  );
+  if (
+    typeof status.enabled !== "boolean" ||
+    typeof status.signedIn !== "boolean" ||
+    typeof status.offered !== "boolean"
+  )
+    throw new Error("Unknown tutorial status");
+  return status;
+}

@@ -496,7 +496,7 @@ export default function WelcomeEntry({
         aria-label="進入大廳前的選擇"
       >
         <span className="eyebrow">WELCOME TO THE TABLE</span>
-        <h2>{session ? `你好，${session.displayName}` : "先認識一下你。"}</h2>
+        <h2>歡迎來到 BridgeGo</h2>
         <p>選用 Google 帳號，或直接當訪客遊玩。</p>
         {!statisticsConfig && (
           <p role="status">
@@ -639,21 +639,23 @@ export default function WelcomeEntry({
             </button>
           </>
         )}
-        <button
-          className="secondary entry-continue"
-          disabled={disabled || recoverySubmitted || phase === "submitting"}
-          onClick={() => {
-            entryChoice.current = "guest";
-            setNicknameUncertain(false);
-            controller.current?.cancel();
-            setNicknameStep("guest");
-            setComposing(false);
-            setName("");
-            setMessage("");
-          }}
-        >
-          以訪客身分遊玩
-        </button>
+        {!nicknameStep && (
+          <button
+            className="secondary entry-continue"
+            disabled={disabled || recoverySubmitted || phase === "submitting"}
+            onClick={() => {
+              entryChoice.current = "guest";
+              setNicknameUncertain(false);
+              controller.current?.cancel();
+              setNicknameStep("guest");
+              setComposing(false);
+              setName("");
+              setMessage("");
+            }}
+          >
+            以訪客身分遊玩
+          </button>
+        )}
         {linkAttempted && phase === "idle" && message && (
           <button
             className="text-button"

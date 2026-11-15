@@ -5116,6 +5116,7 @@ body {
   margin-left: auto;
 }
 .match-more > summary {
+  color: #54422d;
   cursor: pointer;
   min-height: 44px;
   display: flex;
@@ -7219,3 +7220,22 @@ body {
 .lobby-statistics-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 500px) { .lobby-statistics-actions { width: 100%; } .lobby-statistics-actions .lobby-statistics-button { flex: 1 1 0; justify-content: center; } }
 @media (max-width: 500px) { .lobby-panel-heading { flex-wrap: wrap; } }
+
+/* Isolated tutorial presentation; entrance policy is supplied by its caller. */
+.tutorial-guide { padding: 1rem; border-radius: 1rem; background: #f5f0e6; color: #54422d; }
+.tutorial-guide p { margin: .4rem 0; line-height: 1.6; }
+.tutorial-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .8rem; }
+.tutorial-hand { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.tutorial-card { min-width: 3.5rem; min-height: 3.5rem; border: 2px solid transparent; }
+.tutorial-card[aria-pressed="true"] { border-color: #54422d; background: #fff4cc; }
+.tutorial-card.red { color: #b52536; -webkit-text-fill-color: #b52536; }
+.tutorial-panel > button { margin: .4rem .4rem .4rem 0; }
+.tutorial-last-trick { line-height: 1.6; }
+.contract-badge { display: flex; align-items: center; gap: .4rem .8rem; flex-wrap: wrap; min-width: 0; padding: .45rem .7rem; border: 1px solid #d2bf94; border-radius: .7rem; background: #fff8e6; color: #54422d; font-size: .85rem; }
+.contract-holder { min-width: 0; max-width: 16rem; overflow-wrap: anywhere; }
+.contract-trump { font-weight: 700; white-space: nowrap; }
+.contract-trump.bid-red { color: #b52937; }
+.tutorial-public-cards { display: flex; gap: .6rem; flex-wrap: wrap; }
+.tutorial-public-slot { display: grid; gap: .3rem; text-align: center; }
+.tutorial-public-card { display: grid; place-items: center; width: 3.5rem; height: 4.5rem; background: white; border: 1px solid #c9bca3; border-radius: .5rem; color: #28352b; font-size: 1.25rem; }
+.tutorial-public-card.red { color: #b52536; -webkit-text-fill-color: #b52536; }

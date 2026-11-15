@@ -97,3 +97,17 @@ HTTP 狀態並不決定是否能重試。所有改寫請求都不得盲目自動
 - **NETWORK_ERROR**：此為排查分類，不是實際wire code；fetch網路失敗。同樣不得推定改寫未執行。
 
 原始碼位置、HTTP 狀態集合及訊息範例見 [errors.json](errors.json)。此表不收錄私牌、token 或原始請求內容。
+
+### 教學
+
+| 代碼 | 說明 | 處理 |
+|---|---|---|
+| TUTORIAL_CAPACITY | 教學人數已滿 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_NOT_FOUND | 教學已結束或逾期 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_STALE | 教學版本已更新 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_ILLEGAL_PLAY | 請選擇合法手牌 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_IDENTITY_CHANGED | 登入身分已變更 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_PREFERENCE_UNAVAILABLE | 無法確認教學提示記錄 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_CHOICE_REQUIRED | 請選擇開始或略過 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_PREFERENCE_UNVERIFIED | 教學提示記錄儲存結果未確認 | 先讀取最新狀態，不自動重送 |
+| TUTORIAL_DISABLED | 教學暫停開放 | 返回大廳，不自動重送；既有教學可繼續或離開 |

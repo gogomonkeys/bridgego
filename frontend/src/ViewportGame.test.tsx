@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import GamePanel from "./GamePanel";
@@ -16,6 +17,13 @@ const render = (room: Room) =>
   );
 
 describe("viewport game workspace", () => {
+  it("gives the usable More summary the same readable ink as other utilities", () => {
+    const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+    const rule = css.match(/\.match-more > summary \{([^}]+)\}/)?.[1];
+    expect(rule).toContain("color: #54422d");
+    const html = render(playedRoom());
+    expect(html).toContain("<summary>更多</summary>");
+  });
   it("keeps score, table and private hand in explicit layout regions", () => {
     const html = render(playedRoom());
     expect(html).toContain("match-workspace viewport-game");

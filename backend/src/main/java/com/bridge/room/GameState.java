@@ -121,6 +121,7 @@ final class GameState {
       List<ForfeitEvent> forfeitEvents) {}
 
   private static final long OPERATION_MS = 20_000;
+  private static final long BID_TURN_MS = 30_000;
   private static final long DEAL_RESULT_MS = 90_000;
   static final long TRICK_RESULT_MS = 2_000;
   private final java.util.function.LongSupplier ticker;
@@ -271,7 +272,8 @@ final class GameState {
   }
 
   private void deal() {
-    resetTimer();
+    // A redeal can arrive from BIDDING; its new decision budget is still 20 seconds.
+    resetTimer(OPERATION_MS);
     dealId = UUID.randomUUID().toString();
     phase = "PRIVILEGE_DECISION";
     resultAcknowledgments.clear();
@@ -438,7 +440,7 @@ final class GameState {
   }
 
   private void resetTimer() {
-    resetTimer(OPERATION_MS);
+    resetTimer(phase.equals("BIDDING") ? BID_TURN_MS : OPERATION_MS);
   }
 
   private void resetTimer(long durationMs) {

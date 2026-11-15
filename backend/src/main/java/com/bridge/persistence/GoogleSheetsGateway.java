@@ -20,7 +20,7 @@ public final class GoogleSheetsGateway implements SheetsGateway {
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final String spreadsheet,email; private final PrivateKey key;
     private final BoundedGoogleBody boundedBody=new BoundedGoogleBody();
-    private volatile String token; private long expires; private Map<String,Integer> sheetIds;
+    private volatile String token; private long expires; private Map<String,Integer> sheetIds; private Map<String,Integer> columnCounts;
     public GoogleSheetsGateway(String spreadsheet,String credentials) {
         try {
             if(spreadsheet==null||!spreadsheet.matches("[A-Za-z0-9_-]+"))throw new IllegalArgumentException();
@@ -85,11 +85,11 @@ public final class GoogleSheetsGateway implements SheetsGateway {
     void experimentBatch(Map<String,Object> body){request(":batchUpdate",body);}
     public List<List<String>> read(String tab) {
         if(!READ_TABS.contains(tab))throw new IllegalArgumentException();
-        JsonNode values=request("/values/"+tab+"!A:E?valueRenderOption=UNFORMATTED_VALUE",null).path("values");
+        JsonNode values=request("/values/"+tab+"!A:"+lastColumn(tab)+"?valueRenderOption=UNFORMATTED_VALUE",null).path("values");
         List<List<String>> result=new ArrayList<>();
         for(JsonNode row:values){List<String> r=new ArrayList<>();row.forEach(v->r.add(v.asText()));result.add(r);}return result;
     }
-    /** Fixed A:E ranges only. No account identifiers or arbitrary ranges enter request URLs. */
+    /** Fixed account A:F and other A:E ranges only. No account identifiers or arbitrary ranges enter request URLs. */
     @Override public Map<String,List<List<String>>> readBatch(List<String> tabs) {
         var names=validateBatchTabs(tabs);
         return decodeBatch(request(batchPath(names),null,names.size()*RANGE_BYTES+65536,BATCH_JSON),names,spreadsheet);
@@ -99,9 +99,10 @@ public final class GoogleSheetsGateway implements SheetsGateway {
         if(!READ_TABS.containsAll(names))throw new IllegalArgumentException("Invalid batch tables");
         return names;
     }
+    private static String lastColumn(String tab) { return tab.equals("accounts") ? "F" : "E"; }
     static String batchPath(List<String> tabs) {
         var names=validateBatchTabs(tabs);var path=new StringBuilder("/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&majorDimension=ROWS");
-        for(String tab:names)path.append("&ranges=").append(URLEncoder.encode(tab+"!A:E",StandardCharsets.UTF_8));
+        for(String tab:names)path.append("&ranges=").append(URLEncoder.encode(tab+"!A:"+lastColumn(tab),StandardCharsets.UTF_8));
         return path.toString();
     }
     static Map<String,List<List<String>>> decodeBatch(JsonNode root,List<String> tabs,String spreadsheet) {
@@ -113,10 +114,10 @@ public final class GoogleSheetsGateway implements SheetsGateway {
             if(!range.isObject() || !"ROWS".equals(range.path("majorDimension").textValue()))throw new Conflict();
             String name=null;String returned=range.path("range").textValue();
             if(returned==null || returned.length()>128)throw new Conflict();
-            for(String tab:names)if(returned.matches("(?:"+tab+"|'"+tab+"')!A(?:1)?:E(?:[1-9][0-9]*)?")){
+            for(String tab:names)if(returned.matches("(?:"+tab+"|'"+tab+"')!A(?:1)?:"+lastColumn(tab)+"(?:[1-9][0-9]*)?")){
                 // Either whole columns A:E or explicit A1:E<positive row>, never mixed notation.
                 String suffix=returned.substring(returned.indexOf('!')+1);
-                if(suffix.equals("A:E") || suffix.matches("A1:E[1-9][0-9]*"))name=tab;
+                if(suffix.equals("A:"+lastColumn(tab)) || suffix.matches("A1:"+lastColumn(tab)+"[1-9][0-9]*"))name=tab;
             }
             if(name==null || result.containsKey(name))throw new Conflict();
             try { if(JSON.writeValueAsBytes(range).length>RANGE_BYTES)throw new Conflict(); }
@@ -125,10 +126,10 @@ public final class GoogleSheetsGateway implements SheetsGateway {
             if(values!=null) {
                 if(!values.isArray())throw new Conflict();
                 String extent=returned.substring(returned.indexOf('!')+1);
-                if(!extent.equals("A:E") && new java.math.BigInteger(extent.substring(4)).compareTo(java.math.BigInteger.valueOf(values.size()))<0)
+                if(!extent.equals("A:"+lastColumn(name)) && new java.math.BigInteger(extent.substring(4)).compareTo(java.math.BigInteger.valueOf(values.size()))<0)
                     throw new Conflict();
                 for(var row:values){
-                    if(!row.isArray() || row.size()>5)throw new Conflict();
+                    if(!row.isArray() || row.size()>(name.equals("accounts")?6:5))throw new Conflict();
                     var cells=new ArrayList<String>();
                     for(var cell:row){if(!cell.isTextual()&&!cell.isNumber()&&!cell.isBoolean())throw new Conflict();cells.add(cell.asText());}
                     rows.add(cells);
@@ -173,13 +174,29 @@ public final class GoogleSheetsGateway implements SheetsGateway {
                 for(Object value:row) { Map<String,Object> typed=value instanceof Number?Map.of("numberValue",value):value instanceof Boolean?Map.of("boolValue",value):Map.of("stringValue",value==null?"":value.toString());cells.add(Map.of("userEnteredValue",typed)); }
                 data.add(Map.of("values",cells));
             }
-            // Only the A:E schema range is read, fingerprinted, and replaced. Never clear F onward.
-            requests.add(Map.of("updateCells",Map.of("range",Map.of("sheetId",id,"startColumnIndex",0,"endColumnIndex",5),"rows",data,"fields","userEnteredValue")));
+            // Never clear outside the validated schema: tutorial accounts A:F, legacy accounts and other tables A:E.
+            requests.add(Map.of("updateCells",Map.of("range",Map.of("sheetId",id,"startColumnIndex",0,"endColumnIndex",entry.getKey().equals("accounts") && !entry.getValue().isEmpty() && entry.getValue().get(0).equals(AccountProfileRows.TUTORIAL_HEADER)?6:5),"rows",data,"fields","userEnteredValue")));
         }
         return Map.of("requests",requests);
     }
     private void ensureSheetIds() {
-        if(sheetIds==null){Map<String,Integer> ids=new HashMap<>();for(JsonNode sheet:request("?fields=sheets.properties",null).path("sheets"))ids.put(sheet.path("properties").path("title").asText(),sheet.path("properties").path("sheetId").asInt());sheetIds=ids;}
+        if(sheetIds==null){Map<String,Integer> ids=new HashMap<>(), widths=new HashMap<>();for(JsonNode sheet:request("?fields=sheets.properties",null).path("sheets")){String title=sheet.path("properties").path("title").asText();ids.put(title,sheet.path("properties").path("sheetId").asInt());widths.put(title,sheet.path("properties").path("gridProperties").path("columnCount").asInt());}sheetIds=ids;columnCounts=widths;}
+    }
+    @Override public synchronized void acknowledgeTutorial(int row) {
+        if(row<2)throw new IllegalArgumentException();
+        ensureSheetIds();
+        // Refuse a nonstandard narrow grid; provision/migrate its layout separately, never silently resize.
+        if(columnCounts.getOrDefault("accounts",0)<6)throw new Conflict();
+        request(":batchUpdate",tutorialBody(row,sheetIds));
+    }
+    static Map<String,Object> tutorialBody(int row,Map<String,Integer> sheetIds) {
+        if(row<2 || !sheetIds.containsKey("accounts"))throw new IllegalArgumentException();
+        int id=sheetIds.get("accounts");
+        return Map.of("requests",List.of(
+            Map.of("updateCells",Map.of("start",Map.of("sheetId",id,"rowIndex",0,"columnIndex",0),
+                "rows",List.of(profileRow(AccountProfileRows.TUTORIAL_HEADER)),"fields","userEnteredValue")),
+            Map.of("updateCells",Map.of("start",Map.of("sheetId",id,"rowIndex",row-1,"columnIndex",5),
+                "rows",List.of(profileRow(List.of(AccountProfileRows.TUTORIAL_ACKNOWLEDGED))),"fields","userEnteredValue"))));
     }
     @Override public synchronized void saveAccountProfile(int row, List<String> account, List<String> identity) {
         if (row < 0 || row == 1 || account.size() != 4 || !"2".equals(account.get(1))

@@ -81,7 +81,7 @@ class HistoryPrivacyTest {
     assertEquals(2,f.view(0).game().auctionRounds().get(2).dealIndex());
   }
   @Test void timeoutAllPassSourcesRetainedWithoutPrivateChoices() {
-    f.bidding();for(int i=0;i<4;i++){f.clock.now.addAndGet(20_000);f.view(0);}
+    f.bidding();for(int i=0;i<4;i++){f.clock.now.addAndGet(30_000);f.view(0);}
     var round=f.view(0).game().auctionRounds().get(0);
     assertEquals("ALL_PASS",round.status());
     assertTrue(round.calls().stream().allMatch(call->call.source().equals("TIMEOUT")));

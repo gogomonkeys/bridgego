@@ -89,4 +89,13 @@ export const errorMessages: Record<string, string> = {
   REQUEST_TOO_LARGE: "請求資料過大，請重新整理後再試。",
   INVALID_JSON: "請求格式不正確，請重新整理後再試。",
   INVALID_MESSAGE: "連線訊息格式不正確，請重新連線。",
+  TUTORIAL_CHOICE_REQUIRED: "請先選擇是否開始教學。",
+  TUTORIAL_IDENTITY_CHANGED: "身分已變更，請重新進入教學。",
+  TUTORIAL_PREFERENCE_UNAVAILABLE: "教學偏好暫時無法讀取，請稍後再試。",
+  TUTORIAL_DISABLED: "教學暫停開放，原有教學仍可完成或離開。",
+  TUTORIAL_CAPACITY: "教學目前額滿，請稍後再試。",
+  TUTORIAL_ILLEGAL_PLAY: "這張牌目前不能出，請選擇可出的牌。",
+  TUTORIAL_NOT_FOUND: "教學已結束，請從使用說明重新開始。",
+  TUTORIAL_STALE: "教學狀態已更新，請重新讀取。",
+  TUTORIAL_PREFERENCE_UNVERIFIED: "教學選擇尚未確認，請先讀取狀態。",
 };

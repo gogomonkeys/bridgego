@@ -86,7 +86,7 @@ public final class LifetimeStatistics {
   public static Carry readAccount(List<List<String>> accounts, String account) {
     AccountProfileRows.validateTable(accounts);
     return accounts.stream().skip(1).filter(row -> row.get(0).equals(account))
-        .map(row -> row.size() == 5 ? decode(row.get(4)) : empty()).findFirst().orElse(empty());
+        .map(row -> row.size() >= 5 ? decode(row.get(4)) : empty()).findFirst().orElse(empty());
   }
 
   /** Current raw contributions only; through=null is deliberately not persistable. */
@@ -122,7 +122,7 @@ public final class LifetimeStatistics {
     }
     boolean changed = false; List<List<String>> result = new ArrayList<>(); result.add(accounts.get(0));
     for (var row : accounts.subList(1, accounts.size())) {
-      Carry prior = row.size() == 5 ? decode(row.get(4)) : empty();
+      Carry prior = row.size() >= 5 ? decode(row.get(4)) : empty();
       if (prior.through() != null && prior.through().isAfter(cutoff)) reject();
       List<FinalMatchEnvelope> mine = new ArrayList<>();
       for (var envelope : eligible.values()) {
@@ -138,11 +138,11 @@ public final class LifetimeStatistics {
       Carry next = new Carry(cutoff, earliest(prior.trackedFromQuarter(), contribution.trackedFromQuarter()),
           prior.formal().plus(contribution.formal()), prior.casual().plus(contribution.casual()));
       String encoded = encode(next);
-      if (row.size() == 5 && row.get(4).equals(encoded)) { result.add(row); continue; }
+      if (row.size() >= 5 && row.get(4).equals(encoded)) { result.add(row); continue; }
       var updated = new ArrayList<>(row); while (updated.size() < 5) updated.add(""); updated.set(4, encoded);
       result.add(List.copyOf(updated)); changed = true;
     }
-    if (changed) result.set(0, AccountProfileRows.LIFETIME_HEADER);
+    if (changed && !AccountProfileRows.TUTORIAL_HEADER.equals(accounts.get(0))) result.set(0, AccountProfileRows.LIFETIME_HEADER);
     AccountProfileRows.validateTable(result);
     return List.copyOf(result);
   }

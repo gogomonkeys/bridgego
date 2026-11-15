@@ -11,6 +11,7 @@ import TableSeats from "./TableSeats";
 import OwnTimeoutNotice from "./OwnTimeoutNotice";
 import BidControls from "./BidControls";
 import CurrentBid from "./CurrentBid";
+import ContractBadge from "./ContractBadge";
 import OperationClock from "./OperationClock";
 import IconTip from "./IconTip";
 import PrivilegeBadge from "./PrivilegeBadge";
@@ -342,13 +343,15 @@ export default function GamePanel({
                       : ""}
                 </span>
               )}
-              <p className="contract-chip">
-                {game.auction.result
-                  ? `定約 ${game.auction.result.level}${symbols[game.auction.result.strain]} · ${teamNames[game.auction.result.teamId]}`
-                  : game.auction.highestBid
+              {game.auction.result ? (
+                <ContractBadge game={game} />
+              ) : (
+                <p className="contract-chip">
+                  {game.auction.highestBid
                     ? `目前 ${game.auction.highestBid.level}${symbols[game.auction.highestBid.strain]}`
                     : "尚未定約"}
-              </p>
+                </p>
+              )}
               {game.play && (
                 <span className="trick-number-label">
                   第 {game.play?.trickNumber} / 13 回合
@@ -576,7 +579,7 @@ export default function GamePanel({
         >
           <summary>更多</summary>
           <div className="match-more-panel">
-            <small>v0.13.2 · 狀態版本 {room.revision}</small>
+            <small>v0.14.0 · 狀態版本 {room.revision}</small>
             <button
               className="secondary"
               disabled={busy}

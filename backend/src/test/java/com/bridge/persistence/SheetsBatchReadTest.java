@@ -9,7 +9,7 @@ class SheetsBatchReadTest {
  static final ObjectMapper JSON=new ObjectMapper();
  static ObjectNode response(String... tabs){
   var root=JSON.createObjectNode();root.put("spreadsheetId","synthetic");var ranges=root.putArray("valueRanges");
-  for(String tab:tabs)ranges.addObject().put("range","'"+tab+"'!A1:E1000").put("majorDimension","ROWS");return root;
+  for(String tab:tabs)ranges.addObject().put("range","'"+tab+"'!A1:"+(tab.equals("accounts")?"F":"E")+"1000").put("majorDimension","ROWS");return root;
  }
  static ObjectNode range(ObjectNode root,int index){return (ObjectNode)root.path("valueRanges").get(index);}
  @Test void defaultBatchValidatesBeforeReadsAndReturnsDeepImmutableCopies(){
@@ -24,7 +24,7 @@ class SheetsBatchReadTest {
   assertThrows(UnsupportedOperationException.class,()->batch.get("accounts").get(0).clear());
  }
  @Test void batchPathHasOnlyAllowlistedFixedRangesAndOneEndpoint(){
-  assertEquals("/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&majorDimension=ROWS&ranges=accounts%21A%3AE&ranges=commits%21A%3AE",GoogleSheetsGateway.batchPath(List.of("accounts","commits")));
+  assertEquals("/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&majorDimension=ROWS&ranges=accounts%21A%3AF&ranges=commits%21A%3AE",GoogleSheetsGateway.batchPath(List.of("accounts","commits")));
   for(var tabs:List.of(List.<String>of(),List.of("accounts","accounts"),List.of("accounts!F:Z"),List.of("private")))
    assertThrows(IllegalArgumentException.class,()->GoogleSheetsGateway.batchPath(tabs));
  }
@@ -36,7 +36,7 @@ class SheetsBatchReadTest {
   assertThrows(UnsupportedOperationException.class,()->result.get("accounts").get(0).clear());
  }
  @Test void malformedMissingDuplicateUnexpectedRangesDimensionsAndValuesFailClosed(){
-  for(String invalid:List.of("accounts!B1:E9","accounts!A2:E9","accounts!A1:F9","other!A1:E9","accounts!A:E9","accounts!A1:E","accounts!A1:E0")){
+  for(String invalid:List.of("accounts!B1:E9","accounts!A2:E9","accounts!A1:E9","other!A1:E9","accounts!A:E9","accounts!A1:E","accounts!A1:E0")){
    var root=response("accounts");range(root,0).put("range",invalid);assertThrows(SheetsGateway.Conflict.class,()->GoogleSheetsGateway.decodeBatch(root,List.of("accounts"),"synthetic"));
   }
   var duplicate=response("accounts","accounts");assertThrows(SheetsGateway.Conflict.class,()->GoogleSheetsGateway.decodeBatch(duplicate,List.of("accounts","commits"),"synthetic"));
@@ -44,7 +44,7 @@ class SheetsBatchReadTest {
   assertThrows(SheetsGateway.Conflict.class,()->GoogleSheetsGateway.decodeBatch(response("accounts"),List.of("accounts"),"wrong"));
   for(int mode=0;mode<6;mode++){
    var root=response("accounts");var r=range(root,0);
-   switch(mode){case 0->r.put("majorDimension","COLUMNS");case 1->r.putNull("values");case 2->r.putArray("values").add("notRow");case 3->{var cells=r.putArray("values").addArray();for(int i=0;i<6;i++)cells.add("x");}case 4->r.putArray("values").addArray().addObject();case 5->{r.put("range","accounts!A1:E1");r.putArray("values").addArray();((ArrayNode)r.get("values")).addArray();}}
+   switch(mode){case 0->r.put("majorDimension","COLUMNS");case 1->r.putNull("values");case 2->r.putArray("values").add("notRow");case 3->{var cells=r.putArray("values").addArray();for(int i=0;i<7;i++)cells.add("x");}case 4->r.putArray("values").addArray().addObject();case 5->{r.put("range","accounts!A1:F1");r.putArray("values").addArray();((ArrayNode)r.get("values")).addArray();}}
    assertThrows(SheetsGateway.Conflict.class,()->GoogleSheetsGateway.decodeBatch(root,List.of("accounts"),"synthetic"));
   }
  }

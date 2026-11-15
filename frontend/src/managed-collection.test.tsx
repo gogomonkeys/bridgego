@@ -127,7 +127,7 @@ describe("managed optional Google collection", () => {
     const html = renderToStaticMarkup(<DataPrivacyHelp />);
     for (const text of [
       "統計與資料保存",
-      "帳號、暱稱及信箱持續保留",
+      "帳號、暱稱、信箱及教學提示偏好持續保留",
       "不含個人識別的整體季度數字可依政策保留",
       "原季度清理彙總仍隱藏",
       "只有登入玩家可查看本季、生涯個人",

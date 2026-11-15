@@ -10,7 +10,7 @@ final class MaintenancePage {
 <label><input id="consent" type="checkbox">我同意載入 Google 登入服務，將這次驗證憑證傳給本站以確認本人身分並讀取刪除預覽。憑證不會儲存或顯示。</label>
 <button id="preview">驗證本人並預覽</button><div id="google"></div><p id="status" role="status"></p>
 <section id="plan" hidden><h2>本次刪除預覽</h2><pre id="counts"></pre>
-<p>執行會移除本人的帳號與 Google 對應資料，並清除本人參與紀錄中的帳號／訪客識別欄位，改為隨機刪除標記。場次、分數及其他人的紀錄保留。防止重新建立對應的帳號與 Google 身分雜湊標記會在此資料集存續期間保留，並阻擋重新註冊；這是去識別化處理，不保證法律上的完全匿名。此操作僅處理現用資料表 A:E 欄，不會清除 F 欄以後的資料、Google Sheets 的歷史版本、備份或先前匯出的檔案，也不會推測訪客紀錄屬於你。</p>
+<p>執行會移除本人的帳號與 Google 對應資料，並清除本人參與紀錄中的帳號／訪客識別欄位，改為隨機刪除標記。場次、分數及其他人的紀錄保留。防止重新建立對應的帳號與 Google 身分雜湊標記會在此資料集存續期間保留，並阻擋重新註冊；這是去識別化處理，不保證法律上的完全匿名。此操作僅處理帳號表 A:F 欄及其他現用資料表 A:E 欄，不會清除這些範圍以外的資料、Google Sheets 的歷史版本、備份或先前匯出的檔案，也不會推測訪客紀錄屬於你。</p>
 <p>這是不可由本工具還原的資料變更。請核對範圍，複製下方完整確認文字貼入欄位，再次驗證同一 Google 帳號後才會執行。重新驗證及預覽皆會過期。</p>
 <pre id="phrase"></pre><label>完整確認文字<input id="confirmation" type="text" autocomplete="off" style="width:95%"></label>
 <label><input id="understood" type="checkbox">我已閱讀上述保留範圍與不可還原影響，確認要執行本次預覽的刪除。</label>

@@ -7,9 +7,11 @@ public final class AccountProfileRows {
   public static final List<String> LEGACY_HEADER = List.of("account_id", "schema_version");
   public static final List<String> HEADER = List.of("account_id", "schema_version", "nickname", "email");
   public static final List<String> LIFETIME_HEADER = List.of("account_id", "schema_version", "nickname", "email", "lifetime_statistics");
+  public static final List<String> TUTORIAL_HEADER = List.of("account_id", "schema_version", "nickname", "email", "lifetime_statistics", "tutorial_status");
+  public static final String TUTORIAL_ACKNOWLEDGED = "acknowledged-v1";
   private AccountProfileRows() {}
   public static boolean isHeader(List<String> header) {
-    return LEGACY_HEADER.equals(header) || HEADER.equals(header) || LIFETIME_HEADER.equals(header);
+    return LEGACY_HEADER.equals(header) || HEADER.equals(header) || LIFETIME_HEADER.equals(header) || TUTORIAL_HEADER.equals(header);
   }
   public static void validateTable(List<List<String>> rows) {
     if (rows == null || rows.isEmpty() || !isHeader(rows.get(0))) reject();
@@ -20,7 +22,7 @@ public final class AccountProfileRows {
     }
   }
   public static void validateRow(List<String> row) {
-    if (row == null || row.size() < 2 || row.size() > 5 || row.stream().anyMatch(Objects::isNull)) reject();
+    if (row == null || row.size() < 2 || row.size() > 6 || row.stream().anyMatch(Objects::isNull)) reject();
     try { if (!UUID.fromString(row.get(0)).toString().equals(row.get(0))) reject(); }
     catch (IllegalArgumentException failure) { reject(); }
     if ("1".equals(row.get(1))) {
@@ -28,7 +30,8 @@ public final class AccountProfileRows {
     } else if ("2".equals(row.get(1))) {
       if (row.size() < 3 || !validNickname(row.get(2)) || row.size() >= 4 && !validEmail(row.get(3))) reject();
     } else reject();
-    if (row.size() == 5) LifetimeStatistics.decode(row.get(4));
+    if (row.size() >= 5) LifetimeStatistics.decode(row.get(4));
+    if (row.size() == 6 && !row.get(5).isEmpty() && !TUTORIAL_ACKNOWLEDGED.equals(row.get(5))) reject();
   }
   public static boolean validNickname(String value) {
     return value != null && !value.isBlank() && value.length() <= 256

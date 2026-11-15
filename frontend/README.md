@@ -1,4 +1,4 @@
-# BridgeGo frontend — v0.6.3 three-deal match
+# BridgeGo frontend — v0.14.0 candidate
 
 Independent React + TypeScript local prototype. V0.6 adds a warm animal/forest visual world while keeping the four-seat table readable. The supplied Figma screenshots are references, not an exact-copy requirement; the Figma file is untouched. No original service/account integration, external fonts, publication or deployment.
 
@@ -24,7 +24,7 @@ npm run build
 1. Four distinct guest sessions join and ready. Opposite seats form NS/EW teams. Only the host can manually start with four ready, connected players. Fourth ready does not auto-start.
 2. Each viewer receives only their own 13 cards. No dummy or double/redouble. Same-origin tabs share one guest/seat; use four independent profiles for four people.
 3. Privilege: each player chooses once, team any yes resolves yes, both no resolves no. Both teams reveal together. A shared 20-second server phase budget defaults missing choices to no without overriding yes. Viewer-only timeout provenance identifies only your own defaulted choice.
-4. Auction: ascending 1–7 calls, CLUB < DIAMOND < HEART < SPADE < NO_TRUMP. Each turn has 20 seconds; timeout is automatic Pass. Three passes after a bid immediately start play; four opening passes redeal the same deal index without scoring. Dealer starts at seat 0, rotates after a completed deal, remains unchanged on all-pass redeal.
+4. Auction: ascending 1–7 calls, CLUB < DIAMOND < HEART < SPADE < NO_TRUMP. Each auction turn has 30 seconds; timeout is automatic Pass. Three passes after a bid immediately start play; four opening passes redeal the same deal index without scoring. Dealer starts at seat 0, rotates after a completed deal, remains unchanged on all-pass redeal.
 5. Play: last bidder's left leads, then trick winners lead. Must follow led suit if held. Highest trump wins, otherwise highest led suit; Ace high, NT has no trump. Only server-supplied `you.legalCards` can be clicked on your turn. Each turn has 20 seconds; server timeout picks lowest legal rank, with CLUB/DIAMOND/HEART/SPADE tie order. Public current/last trick records identify automatic plays.
 Every fourth card first enters a shared 2,000 ms TRICK_RESULT presentation: four cards remain, winning card/seat and personal counts are shown, no next player can act, and the next 20-second budget has not started. A final scored third-deal presentation is immune to later leave/disconnect.
 
@@ -62,3 +62,11 @@ Final checks: 94 frontend tests, typecheck/lint/build; independent actual-networ
 
 ## Historical v0.5.1 installation patch
 The frontend dependency lock graph was repaired after a clean-install failure. Game/transport/layout implementation is unchanged; only application release labels and artifact version changed. Fresh patch evidence is 528 backend tests, 35 network smoke checks and a clean staging frontend install with 94 tests/checks. Prior 303-check/600-second results above describe v0.5 functional evidence, not a freshly repeated v0.5.1 full soak. Final-ZIP clean-install acceptance is reported with delivery. See TEST_RESULTS.md and ../qa/V0_5_1_INSTALL_RECOVERY.md.
+
+
+## v0.14.0 interface and tutorial
+Neutral entry greeting, a single guest nickname confirmation flow, clearer More controls, and a compact contract-holder/trump badge. Bidding uses the authoritative 30-second server budget; play timing remains unchanged.
+
+The optional tutorial has a separate bidding exercise. Its selected call does not determine the explicitly announced preset 1-spade practice game. One human plays with three computers, receives legal guidance for the first three plays, and can finish normally. Tutorial results never enter personal or overall statistics. Google account preferences persist on the server; guest preferences are device-local. Help allows re-entry and read-only retry after temporary preference-load failure, without replaying uncertain writes.
+
+See ../backend/TUTORIAL_ACCOUNT_STATE.md for compatible rollout and feature-disable behavior, and ../qa/NEXT_UI_20261115.md for current verification limits. Earlier version-specific evidence above remains historical.

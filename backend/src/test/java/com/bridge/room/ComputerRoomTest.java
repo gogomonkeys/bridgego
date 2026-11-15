@@ -99,7 +99,7 @@ class ComputerRoomTest {
   @Test void humanTimeoutRemainsTimeoutNotBotStrategy() {
     start();for(int i=0;i<10;i++)tick(1000);tick(20000);
     var g=state().game();assertEquals("TIMEOUT",g.privilege().yourChoiceSource());
-    tick(20000);assertTrue(state().game().auction().calls().stream().anyMatch(c->c.seat()==0&&c.source().equals("TIMEOUT")));
+    tick(30000);assertTrue(state().game().auction().calls().stream().anyMatch(c->c.seat()==0&&c.source().equals("TIMEOUT")));
   }
   @Test void lastHumanDisconnectedEndsNoContestAndFixedCleanupStillWorks() {
     start();service.disconnect(room,host.playerId(),"host");tick(10001);
@@ -143,7 +143,7 @@ class ComputerRoomTest {
     for(int i=0;i<8;i++)tick(1000);
     s=state();assertEquals(0,s.game().auction().nextSeat());
     service.call(room,host,s.game().gameId(),s.game().dealId(),action(),s.revision(),"PASS",null,null);
-    clock.now.addAndGet(19500);service.expireInitialSubscriptions();
+    clock.now.addAndGet(29500);service.expireInitialSubscriptions();
     clock.now.addAndGet(600);service.expireInitialSubscriptions();
     var call=state().game().auction().calls().get(1);
     assertEquals(1,call.seat());assertEquals("BOT",call.source());assertEquals("BID",call.type());

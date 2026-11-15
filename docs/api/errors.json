@@ -1004,6 +1004,132 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "TUTORIAL_CAPACITY",
+      "httpStatuses": [
+        429
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialService.java"
+      ],
+      "exampleMessage": "Try again later",
+      "category": "tutorial",
+      "meaning": "教學人數已滿",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_CHOICE_REQUIRED",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialController.java"
+      ],
+      "exampleMessage": "Choose start or skip",
+      "category": "tutorial",
+      "meaning": "請選擇開始或略過",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_DISABLED",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialController.java"
+      ],
+      "exampleMessage": "New tutorials are temporarily disabled",
+      "category": "tutorial",
+      "meaning": "教學暫停開放",
+      "handling": "返回大廳；不自動重送。既有教學可繼續或離開。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_IDENTITY_CHANGED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialController.java"
+      ],
+      "exampleMessage": "Identity changed; reload",
+      "category": "tutorial",
+      "meaning": "登入身分已變更",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_ILLEGAL_PLAY",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialService.java"
+      ],
+      "exampleMessage": "Choose a legal card",
+      "category": "tutorial",
+      "meaning": "請選擇合法手牌",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_NOT_FOUND",
+      "httpStatuses": [
+        404
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialService.java"
+      ],
+      "exampleMessage": "Start a new tutorial",
+      "category": "tutorial",
+      "meaning": "教學已結束或逾期",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_PREFERENCE_UNAVAILABLE",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialController.java"
+      ],
+      "exampleMessage": "Tutorial preference could not be confirmed",
+      "category": "tutorial",
+      "meaning": "無法確認教學提示記錄",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_PREFERENCE_UNVERIFIED",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialController.java"
+      ],
+      "exampleMessage": "Read status before retrying",
+      "category": "tutorial",
+      "meaning": "教學提示記錄儲存結果未確認",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "TUTORIAL_STALE",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/TutorialService.java"
+      ],
+      "exampleMessage": "Reload the tutorial before playing",
+      "category": "tutorial",
+      "meaning": "教學版本已更新",
+      "handling": "先重新讀取教學狀態；不自動重送操作。身分變動時回到登入。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "UNAUTHORIZED",
       "httpStatuses": [
         401

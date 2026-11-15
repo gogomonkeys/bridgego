@@ -44,8 +44,9 @@ public final class SheetsIdentityStore implements IdentityStore {
         if(id==null)id=UUID.randomUUID().toString();
         List<String> desired=List.of(id,"2",nickname,email);
         if(row>0){var current=new ArrayList<>(rows.get(row-1));while(current.size()<4)current.add("");if(current.subList(0,4).equals(desired))return id;}
-        String priorLifetime = row > 0 && rows.get(row-1).size() == 5 ? rows.get(row-1).get(4) : "";
-        boolean lifetimeHeader = AccountProfileRows.LIFETIME_HEADER.equals(rows.get(0));
+        String priorLifetime = row > 0 && rows.get(row-1).size() >= 5 ? rows.get(row-1).get(4) : "";
+        boolean lifetimeHeader = rows.get(0).size() >= 5;
+        String priorTutorial = row > 0 && rows.get(row-1).size() == 6 ? rows.get(row-1).get(5) : "";
         QuarterlyRetention.requireCollectionReady(gateway,clock);
         // One write attempt only. Uncertain responses are reconciled by later reads, never replayed here.
         gateway.saveAccountProfile(row,desired,row==0?List.of(issuer,subject,id,"1"):null);
@@ -55,9 +56,10 @@ public final class SheetsIdentityStore implements IdentityStore {
         boolean matched=false;
         for(int i=1;i<saved.size();i++)if(saved.get(i).get(0).equals(id)) {
             List<String> value=new ArrayList<>(saved.get(i));while(value.size()<4)value.add("");
-            String savedLifetime = value.size() == 5 ? value.get(4) : "";
+            String savedLifetime = value.size() >= 5 ? value.get(4) : "";
             if(!value.subList(0,4).equals(desired) || !priorLifetime.equals(savedLifetime)
-                || lifetimeHeader && !AccountProfileRows.LIFETIME_HEADER.equals(saved.get(0)) || matched)
+                || !priorTutorial.equals(value.size()==6?value.get(5):"")
+                || lifetimeHeader && !rows.get(0).equals(saved.get(0)) || matched)
               throw new SheetsGateway.Conflict();
             matched=true;
         }
@@ -127,15 +129,44 @@ public final class SheetsIdentityStore implements IdentityStore {
         for(String tab:List.of("retention_ledger","erasure_ledger","auth_identities"))
             if(!before.tables().get(tab).equals(after.tables().get(tab)))throw new SheetsGateway.Conflict();
         var oldRows=before.tables().get("accounts");var saved=after.tables().get("accounts");
-        if(saved.size()!=oldRows.size()||!saved.get(0).equals(AccountProfileRows.LIFETIME_HEADER.equals(oldRows.get(0))
-                ?AccountProfileRows.LIFETIME_HEADER:AccountProfileRows.HEADER))throw new SheetsGateway.Conflict();
+        if(saved.size()!=oldRows.size()||!saved.get(0).equals(oldRows.get(0).size()>=5 ?oldRows.get(0):AccountProfileRows.HEADER))throw new SheetsGateway.Conflict();
         for(int i=1;i<saved.size();i++) {
             if(i!=before.row()-1) {if(!oldRows.get(i).equals(saved.get(i)))throw new SheetsGateway.Conflict();continue;}
             var value=new ArrayList<>(saved.get(i));while(value.size()<4)value.add("");
-            String priorLifetime=oldRows.get(i).size()==5?oldRows.get(i).get(4):"";
-            if(!value.subList(0,4).equals(desired)||!priorLifetime.equals(value.size()==5?value.get(4):""))throw new SheetsGateway.Conflict();
+            String priorLifetime=oldRows.get(i).size() >= 5?oldRows.get(i).get(4):"";
+            if(!value.subList(0,4).equals(desired)||!priorLifetime.equals(value.size() >= 5?value.get(4):"")
+                || !(oldRows.get(i).size()==6?oldRows.get(i).get(5):"").equals(value.size()==6?value.get(5):""))throw new SheetsGateway.Conflict();
         }
         return after.profile();
+    }
+    private List<List<String>> tutorialSnapshot(String accountId) {
+        try { if(!UUID.fromString(accountId).toString().equals(accountId))throw new SheetsGateway.Conflict(); }
+        catch(IllegalArgumentException invalid) { throw new SheetsGateway.Conflict(); }
+        QuarterlyRetention.requireCollectionReady(gateway,clock);
+        var ledger=new ErasureLedger(gateway.read("erasure_ledger"));
+        if(ledger.contains("ACCOUNT",accountId))throw new SheetsGateway.Conflict();
+        var rows=gateway.read("accounts"); AccountProfileRows.validateTable(rows);
+        if(rows.stream().skip(1).noneMatch(row->row.get(0).equals(accountId)))throw new SheetsGateway.Conflict();
+        return rows;
+    }
+    @Override public synchronized boolean tutorialOffered(String accountId) {
+        var rows=tutorialSnapshot(accountId);
+        var row=rows.stream().skip(1).filter(r->r.get(0).equals(accountId)).findFirst().orElseThrow(SheetsGateway.Conflict::new);
+        return row.size()==6 && AccountProfileRows.TUTORIAL_ACKNOWLEDGED.equals(row.get(5));
+    }
+    @Override public synchronized void markTutorialOffered(String accountId) {
+        var before=tutorialSnapshot(accountId); int row=0;
+        for(int i=1;i<before.size();i++)if(before.get(i).get(0).equals(accountId))row=i+1;
+        if(row<2)throw new SheetsGateway.Conflict();
+        if(before.get(row-1).size()==6 && AccountProfileRows.TUTORIAL_ACKNOWLEDGED.equals(before.get(row-1).get(5)))return;
+        if(!before.equals(tutorialSnapshot(accountId)))throw new SheetsGateway.Conflict();
+        // Single narrow write. An uncertain response is reconciled with a subsequent status read, never replayed here.
+        gateway.acknowledgeTutorial(row);
+        var after=tutorialSnapshot(accountId);
+        var expected=new ArrayList<List<String>>(before); expected.set(0,AccountProfileRows.TUTORIAL_HEADER);
+        var updated=new ArrayList<>(before.get(row-1));while(updated.size()<6)updated.add("");updated.set(5,AccountProfileRows.TUTORIAL_ACKNOWLEDGED);
+        expected.set(row-1,List.copyOf(updated));
+        if(!expected.equals(after))throw new SheetsGateway.Conflict();
     }
     private String find(String issuer,String subject) {
         Set<String> accounts=new HashSet<>();

@@ -36,6 +36,8 @@ public interface SheetsGateway {
     default void saveAccountProfile(int row, List<String> account, List<String> identity) {
         throw new UnsupportedOperationException("Account profile storage unavailable");
     }
+    /** Sets only the tutorial flag and upgrades the account header atomically. */
+    default void acknowledgeTutorial(int row) { throw new UnsupportedOperationException("Tutorial persistence unavailable"); }
     class Failure extends RuntimeException {
         public final int status; public final long retryAfterMillis;
         public Failure(int status,long retryAfterMillis) { super("Private storage request failed ("+status+")"); this.status=status; this.retryAfterMillis=retryAfterMillis; }

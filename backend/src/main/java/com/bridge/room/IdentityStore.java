@@ -3,6 +3,13 @@ package com.bridge.room;
 /** Private durable identity mapping. Only verified Google email and the game nickname may accompany an account; never store credentials or nonce. */
 public interface IdentityStore {
   boolean enabled();
+  /** Durable acknowledgement for a verified, existing account; unsupported is not false. */
+  default boolean tutorialOffered(String accountId) {
+    throw new UnsupportedOperationException("Tutorial preference unavailable");
+  }
+  default void markTutorialOffered(String accountId) {
+    throw new UnsupportedOperationException("Tutorial preference unavailable");
+  }
   record Profile(String accountId, String nickname) {}
   /** Reads the saved nickname; never substitutes a session nickname. */
   default Profile findOrCreateForEntry(String issuer, String subject) {

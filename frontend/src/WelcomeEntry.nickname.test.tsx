@@ -9,7 +9,9 @@ const fixture = vi.hoisted(() => ({
   renders: 0,
   nonces: 0,
   loadFails: false,
-  callback: (response: { credential?: string }) => { void response; },
+  callback: (response: { credential?: string }) => {
+    void response;
+  },
   request: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   adopt: vi.fn(),
 }));
@@ -137,6 +139,23 @@ beforeEach(() => {
   });
 });
 describe("mounted first Google nickname entry", () => {
+  it("hides the guest shortcut during nickname entry and restores it on Back", async () => {
+    const ui = await mount();
+    await flush(() => ui.button("以訪客身分遊玩").props.onClick());
+    await ui.fill();
+    expect(ui.button("以訪客身分遊玩")).toBeUndefined();
+    expect(ui.view.root.findByProps({ id: "guest-name" }).props.value).toBe(
+      "小白",
+    );
+    expect(ui.button("確認暱稱並進入大廳")).toBeDefined();
+    await flush(() => ui.button("返回身分選擇").props.onClick());
+    expect(ui.button("以訪客身分遊玩")).toBeDefined();
+    await ui.google();
+    expect(ui.button("以訪客身分遊玩")).toBeUndefined();
+    expect(ui.button("返回身分選擇")).toBeDefined();
+    expect(ui.enter).not.toHaveBeenCalled();
+    await ui.close();
+  });
   it("saves once and enters with the same session", async () => {
     const ui = await mount();
     await ui.google();

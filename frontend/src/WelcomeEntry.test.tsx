@@ -14,12 +14,13 @@ describe("compact entry presentation", () => {
     expect(html).not.toContain("<script");
     expect(html).not.toContain("<iframe");
   });
-  it("restored sessions keep their nickname and require an explicit choice", () => {
+  it("restored sessions do not expose the old nickname before choosing identity", () => {
     const enter = vi.fn();
     const html = renderToStaticMarkup(
       <WelcomeEntry session={session} busy={false} onEnter={enter} />,
     );
-    expect(html).toContain("你好，小白");
+    expect(html).toContain("歡迎來到 BridgeGo");
+    expect(html).not.toContain("你好，小白");
     expect(html).not.toContain('id="guest-name"');
     expect(html).toContain("以訪客身分遊玩");
     expect(enter).not.toHaveBeenCalled();

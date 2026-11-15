@@ -1,3 +1,5 @@
+import TutorialHelpEntry from "./TutorialHelpEntry";
+import TutorialFlow from "./TutorialFlow";
 import RoomTypeChoice, { RoomTypeBadge, roomTypeLabel } from "./RoomTypeChoice";
 import type { RoomType } from "./model";
 import StatisticsPanel from "./StatisticsPanel";
@@ -18,6 +20,13 @@ import AnimalAvatar from "./AnimalAvatar";
 import { PreviousMatchSummary } from "./ResultPanel";
 export default function App() {
   const state = useClient();
+  const [tutorialAccountEpoch, setTutorialAccountEpoch] = useState(0);
+  const [tutorialChecked, setTutorialChecked] = useState<string | null>(null);
+  const [tutorialRequested, setTutorialRequested] = useState(false);
+  const [tutorialAvailability, setTutorialAvailability] = useState<{
+    key: string;
+    enabled: boolean;
+  } | null>(null);
   const [enteredToken, setEnteredToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [roomType, setRoomType] = useState<RoomType>("CASUAL");
@@ -66,6 +75,7 @@ export default function App() {
   useEffect(() => {
     const changing = () => {
       accountChanging.current = true;
+      setTutorialAccountEpoch((value) => value + 1);
       setStatisticsAuth(null);
       setAccountEpoch((value) => value + 1);
     };
@@ -121,7 +131,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.13.2", disconnects: diagnostics },
+    { version: "0.14.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -185,7 +195,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.13.2</span>
+            <span className="eyebrow">v0.14.0</span>
           </div>
         )}
         <PwaStatus
@@ -215,7 +225,7 @@ export default function App() {
         {page === "room" && (!state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.13.2</span>
+              <span className="eyebrow">v0.14.0</span>
               <h1>
                 {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
               </h1>
@@ -293,6 +303,30 @@ export default function App() {
             <span className="eyebrow">HOW IT WORKS</span>
             <h2>使用說明</h2>
             <GameHelp />
+            {state.session &&
+              enteredToken === state.session.token &&
+              !state.room && (
+                <TutorialHelpEntry
+                  key={`${state.session.token}:${tutorialAccountEpoch}`}
+                  token={state.session.token}
+                  enabled={
+                    tutorialAvailability?.key ===
+                    `${state.session.token}:${tutorialAccountEpoch}`
+                      ? tutorialAvailability.enabled
+                      : null
+                  }
+                  onAvailability={(enabled) =>
+                    setTutorialAvailability({
+                      key: `${state.session!.token}:${tutorialAccountEpoch}`,
+                      enabled,
+                    })
+                  }
+                  onStart={() => {
+                    setTutorialRequested(true);
+                    navigate("room");
+                  }}
+                />
+              )}
             <DataPrivacyHelp />
             <button className="primary" onClick={() => navigate("room")}>
               {state.room && state.room.phase !== "WAITING"
@@ -315,6 +349,32 @@ export default function App() {
             onEnter={(token, experiment) => {
               if (experiment) setPlannedDeals(1);
               setEnteredToken(token);
+            }}
+          />
+        ) : accountChanging.current ? (
+          <section className="panel">
+            <p role="status">正在切換身分…</p>
+          </section>
+        ) : state.session?.token &&
+          !state.room &&
+          (tutorialRequested ||
+            tutorialChecked !==
+              `${state.session.token}:${tutorialAccountEpoch}`) ? (
+          <TutorialFlow
+            key={`${state.session.token}:${tutorialAccountEpoch}`}
+            token={state.session.token}
+            force={tutorialRequested}
+            onAvailability={(enabled) =>
+              setTutorialAvailability({
+                key: `${state.session!.token}:${tutorialAccountEpoch}`,
+                enabled,
+              })
+            }
+            onDone={() => {
+              setTutorialChecked(
+                `${state.session!.token}:${tutorialAccountEpoch}`,
+              );
+              setTutorialRequested(false);
             }}
           />
         ) : statisticsPage && canSeeStatistics ? (

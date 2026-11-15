@@ -142,7 +142,7 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
         var people = new ArrayList<LeaderboardAccount>();
         for (var row : accounts.subList(1, accounts.size())) {
             if (erasure.contains("ACCOUNT", row.get(0))) throw new SheetsGateway.Conflict();
-            var carry = row.size() == 5 ? LifetimeStatistics.decode(row.get(4)) : LifetimeStatistics.empty();
+            var carry = row.size() >= 5 ? LifetimeStatistics.decode(row.get(4)) : LifetimeStatistics.empty();
             if (carry.through() != null && carry.through().isAfter(boundary)) throw new SheetsGateway.Conflict();
             // Legacy accounts without a user-provided nickname are not given invented names.
             if (row.size() >= 3 && "2".equals(row.get(1)))

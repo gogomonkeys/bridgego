@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 <modelVersion>4.0.0</modelVersion><parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>3.5.7</version><relativePath/></parent>
-<groupId>com.bridge</groupId><artifactId>bridge-room-successor</artifactId><version>0.13.2</version><properties><java.version>17</java.version></properties>
+<groupId>com.bridge</groupId><artifactId>bridge-room-successor</artifactId><version>0.14.0</version><properties><java.version>17</java.version></properties>
 <dependencies><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency></dependencies>
 <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><mainClass>com.bridge.room.RoomApplication</mainClass></configuration></plugin>
 <!-- Synthetic proof/fixtures never ship in the normal game, verification or operator JARs. -->
@@ -194,7 +194,7 @@
 <dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId><version>5.5.1</version></dependency>
 </dependencies>
 <build><finalName>bridgego-synthetic-supervised</finalName><plugins>
-<plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><excludes combine.self="override"/><testExcludes combine.self="override"/></configuration></plugin>
+<plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><excludes combine.self="override"/><testExcludes combine.self="override"><testExclude>**/StatisticsReadDiagnosticsTest.java</testExclude></testExcludes></configuration></plugin>
 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><configuration><excludes combine.self="override"/><systemPropertyVariables><bridge.supervised.runtime>true</bridge.supervised.runtime></systemPropertyVariables></configuration></plugin>
 <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><mainClass>com.bridge.persistence.SyntheticCleanupSupervisedWeb</mainClass></configuration></plugin>
 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><configuration combine.self="override"><excludes><exclude>com/bridge/syntheticcleanup/**</exclude><exclude>com/bridge/localverification/**</exclude><exclude>com/bridge/persistence/SyntheticCleanupLocalHost*</exclude><exclude>com/bridge/persistence/LiveQuarterCli*</exclude></excludes></configuration></plugin>
@@ -210,7 +210,7 @@
 <dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId><version>5.5.1</version></dependency>
 </dependencies>
 <build><finalName>bridgego-manual-quarter-trial</finalName><plugins>
-<plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><excludes combine.self="override"/><testExcludes combine.self="override"/></configuration></plugin>
+<plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><configuration><excludes combine.self="override"/><testExcludes combine.self="override"><testExclude>**/StatisticsReadDiagnosticsTest.java</testExclude></testExcludes></configuration></plugin>
 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><configuration><excludes combine.self="override"/><systemPropertyVariables><bridge.supervised.runtime>true</bridge.supervised.runtime></systemPropertyVariables></configuration></plugin>
 <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId><configuration><mainClass>com.bridge.persistence.SyntheticCleanupManualQuarterWeb</mainClass></configuration></plugin>
 <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId><configuration combine.self="override"><excludes><exclude>com/bridge/syntheticcleanup/**</exclude><exclude>com/bridge/localverification/**</exclude><exclude>com/bridge/persistence/SyntheticCleanupLocalHost*</exclude><exclude>com/bridge/persistence/LiveQuarterCli*</exclude>
