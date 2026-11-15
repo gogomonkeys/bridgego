@@ -6,7 +6,7 @@ import {
   timerDisplayAnchor,
 } from "./timer-view";
 describe("server timer presentation only", () => {
-  it("counts down from sampled remaining time, never a new local 20-second budget", () => {
+  it("counts down from sampled remaining time, never a new local turn budget", () => {
     const timer = {
       kind: "BID_TURN" as const,
       turnSeat: 0,
@@ -120,3 +120,13 @@ it("result acknowledgment snapshots cannot extend equal-revision budget and next
   next.game!.dealId = "next-deal";
   expect(operationTimerKey(next)).not.toBe(operationTimerKey(result));
 });
+
+for (const kind of ["BID_TURN", "PLAY_TURN"] as const) {
+  it(`displays the server's 30-second ${kind} budget without submitting at zero`, () => {
+    const timer = { kind, turnSeat: 0, remainingMs: 30000, paused: false };
+    expect(operationRemainingMs(timer, 1000, 21000)).toBe(10000);
+    expect(operationRemainingMs(timer, 1000, 30999)).toBe(1);
+    expect(operationRemainingMs(timer, 1000, 31000)).toBe(0);
+    expect(timer.remainingMs).toBe(30000);
+  });
+}

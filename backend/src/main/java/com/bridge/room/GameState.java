@@ -122,6 +122,7 @@ final class GameState {
 
   private static final long OPERATION_MS = 20_000;
   private static final long BID_TURN_MS = 30_000;
+  private static final long PLAY_TURN_MS = 30_000;
   private static final long DEAL_RESULT_MS = 90_000;
   static final long TRICK_RESULT_MS = 2_000;
   private final java.util.function.LongSupplier ticker;
@@ -440,7 +441,8 @@ final class GameState {
   }
 
   private void resetTimer() {
-    resetTimer(phase.equals("BIDDING") ? BID_TURN_MS : OPERATION_MS);
+    resetTimer(phase.equals("BIDDING") ? BID_TURN_MS
+        : phase.equals("PLAYING") ? PLAY_TURN_MS : OPERATION_MS);
   }
 
   private void resetTimer(long durationMs) {
@@ -504,7 +506,7 @@ final class GameState {
     else if (phase.equals("TRICK_RESULT")) {
       if (tricks.finished()) reviewableDeals.add(dealId);
       phase = tricks.finished() ? (terminal() ? "MATCH_RESULT" : "DEAL_RESULT") : "PLAYING";
-      if (!terminal()) resetTimer(phase.equals("DEAL_RESULT") ? DEAL_RESULT_MS : OPERATION_MS);
+      if (!terminal()) resetTimer(phase.equals("DEAL_RESULT") ? DEAL_RESULT_MS : PLAY_TURN_MS);
     } else {
       tricks.timeout();
       afterPlay();

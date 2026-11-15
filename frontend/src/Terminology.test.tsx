@@ -17,7 +17,7 @@ describe("player terminology: match, deal and four-card round", () => {
     );
     expect(readme).toContain("一場可選 1、3 或 5 局（預設 3 局），一局共有 13 回合");
     expect(readme).toContain("四人各出一張牌才算完成一個回合");
-    expect(readme).toContain("每次出牌 20 秒");
+    expect(readme).toContain("每次出牌 30 秒");
     expect(readme).toContain("贏得這四張牌算拿下一墩");
     expect(readme).not.toContain("每回合 20 秒");
   });
@@ -46,7 +46,7 @@ describe("player terminology: match, deal and four-card round", () => {
         playing
       />,
     );
-    expect(html).toContain("每次出牌 20 秒");
+    expect(html).toContain("每次出牌 30 秒");
     expect(html).not.toMatch(/每回合 20 秒|不設夢家/);
   });
 

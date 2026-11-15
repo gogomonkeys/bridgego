@@ -56,6 +56,15 @@ export default function TableSeats({
                 </summary>
                 <span>{player ? label : "等待入座"}</span>
               </details>
+              {room.phase !== "WAITING" &&
+                room.game?.auction.result?.holderSeat === seat && (
+                  <span
+                    className="seat-contract-marker"
+                    aria-label={`${label}本局得標`}
+                  >
+                    得標
+                  </span>
+                )}
               <small className="seat-team">
                 {teamNames[seat % 2 === 0 ? "NS" : "EW"]}{" "}
                 {player?.playerId === room.hostPlayerId ? "· 房主" : ""}

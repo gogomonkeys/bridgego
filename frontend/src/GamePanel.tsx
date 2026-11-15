@@ -1,7 +1,7 @@
 import MatchPersistence from "./MatchPersistence";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { client } from "./client";
-import type { Room } from "./model";
+import type { Room, Card, Call } from "./model";
 import { DealBreakdown, ForfeitAttribution, MatchSummary } from "./ResultPanel";
 import { operationRemainingMs } from "./timer-view";
 import { symbols, teamNames } from "./game-view";
@@ -28,6 +28,7 @@ export default function GamePanel({
   snapshotReceivedAt,
   connectionEpoch = 0,
   onHelp,
+  tutorial,
 }: {
   room: Room;
   online: boolean;
@@ -36,6 +37,14 @@ export default function GamePanel({
   snapshotReceivedAt: number;
   connectionEpoch?: number;
   onHelp?: () => void;
+  tutorial?: {
+    guide: ReactNode;
+    actionLocked?: boolean;
+    onPlay: (card: Card) => Promise<unknown>;
+    onBid: (call: Call) => void;
+    onExit: () => void;
+    exitLabel?: string;
+  };
 }) {
   const game = room.game;
   const trumpEffects = useTrumpEffects(room, online, connectionEpoch);
@@ -65,7 +74,7 @@ export default function GamePanel({
     });
   };
   useEffect(() => {
-    if (!game?.paused && !game?.operationTimer) return;
+    if (tutorial || (!game?.paused && !game?.operationTimer)) return;
     const update = () => {
       setNow(Date.now());
       setMonotonicNow(performance.now());
@@ -73,7 +82,7 @@ export default function GamePanel({
     update();
     const timer = setInterval(update, 250);
     return () => clearInterval(timer);
-  }, [game?.paused, game?.operationTimer]);
+  }, [game?.paused, game?.operationTimer, tutorial]);
   useEffect(() => {
     if (!recordsMode) return;
     const frame = requestAnimationFrame(() => {
@@ -88,7 +97,9 @@ export default function GamePanel({
     return (
       <section className="panel">
         <h2>正在取得遊戲狀態</h2>
-        <button onClick={() => void client.synchronize()}>重新同步</button>
+        {!tutorial && (
+          <button onClick={() => void client.synchronize()}>重新同步</button>
+        )}
       </section>
     );
   const terminal = room.phase === "MATCH_RESULT" || room.phase === "ABORTED";
@@ -105,6 +116,7 @@ export default function GamePanel({
   const ownTeam = room.you?.teamId;
   const gameplay = !terminal && !pending && !resultPhase;
   const locked =
+    tutorial?.actionLocked ||
     busy ||
     !online ||
     game.paused ||
@@ -142,14 +154,16 @@ export default function GamePanel({
   }[room.phase];
   const exit = () => {
     setConfirmExit(false);
-    void client.leave();
+    if (tutorial) tutorial.onExit();
+    else void client.leave();
   };
   return (
     <section
-      className={`match-workspace ${gameplay ? "viewport-game" : "result-workspace"}`}
+      className={`match-workspace ${gameplay ? "viewport-game" : "result-workspace"}${tutorial ? " tutorial-workspace" : ""}`}
       data-testid="game-panel"
       data-phase={room.phase.toLowerCase()}
     >
+      {tutorial?.guide}
       <header className="match-heading">
         <div>
           <h2>
@@ -160,14 +174,14 @@ export default function GamePanel({
         <span
           role="status"
           aria-label={
-            online
+            tutorial ? "教學不限時" : online
               ? "即時同步"
               : "非即時畫面：多人遊戲需要網路，恢復連線後確認席位。"
           }
           title={online ? undefined : "多人遊戲需要網路，恢復連線後確認席位。"}
           className={`sync-badge ${online ? "" : "away"}`}
         >
-          {online ? "● 即時同步" : "○ 非即時畫面"}
+          {tutorial ? "教學 · 不限時" : online ? "● 即時同步" : "○ 非即時畫面"}
         </span>
       </header>
       <section className="match-scoreboard" aria-label="兩隊累計總分">
@@ -249,7 +263,7 @@ export default function GamePanel({
           <ForfeitAttribution game={game} />
         </section>
       )}
-      {terminal && (
+      {terminal && !tutorial && (
         <section className="panel outcome-screen">
           <MatchSummary game={game} />
           <MatchPersistence
@@ -277,7 +291,7 @@ export default function GamePanel({
           </div>
         </section>
       )}
-      {resultPhase && (
+      {resultPhase && !tutorial && (
         <section className="panel outcome-screen" aria-label="本局結算">
           <span className="eyebrow">DEAL RESULT · 暫不發新牌</span>
           {game.completedDealResults.at(-1) && (
@@ -291,7 +305,7 @@ export default function GamePanel({
             分
           </p>
           <OperationClock
-            timer={game.operationTimer}
+            timer={tutorial ? null : game.operationTimer}
             seconds={seconds}
             roster={room.players}
           />
@@ -344,7 +358,7 @@ export default function GamePanel({
                 </span>
               )}
               {game.auction.result ? (
-                <ContractBadge game={game} />
+                <ContractBadge game={game} ownTeam={ownTeam} />
               ) : (
                 <p className="contract-chip">
                   {game.auction.highestBid
@@ -422,7 +436,7 @@ export default function GamePanel({
                 </div>
               ) : (
                 <OperationClock
-                  timer={game.operationTimer}
+                  timer={tutorial ? null : game.operationTimer}
                   seconds={seconds}
                   roster={room.players}
                 />
@@ -471,7 +485,7 @@ export default function GamePanel({
             room.phase === "PRIVILEGE_DECISION" ||
             room.phase === "REDEAL_DECISION") && (
             <div className="table-action-dock" aria-label="本回合操作區">
-              {room.phase === "REDEAL_DECISION" && (
+              {!tutorial && room.phase === "REDEAL_DECISION" && (
                 <RedealControls
                   key={game.dealId}
                   decision={game.redeal}
@@ -481,13 +495,14 @@ export default function GamePanel({
               {room.phase === "BIDDING" && myTurn && (
                 <div className="phase-main-controls">
                   <BidControls
+                    onCall={tutorial?.onBid}
                     key={`${game.dealId}:${game.auction.calls.length}`}
                     legalCalls={room.you?.legalCalls ?? []}
                     locked={locked || !myTurn}
                   />
                 </div>
               )}
-              {room.phase === "PRIVILEGE_DECISION" && (
+              {!tutorial && room.phase === "PRIVILEGE_DECISION" && (
                 <section
                   className="phase-main-controls privilege-actions"
                   aria-label="特權選擇操作"
@@ -532,6 +547,8 @@ export default function GamePanel({
             </div>
           )}
           <HandPanel
+            onPlay={tutorial?.onPlay}
+            untimed={!!tutorial}
             key={`${game.gameId}:${game.dealId}:${room.phase}:${game.play?.trickNumber}:${game.play?.nextSeat}:${game.paused}:${online}:${locked}`}
             cards={room.you?.ownHand ?? []}
             legalCards={room.you?.legalCards ?? []}
@@ -541,63 +558,79 @@ export default function GamePanel({
           />
         </>
       )}
-      <OwnTimeoutNotice room={room} />
-      <footer className="match-utilities">
-        <button
-          className="secondary"
-          ref={historyTriggerRef}
-          aria-expanded={recordsMode === "current"}
-          onClick={() =>
-            setRecordsMode(recordsMode === "current" ? null : "current")
-          }
-        >
-          ▤ 本局紀錄
-        </button>
-        <button
-          className="secondary"
-          ref={settlementTriggerRef}
-          aria-expanded={recordsMode === "settlements"}
-          onClick={() =>
-            setRecordsMode(recordsMode === "settlements" ? null : "settlements")
-          }
-        >
-          ▥ 各局結算
-        </button>
-        {onHelp && (
-          <button className="secondary" onClick={onHelp}>
-            說明
+      {!tutorial && <OwnTimeoutNotice room={room} />}
+      {tutorial ? (
+        <footer className="match-utilities">
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={tutorial.onExit}
+          >
+            {tutorial.exitLabel ?? "離開教學"}
           </button>
-        )}
-        <details
-          className="match-more"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.currentTarget.open = false;
-              event.currentTarget.querySelector("summary")?.focus();
+        </footer>
+      ) : (
+        <footer className="match-utilities">
+          <button
+            className="secondary"
+            ref={historyTriggerRef}
+            aria-expanded={recordsMode === "current"}
+            onClick={() =>
+              setRecordsMode(recordsMode === "current" ? null : "current")
             }
-          }}
-        >
-          <summary>更多</summary>
-          <div className="match-more-panel">
-            <small>v0.14.0 · 狀態版本 {room.revision}</small>
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() => void client.synchronize()}
-            >
-              重新同步
+          >
+            ▤ 本局紀錄
+          </button>
+          <button
+            className="secondary"
+            ref={settlementTriggerRef}
+            aria-expanded={recordsMode === "settlements"}
+            onClick={() =>
+              setRecordsMode(
+                recordsMode === "settlements" ? null : "settlements",
+              )
+            }
+          >
+            ▥ 各局結算
+          </button>
+          {onHelp && (
+            <button className="secondary" onClick={onHelp}>
+              說明
             </button>
-            <button
-              className="leave"
-              ref={exitTriggerRef}
-              disabled={busy || !!pendingAction}
-              onClick={() => (committedOutcome ? exit() : setConfirmExit(true))}
-            >
-              {committedOutcome ? "離開房間" : "退出遊戲"}
-            </button>
-          </div>
-        </details>
-      </footer>
+          )}
+          <details
+            className="match-more"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }
+            }}
+          >
+            <summary>更多</summary>
+            <div className="match-more-panel">
+              <small>v0.14.1 · 狀態版本 {room.revision}</small>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => void client.synchronize()}
+              >
+                重新同步
+              </button>
+              <button
+                className="leave"
+                ref={exitTriggerRef}
+                disabled={busy || !!pendingAction}
+                onClick={() =>
+                  committedOutcome ? exit() : setConfirmExit(true)
+                }
+              >
+                {committedOutcome ? "離開房間" : "退出遊戲"}
+              </button>
+            </div>
+          </details>
+        </footer>
+      )}
       {historyOpen && (
         <div className="dialog-backdrop history-backdrop">
           <section
@@ -651,7 +684,7 @@ export default function GamePanel({
           </section>
         </div>
       )}
-      {confirmExit && (
+      {!tutorial && confirmExit && (
         <div className="dialog-backdrop">
           <section
             className="exit-dialog panel"

@@ -38,7 +38,7 @@ class TurnDirectionTest {
             () -> game.play(wrong, game.legalCards(actor, false).get(0))).code);
         if (offset % 2 == 0) game.play(actor, game.legalCards(actor, false).get(0));
         else {
-          clock.now.addAndGet(20_000);
+          clock.now.addAndGet(30_000);
           assertTrue(game.expireOperation());
         }
       }

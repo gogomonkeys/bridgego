@@ -31,6 +31,17 @@ class TutorialServiceTest {
     assertThrows(RoomService.Failure.class, () -> service.play("a", a.sessionId(), 0L, new GameState.Card("SPADE", 2)));
     assertEquals(a, service.view("a"));
   }
+  @Test void timePassingNeverAutoPlaysOrAdvancesTutorialRevision() {
+    var time = new AtomicLong(1000);
+    var service = new TutorialService(time::get);
+    var before = service.start("learner");
+    time.addAndGet(600_000);
+    assertEquals(before, service.current("learner"));
+    var after = service.play("learner", before.sessionId(), before.revision(), before.legalCards().get(0));
+    assertEquals(1, after.revision());
+    time.addAndGet(600_000);
+    assertEquals(after, service.view("learner"));
+  }
   @Test void capacityAndExpiryBoundMemory() {
     var time = new AtomicLong(9_000_000);
     var service = new TutorialService(time::get);

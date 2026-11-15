@@ -32,3 +32,32 @@ describe("individual captured tricks use 墩, not turn progress", () => {
     });
   }
 });
+
+describe("contract holder seat marker", () => {
+  it("marks only the authoritative holder and retains individual captures", () => {
+    const room = playedRoom();
+    room.game!.play!.tricksByTeam.EW = 5;
+    room.game!.play!.completedTricks = [
+      {
+        number: 1,
+        leaderSeat: 0,
+        winnerSeat: 3,
+        plays: [],
+        cardsVisible: false,
+      },
+    ];
+    const html = renderToStaticMarkup(<TableSeats room={room} turnSeat={0} />);
+    expect(html.match(/class="seat-contract-marker"/g)).toHaveLength(1);
+    expect(html).toContain('aria-label="dan本局得標"');
+    expect(html).toContain('aria-label="dan本局拿下 1 墩"');
+    expect(html).not.toContain('aria-label="dan本局拿下 5 墩"');
+  });
+  it("never marks the highest bidder before the auction settles", () => {
+    const room = playedRoom();
+    room.game!.auction.result = null;
+    room.game!.auction.highestBid = { seat: 1, level: 2, strain: "CLUB" };
+    expect(
+      renderToStaticMarkup(<TableSeats room={room} turnSeat={1} />),
+    ).not.toContain("seat-contract-marker");
+  });
+});

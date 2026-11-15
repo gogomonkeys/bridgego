@@ -67,7 +67,7 @@ class TrickResultTest {
     assertEquals(trick.winnerSeat(), next.game().play().nextSeat());
     assertTrue(next.game().play().currentTrick().isEmpty());
     assertEquals(2, next.game().play().trickNumber());
-    assertEquals(20_000, next.game().operationTimer().remainingMs());
+    assertEquals(30_000, next.game().operationTimer().remainingMs());
   }
 
   @Test
@@ -104,13 +104,13 @@ class TrickResultTest {
     f.service.disconnect(f.room, f.players[0].playerId(), "socket-0");
     f.clock.now.addAndGet(1_350);
     assertEquals("PLAYING", f.view(0).phase());
-    assertEquals(20_000, f.view(0).game().operationTimer().remainingMs());
+    assertEquals(30_000, f.view(0).game().operationTimer().remainingMs());
   }
 
   @Test
   void timeoutFourthCardAlsoShowsResultAndLateSweepOnlyAdvancesOnce() {
     for (int i = 0; i < 3; i++) playOne();
-    f.clock.now.addAndGet(20_000);
+    f.clock.now.addAndGet(30_000);
     var result = f.view(0);
     assertEquals("TRICK_RESULT", result.phase());
     assertEquals("TIMEOUT", result.game().play().currentTrick().get(3).source());
@@ -118,7 +118,7 @@ class TrickResultTest {
     var next = f.view(0);
     assertEquals("PLAYING", next.phase());
     assertTrue(next.game().play().currentTrick().isEmpty());
-    assertEquals(20_000, next.game().operationTimer().remainingMs());
+    assertEquals(30_000, next.game().operationTimer().remainingMs());
     assertEquals(1, next.game().play().completedTricks().size());
   }
 

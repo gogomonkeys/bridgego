@@ -1,9 +1,7 @@
 import TutorialBidding from "./TutorialBidding";
 import { useEffect, useRef, useState } from "react";
 import { accountRequest } from "./google-login";
-import type { Card, Play } from "./model";
-import { rankLabel, sortedHand, symbols } from "./game-view";
-import TutorialGuide, { TutorialInvitation } from "./TutorialGuide";
+import { TutorialInvitation } from "./TutorialGuide";
 import {
   guestTutorialOffered,
   markGuestTutorialOffered,
@@ -11,26 +9,25 @@ import {
   type TutorialSnapshot,
 } from "./tutorial";
 
-const cardKey = (card: Card) => `${card.suit}:${card.rank}`;
-const cardLabel = (card: Card) =>
-  `${symbols[card.suit]}${rankLabel(card.rank)}`;
+import TutorialPlay from "./TutorialPlay";
 export default function TutorialFlow({
   token,
   force = false,
   onDone,
   onAvailability,
+  onTableActive,
 }: {
   token: string;
   force?: boolean;
   onDone: () => void;
   onAvailability?: (enabled: boolean) => void;
+  onTableActive?: (active: boolean) => void;
 }) {
   const [status, setStatus] = useState<TutorialStatus | null>(null);
   const [biddingPractice, setBiddingPractice] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [uncertain, setUncertain] = useState(false);
-  const [selected, setSelected] = useState<Card | null>(null);
   const active = useRef(true),
     pending = useRef(false);
   const leaveAfterReadback = useRef(false);
@@ -80,7 +77,6 @@ export default function TutorialFlow({
     leaveAfterReadback.current = leave;
     setBusy(true);
     setError("");
-    setSelected(null);
     try {
       const result = await accountRequest<
         TutorialStatus | TutorialSnapshot | { exited: boolean }
@@ -123,7 +119,6 @@ export default function TutorialFlow({
       availability.current?.(next.enabled);
       setUncertain(false);
       setError("");
-      setSelected(null);
       if (!next.enabled && !next.game) {
         done.current();
         return;
@@ -155,6 +150,12 @@ export default function TutorialFlow({
     done.current();
   };
   const game = status?.game;
+  const showingTable =
+    !uncertain && !!status && (!!game || (status.enabled && biddingPractice));
+  useEffect(() => {
+    onTableActive?.(showingTable);
+    return () => onTableActive?.(false);
+  }, [showingTable, onTableActive]);
   return (
     <section className="panel tutorial-panel" aria-label="教學場">
       {error && <p role="alert">{error}</p>}
@@ -193,122 +194,23 @@ export default function TutorialFlow({
           onSkip={() => skip()}
         />
       ) : (
-        <>
-          <h2>
-            練習牌桌 <small>♠ 為王</small>
-          </h2>
-          {game.lesson === "COMPLETE" ? (
-            <p role="status">教學完成！</p>
-          ) : (
-            <TutorialGuide lesson={game.lesson} />
-          )}
-          <TutorialTable game={game} />
-          {game.lesson !== "COMPLETE" && (
-            <>
-              <div className="tutorial-hand" aria-label="你的手牌">
-                {sortedHand(game.hand).map((card) => (
-                  <button
-                    type="button"
-                    key={cardKey(card)}
-                    className={`tutorial-card ${["HEART", "DIAMOND"].includes(card.suit) ? "red" : ""}`}
-                    aria-label={cardLabel(card)}
-                    aria-pressed={
-                      selected !== null && cardKey(selected) === cardKey(card)
-                    }
-                    disabled={
-                      busy ||
-                      !game.legalCards.some(
-                        (legal) => cardKey(legal) === cardKey(card),
-                      )
-                    }
-                    onClick={() => setSelected(card)}
-                  >
-                    {cardLabel(card)}
-                  </button>
-                ))}
-              </div>
-              <button
-                className="primary"
-                disabled={busy || !selected}
-                onClick={() =>
-                  selected &&
-                  void update("/tutorial/play", {
-                    sessionId: game.sessionId,
-                    expectedRevision: game.revision,
-                    card: selected,
-                  })
-                }
-              >
-                {selected ? `出 ${cardLabel(selected)}` : "先選一張牌"}
-              </button>
-            </>
-          )}
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              void update("/tutorial/exit", { sessionId: game.sessionId }, true)
-            }
-          >
-            {game.lesson === "COMPLETE" ? "進入大廳" : "離開教學"}
-          </button>
-        </>
+        <TutorialPlay
+          key={game.sessionId}
+          game={game}
+          busy={busy}
+          onPlay={(card) =>
+            update("/tutorial/play", {
+              sessionId: game.sessionId,
+              expectedRevision: game.revision,
+              card,
+            })
+          }
+          onExit={() =>
+            void update("/tutorial/exit", { sessionId: game.sessionId }, true)
+          }
+        />
       )}
     </section>
-  );
-}
-function TutorialTable({ game }: { game: TutorialSnapshot }) {
-  const last = game.completedTricks.at(-1);
-  return (
-    <div className="tutorial-table">
-      {last && (
-        <section aria-label="上一墩回顧">
-          <p>
-            上一墩：{last.winnerSeat === 0 ? "你" : `電腦${last.winnerSeat}`}
-            獲勝
-          </p>
-          <TutorialCards
-            plays={last.plays}
-            label="上一墩出牌"
-            winner={last.winnerSeat}
-          />
-        </section>
-      )}
-      {game.currentTrick.length > 0 && (
-        <section aria-label="目前牌桌">
-          <p>本墩</p>
-          <TutorialCards plays={game.currentTrick} label="本墩出牌" />
-        </section>
-      )}
-      <p>已完成 {game.completedTricks.length} / 13 墩</p>
-    </div>
-  );
-}
-function TutorialCards({
-  plays,
-  label,
-  winner,
-}: {
-  plays: Play[];
-  label: string;
-  winner?: number;
-}) {
-  return (
-    <div className="tutorial-public-cards" aria-label={label}>
-      {plays.map((p) => (
-        <div key={p.seat} className="tutorial-public-slot">
-          <small>
-            {p.seat === 0 ? "你" : `電腦${p.seat}`}
-            {winner === p.seat ? " · 勝" : ""}
-          </small>
-          <span
-            className={`tutorial-public-card ${["HEART", "DIAMOND"].includes(p.card.suit) ? "red" : ""}`}
-          >
-            {cardLabel(p.card)}
-          </span>
-        </div>
-      ))}
-    </div>
   );
 }
 async function readStatus(token: string): Promise<TutorialStatus> {

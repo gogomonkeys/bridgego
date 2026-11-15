@@ -17,12 +17,16 @@ export default function HandPanel({
   enabled,
   collecting,
   playing,
+  onPlay = (card) => client.play(card),
+  untimed = false,
 }: {
   cards: Card[];
   legalCards: Card[];
   enabled: boolean;
   collecting: boolean;
   playing: boolean;
+  onPlay?: (card: Card) => Promise<unknown>;
+  untimed?: boolean;
 }) {
   const [mobile, setMobile] = useState(
     () =>
@@ -53,7 +57,7 @@ export default function HandPanel({
     sendingRef.current = true;
     setSending(true);
     setSelection(null);
-    void client.play(card).finally(() => {
+    void onPlay(card).finally(() => {
       sendingRef.current = false;
       setSending(false);
     });
@@ -209,9 +213,11 @@ export default function HandPanel({
         {collecting
           ? "本回合結算中，下一回合尚未開始。"
           : playing
-            ? mobile
-              ? "選牌不會送出 · 按出牌確認 · 每次出牌 20 秒"
-              : "亮框牌可出 · 有首引花色必須跟牌 · 每次出牌 20 秒"
+            ? untimed
+              ? "教學不限時 · 亮框牌可出 · 有首引花色必須跟牌"
+              : mobile
+                ? "選牌不會送出 · 按出牌確認 · 每次出牌 30 秒"
+                : "亮框牌可出 · 有首引花色必須跟牌 · 每次出牌 30 秒"
             : "先看手牌；此階段不能出牌。"}
       </p>
     </section>

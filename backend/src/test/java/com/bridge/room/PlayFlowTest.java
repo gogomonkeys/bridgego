@@ -234,14 +234,14 @@ class PlayFlowTest {
     playing();
     clock.now.addAndGet(7_000);
     service.disconnect(room, players[0].playerId(), "socket-0");
-    assertEquals(13_000, view(1).game().operationTimer().remainingMs());
+    assertEquals(23_000, view(1).game().operationTimer().remainingMs());
     clock.now.addAndGet(9_000);
     assertTrue(view(1).game().play().currentTrick().isEmpty());
     service.connect(room, players[0], "back");
     service.disconnect(room, players[0].playerId(), "socket-0");
-    clock.now.addAndGet(13_000);
+    clock.now.addAndGet(23_000);
     assertEquals("TIMEOUT", view(0).game().play().currentTrick().get(0).source());
-    assertEquals(20_000, view(0).game().operationTimer().remainingMs());
+    assertEquals(30_000, view(0).game().operationTimer().remainingMs());
   }
 
   @Test
@@ -297,7 +297,7 @@ class PlayFlowTest {
       g.call(deal, "BID", level, "NO_TRUMP");
       for (int i = 1; i < 4; i++) g.call((deal + i) % 4, "PASS", null, null);
       for (int i = 0; i < 52; i++) {
-        clock.now.addAndGet(20_000);
+        clock.now.addAndGet(30_000);
         assertTrue(g.expireOperation());
         if (g.phase.equals("TRICK_RESULT")) {
           clock.now.addAndGet(GameState.TRICK_RESULT_MS);
@@ -331,7 +331,7 @@ class PlayFlowTest {
     g.call(0, "BID", 1, "CLUB");
     for (int seat = 1; seat < 4; seat++) g.call(seat, "PASS", null, null);
     for (int i = 0; i < 52; i++) {
-      clock.now.addAndGet(20_000);
+      clock.now.addAndGet(30_000);
       g.expireOperation();
       if (g.phase.equals("TRICK_RESULT")) {
         clock.now.addAndGet(GameState.TRICK_RESULT_MS);

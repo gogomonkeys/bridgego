@@ -93,7 +93,7 @@ class OperationTimerTest {
   }
 
   @Test
-  void biddingExpiresOnlyAtThirtySecondsAndPlayKeepsTwentySeconds() {
+  void biddingAndPlayBothHaveThirtySeconds() {
     bidding();
     assertEquals(30_000, view(0).game().operationTimer().remainingMs());
     clock.now.addAndGet(20_000);
@@ -108,7 +108,37 @@ class OperationTimerTest {
     call(3, "PASS", null, null);
     call(0, "PASS", null, null);
     assertEquals("PLAYING", view(0).phase());
-    assertEquals(20_000, view(0).game().operationTimer().remainingMs());
+    assertEquals(30_000, view(0).game().operationTimer().remainingMs());
+  }
+
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings = {"FORMAL", "CASUAL"})
+  void bothRoomModesPlayAtThirtySecondsAndNextTrickResetsFullBudget(String type) {
+    var tick = new java.util.concurrent.atomic.AtomicLong();
+    var g = new GameState(new java.security.SecureRandom(), tick::get, 1, type);
+    KeepDealFixture.keep(g);
+    for (int seat = 0; seat < 4; seat++) g.choose(seat, false);
+    assertEquals(30_000, g.view(0, false).operationTimer().remainingMs());
+    g.call(0, "BID", 1, "CLUB");
+    for (int seat = 1; seat < 4; seat++) g.call(seat, "PASS", null, null);
+    tick.addAndGet(20_000);
+    assertFalse(g.expireOperation());
+    assertEquals(10_000, g.view(0, false).operationTimer().remainingMs());
+    tick.addAndGet(9_999);
+    assertFalse(g.expireOperation());
+    tick.incrementAndGet();
+    assertTrue(g.expireOperation());
+    assertEquals("TIMEOUT", g.view(0, false).play().currentTrick().get(0).source());
+    assertEquals(30_000, g.view(0, false).operationTimer().remainingMs());
+    for (int i = 1; i < 4; i++) {
+      tick.addAndGet(30_000);
+      assertTrue(g.expireOperation());
+    }
+    assertEquals("TRICK_RESULT", g.phase);
+    tick.addAndGet(GameState.TRICK_RESULT_MS);
+    assertTrue(g.expireOperation());
+    assertEquals("PLAYING", g.phase);
+    assertEquals(30_000, g.view(0, false).operationTimer().remainingMs());
   }
 
   @Test

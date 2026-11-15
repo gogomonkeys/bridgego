@@ -1,6 +1,8 @@
 import { useState } from "react";
-import type { Strain } from "./model";
+import type { Call, Strain } from "./model";
 import { strainNames, symbols } from "./game-view";
+import GamePanel from "./GamePanel";
+import { tutorialRoom } from "./tutorial-room";
 export const tutorialStrains: Strain[] = [
   "CLUB",
   "DIAMOND",
@@ -18,7 +20,7 @@ export function practiceBidDescription(level: number, strain: Strain): string {
     throw new Error("Invalid practice bid");
   return `你練習叫了 ${level}${symbols[strain]}：若成為定約，同隊目標 ${6 + level} 墩，${strain === "NO_TRUMP" ? "無王" : `${strainNames[strain]}為王`}。`;
 }
-/** A local demonstration, not an auction command or a completed contract. */
+/** Local practice using exactly the production table and bidding controls. No room commands. */
 export default function TutorialBidding({
   busy,
   onBegin,
@@ -28,94 +30,74 @@ export default function TutorialBidding({
   onBegin: () => void;
   onBack: () => void;
 }) {
-  const [level, setLevel] = useState(1);
-  const [strain, setStrain] = useState<Strain>("SPADE");
-  const [description, setDescription] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const [call, setCall] = useState<Call | null>(null);
+  const pages = [
+    [
+      "認識牌桌",
+      "你在下方，對面是隊友，左右是對手。這裡使用與一般遊戲相同的牌桌。",
+    ],
+    ["認識叫牌", "階數加 6 是目標墩數，花色決定王牌；無王代表沒有王牌。"],
+    [
+      "試著叫牌",
+      "在下方選階數、花色並確認，也可以 Pass。不計時，不會自動操作。",
+    ],
+  ];
   return (
-    <section className="tutorial-guide" aria-label="叫牌練習">
-      <h2>先練習叫牌</h2>
-      {description === null ? (
-        <>
-          <p>階數決定目標墩數，花色決定王牌。</p>
-          <div className="tutorial-actions">
-            <label>
-              階數{" "}
-              <select
-                aria-label="叫牌階數"
-                value={level}
-                disabled={busy}
-                onChange={(e) => setLevel(Number(e.target.value))}
+    <GamePanel
+      room={tutorialRoom(null, call)}
+      online
+      busy={busy}
+      pendingAction={null}
+      snapshotReceivedAt={0}
+      tutorial={{
+        actionLocked: step !== 2,
+        onPlay: async () => {},
+        onExit: onBack,
+        exitLabel: "返回教學選擇",
+        onBid: (next) => {
+          if (!busy && step === 2) setCall(next);
+        },
+        guide: (
+          <aside className="tutorial-guide" aria-label="叫牌練習">
+            <strong>{pages[step][0]}</strong>
+            <p>{pages[step][1]}</p>
+            {call && (
+              <>
+                <p role="status">
+                  {call.type === "PASS"
+                    ? "這次不加叫，之後輪到你仍可再叫。"
+                    : practiceBidDescription(
+                        call.level!,
+                        call.strain as Strain,
+                      )}
+                </p>
+                <p>接下來切換到電腦 2 定約 1♠ 的出牌教學，與剛才的選擇無關。</p>
+              </>
+            )}
+            <div className="tutorial-actions">
+              <button
+                disabled={busy || step === 0}
+                onClick={() => setStep((s) => Math.max(0, s - 1))}
               >
-                {[1, 2, 3, 4, 5, 6, 7].map((value) => (
-                  <option key={value} value={value}>
-                    {value} 階
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              花色{" "}
-              <select
-                aria-label="叫牌花色"
-                value={strain}
-                disabled={busy}
-                onChange={(e) => setStrain(e.target.value as Strain)}
+                上一步
+              </button>
+              <button
+                disabled={busy || step === 2}
+                onClick={() => setStep((s) => Math.min(2, s + 1))}
               >
-                {tutorialStrains.map((value) => (
-                  <option key={value} value={value}>
-                    {symbols[value]} {strainNames[value]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="tutorial-actions">
-            <button
-              className="primary"
-              disabled={busy}
-              onClick={() =>
-                setDescription(practiceBidDescription(level, strain))
-              }
-            >
-              確認叫牌
-            </button>
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() => setDescription("這次不加叫，之後輪到你仍可再叫。")}
-            >
-              Pass
-            </button>
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() => setDescription("略過叫牌練習。")}
-            >
-              略過叫牌練習
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p role="status">{description}</p>
-          <p>接下來切換到電腦 2 定約 1♠ 的出牌教學，與剛才的選擇無關。</p>
-          <div className="tutorial-actions">
-            <button className="primary" disabled={busy} onClick={onBegin}>
-              開始出牌教學
-            </button>
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() => setDescription(null)}
-            >
-              再練一次叫牌
-            </button>
-          </div>
-        </>
-      )}
-      <button className="secondary" disabled={busy} onClick={onBack}>
-        返回教學選擇
-      </button>
-    </section>
+                下一步
+              </button>
+              <button disabled={busy} onClick={onBegin}>
+                {call ? "開始出牌教學" : "略過叫牌練習並開始出牌"}
+              </button>
+            </div>
+            {!call && (
+              <p className="fine">出牌練習使用預設 1♠，不沿用這次叫牌選擇。</p>
+            )}
+          </aside>
+        ),
+      }}
+    />
   );
 }

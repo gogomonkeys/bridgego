@@ -28,6 +28,13 @@ const button = (text: string) =>
   tree.root.findAllByType("button").find((b) => b.children.join("") === text)!;
 beforeEach(() => {
   request.mockReset();
+  vi.stubGlobal("window", {
+    matchMedia: () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
   vi.stubGlobal("localStorage", {
     getItem: vi.fn().mockReturnValue(null),
     setItem: vi.fn(),
@@ -94,9 +101,11 @@ describe("tutorial flow", () => {
     });
     await flush();
     expect(done).not.toHaveBeenCalled();
-    act(() => tree.root.findByProps({ "aria-label": "♣2" }).props.onClick());
+    act(() =>
+      tree.root.findByProps({ "aria-label": "梅花 2" }).props.onClick(),
+    );
     request.mockResolvedValueOnce({ ...game, revision: 1 });
-    await act(async () => button("出 ♣2").props.onClick());
+    await act(async () => button("出這張牌").props.onClick());
     request.mockResolvedValueOnce({ exited: true });
     await act(async () => button("離開教學").props.onClick());
     expect(done).toHaveBeenCalledOnce();
@@ -106,7 +115,9 @@ describe("tutorial flow", () => {
     const done = await mount();
     request.mockRejectedValueOnce(new Error("TUTORIAL_DISABLED"));
     act(() => button("開始教學").props.onClick());
-    act(() => button("Pass").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("Pass · 不叫").props.onClick());
     await act(async () => button("開始出牌教學").props.onClick());
     request.mockResolvedValueOnce({
       enabled: false,
@@ -178,11 +189,13 @@ describe("tutorial flow", () => {
   });
   it("prevents illegal selection and submits only selected legal card with revision", async () => {
     await mount(false, game);
-    const cards = tree.root.findAllByProps({ "aria-label": "♠2" });
+    const cards = tree.root.findAllByProps({ "aria-label": "黑桃 2" });
     expect(cards[0].props.disabled).toBe(true);
-    act(() => tree.root.findByProps({ "aria-label": "♣2" }).props.onClick());
+    act(() =>
+      tree.root.findByProps({ "aria-label": "梅花 2" }).props.onClick(),
+    );
     request.mockResolvedValueOnce({ ...game, revision: 1 });
-    await act(async () => button("出 ♣2").props.onClick());
+    await act(async () => button("出這張牌").props.onClick());
     expect(request).toHaveBeenLastCalledWith(
       "/tutorial/play",
       "POST",
@@ -196,9 +209,11 @@ describe("tutorial flow", () => {
   });
   it("does not resend unknown play and only reads state for recovery", async () => {
     await mount(false, game);
-    act(() => tree.root.findByProps({ "aria-label": "♣2" }).props.onClick());
+    act(() =>
+      tree.root.findByProps({ "aria-label": "梅花 2" }).props.onClick(),
+    );
     request.mockRejectedValueOnce(new Error("timeout"));
-    await act(async () => button("出 ♣2").props.onClick());
+    await act(async () => button("出這張牌").props.onClick());
     expect(button("讀取教學狀態")).toBeTruthy();
     request.mockResolvedValueOnce({
       enabled: true,
@@ -273,22 +288,29 @@ describe("tutorial flow", () => {
         },
       ],
     });
-    const previous = tree.root.findByProps({ "aria-label": "上一墩出牌" });
+    const previous = tree.root.findByProps({ "aria-label": "上一墩回顧" });
     expect(
-      previous.findAllByProps({ className: "tutorial-public-slot" }),
+      previous.findAll(
+        (n) =>
+          typeof n.props.className === "string" &&
+          n.props.className.startsWith("played-card "),
+      ),
     ).toHaveLength(4);
     expect(
-      previous.findAllByType("small").map((x) => x.children.join("")),
-    ).toContain("電腦1 · 勝");
+      previous
+        .findAllByType("p")
+        .map((n) => n.children.join(""))
+        .join(""),
+    ).toContain("電腦1獲勝");
     expect(
-      tree.root
-        .findByProps({ "aria-label": "本墩出牌" })
-        .findAllByProps({ className: "tutorial-public-slot" }),
-    ).toHaveLength(1);
+      tree.root.findAllByProps({ "aria-label": "本回合出牌" }),
+    ).toHaveLength(2);
   });
   it("runs bidding locally then explicitly starts the independent fixed deal", async () => {
     await mount();
     act(() => button("開始教學").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("下一步").props.onClick());
     act(() =>
       tree.root
         .findByProps({ "aria-label": "叫牌階數" })
@@ -299,7 +321,12 @@ describe("tutorial flow", () => {
         .findByProps({ "aria-label": "叫牌花色" })
         .props.onChange({ target: { value: "NO_TRUMP" } }),
     );
-    act(() => button("確認叫牌").props.onClick());
+    act(() =>
+      tree.root
+        .findAllByType("button")
+        .find((b) => b.children.join("").startsWith("確認叫牌"))!
+        .props.onClick(),
+    );
     expect(JSON.stringify(tree.toJSON())).toContain("目標 13 墩，無王");
     expect(JSON.stringify(tree.toJSON())).toContain("與剛才的選擇無關");
     expect(request.mock.calls.filter((c) => c[1] === "POST")).toHaveLength(0);
@@ -307,7 +334,7 @@ describe("tutorial flow", () => {
     request.mockResolvedValueOnce(game);
     await act(async () => button("開始出牌教學").props.onClick());
     expect(request).toHaveBeenLastCalledWith("/tutorial", "POST", {}, "token");
-    expect(button("先選一張牌")).toBeTruthy();
+    expect(button("出這張牌")).toBeTruthy();
     expect(tree.root.findAllByProps({ "aria-label": "叫牌練習" })).toHaveLength(
       0,
     );
@@ -316,7 +343,9 @@ describe("tutorial flow", () => {
     await mount();
     request.mockReturnValueOnce(new Promise(() => {}));
     act(() => button("開始教學").props.onClick());
-    act(() => button("確認叫牌").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("Pass · 不叫").props.onClick());
     const start = button("開始出牌教學");
     act(() => {
       start.props.onClick();

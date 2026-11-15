@@ -23,6 +23,7 @@ export default function App() {
   const [tutorialAccountEpoch, setTutorialAccountEpoch] = useState(0);
   const [tutorialChecked, setTutorialChecked] = useState<string | null>(null);
   const [tutorialRequested, setTutorialRequested] = useState(false);
+  const [tutorialTableActive, setTutorialTableActive] = useState(false);
   const [tutorialAvailability, setTutorialAvailability] = useState<{
     key: string;
     enabled: boolean;
@@ -131,7 +132,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.14.0", disconnects: diagnostics },
+    { version: "0.14.1", disconnects: diagnostics },
     null,
     2,
   );
@@ -147,7 +148,7 @@ export default function App() {
   };
   return (
     <div
-      className={`shell forest-shell ${state.room && state.room.phase !== "WAITING" && page === "room" ? "match-shell" : ""}`}
+      className={`shell forest-shell ${tutorialTableActive ? "match-shell tutorial-shell" : state.room && state.room.phase !== "WAITING" && page === "room" ? "match-shell" : ""}`}
     >
       <header>
         <a
@@ -195,7 +196,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.14.0</span>
+            <span className="eyebrow">v0.14.1</span>
           </div>
         )}
         <PwaStatus
@@ -225,7 +226,7 @@ export default function App() {
         {page === "room" && (!state.room || state.room.phase === "WAITING") && (
           <div className="intro">
             <div>
-              <span className="eyebrow">v0.14.0</span>
+              <span className="eyebrow">v0.14.1</span>
               <h1>
                 {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
               </h1>
@@ -364,6 +365,7 @@ export default function App() {
             key={`${state.session.token}:${tutorialAccountEpoch}`}
             token={state.session.token}
             force={tutorialRequested}
+            onTableActive={setTutorialTableActive}
             onAvailability={(enabled) =>
               setTutorialAvailability({
                 key: `${state.session!.token}:${tutorialAccountEpoch}`,

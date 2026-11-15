@@ -10,9 +10,13 @@ import {
 export default function BidControls({
   legalCalls,
   locked,
+  onCall = (call) => {
+    void client.call(call);
+  },
 }: {
   legalCalls: Call[];
   locked: boolean;
+  onCall?: (call: Call) => void;
 }) {
   const [draft, setDraft] = useState<BidSelection>({
     level: null,
@@ -157,7 +161,7 @@ export default function BidControls({
           className="primary"
           disabled={locked || !bid}
           onClick={() => {
-            if (bid) void client.call(bid);
+            if (bid) onCall(bid);
           }}
         >
           確認叫牌{bid ? ` ${bid.level}${symbols[bid.strain!]}` : ""}
@@ -165,9 +169,7 @@ export default function BidControls({
         <button
           className="secondary"
           disabled={locked || !legalCalls.some((call) => call.type === "PASS")}
-          onClick={() =>
-            void client.call({ type: "PASS", level: null, strain: null })
-          }
+          onClick={() => onCall({ type: "PASS", level: null, strain: null })}
         >
           Pass · 不叫
         </button>

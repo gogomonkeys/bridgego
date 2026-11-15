@@ -7225,17 +7225,24 @@ body {
 .tutorial-guide { padding: 1rem; border-radius: 1rem; background: #f5f0e6; color: #54422d; }
 .tutorial-guide p { margin: .4rem 0; line-height: 1.6; }
 .tutorial-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .8rem; }
-.tutorial-hand { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
-.tutorial-card { min-width: 3.5rem; min-height: 3.5rem; border: 2px solid transparent; }
-.tutorial-card[aria-pressed="true"] { border-color: #54422d; background: #fff4cc; }
-.tutorial-card.red { color: #b52536; -webkit-text-fill-color: #b52536; }
 .tutorial-panel > button { margin: .4rem .4rem .4rem 0; }
-.tutorial-last-trick { line-height: 1.6; }
-.contract-badge { display: flex; align-items: center; gap: .4rem .8rem; flex-wrap: wrap; min-width: 0; padding: .45rem .7rem; border: 1px solid #d2bf94; border-radius: .7rem; background: #fff8e6; color: #54422d; font-size: .85rem; }
+.contract-badge { display: grid; gap: .2rem; min-width: 0; padding: .45rem .7rem; border: 1px solid #d2bf94; border-radius: .7rem; background: #fff8e6; color: #54422d; font-size: .85rem; }
 .contract-holder { min-width: 0; max-width: 16rem; overflow-wrap: anywhere; }
 .contract-trump { font-weight: 700; white-space: nowrap; }
 .contract-trump.bid-red { color: #b52937; }
-.tutorial-public-cards { display: flex; gap: .6rem; flex-wrap: wrap; }
-.tutorial-public-slot { display: grid; gap: .3rem; text-align: center; }
-.tutorial-public-card { display: grid; place-items: center; width: 3.5rem; height: 4.5rem; background: white; border: 1px solid #c9bca3; border-radius: .5rem; color: #28352b; font-size: 1.25rem; }
-.tutorial-public-card.red { color: #b52536; -webkit-text-fill-color: #b52536; }
+
+.contract-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: .15rem .3rem; min-width: 0; }
+.contract-progress { display: flex; flex-wrap: wrap; gap: .25rem .8rem; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.seat-contract-marker { display: inline-block; width: fit-content; padding: .08rem .35rem; border: 1px solid #ad8c48; border-radius: .35rem; background: #fff4cf; color: #604713; font-size: .65rem; font-weight: 700; line-height: 1.25; }
+
+/* Teaching shares the real table but explanations need natural vertical scroll. */
+.tutorial-panel .tutorial-workspace { height: auto; max-height: none; overflow: visible; }
+.tutorial-workspace > .tutorial-guide, .tutorial-workspace > div:first-child { grid-column: 1 / -1; }
+.tutorial-workspace .tutorial-actions { flex-wrap: wrap; margin-bottom: .5rem; }
+.tutorial-workspace .tutorial-actions button { min-height: 44px; }
+
+.match-shell .tutorial-workspace { display: flex; flex-direction: column; height: auto; max-height: none; overflow: visible; }
+.match-shell .tutorial-workspace > * { grid-row: auto; grid-column: auto; flex-shrink: 0; }
+.match-shell .tutorial-workspace > .match-surface { height: auto; }
+.tutorial-panel { min-width: 0; width: 100%; }
+.forest-shell.match-shell.tutorial-shell { height: auto; min-height: 100dvh; overflow: visible; }
