@@ -32,17 +32,19 @@ export default function TableSeats({
             data-seat={seat}
             aria-label={`${compassNames[seat]} ${seatRelationship(seat, ownSeat)}`}
           >
-            {room.phase !== "WAITING" &&
-              room.game?.auction.result?.holderSeat === seat && (
-                <span
-                  className="seat-contract-marker"
-                  aria-label={`${label}本局得標`}
-                >
-                  得標
-                </span>
-              )}
             <div className="seat-portrait">
-              <AnimalAvatar seat={seat} />
+              <span className="seat-avatar-with-marker">
+                <AnimalAvatar seat={seat} />
+                {room.phase !== "WAITING" &&
+                  room.game?.auction.result?.holderSeat === seat && (
+                    <span
+                      className="seat-contract-marker"
+                      aria-label={`${label}本局得標`}
+                    >
+                      得標
+                    </span>
+                  )}
+              </span>
               {room.phase !== "WAITING" && (
                 <span
                   className="player-trick-count"

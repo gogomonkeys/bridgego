@@ -7215,7 +7215,12 @@ body {
 .leaderboard-score { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .leaderboard-score strong { display: block; font-size: 23px; line-height: 1.2; }
 .leaderboard-score span { font-size: 11px; color: #79684f; }
-.leaderboard-reload { margin-top: 20px; min-height: 44px; }
+.leaderboard-actions { flex-wrap: wrap; gap: 12px; }
+.leaderboard-actions button { margin: 0; min-height: 44px; }
+@media (max-width: 500px) {
+  .leaderboard-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .leaderboard-actions button { min-width: 0; width: 100%; padding: 12px 8px; font-size: 13px; line-height: 1.5; }
+}
 @media (max-width: 380px) { .leaderboard-row { gap: 8px; padding: 12px 10px; grid-template-columns: 25px minmax(0,1fr) minmax(44px,auto); } .leaderboard-score strong { font-size: 21px; } }
 
 .lobby-statistics-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
@@ -7241,12 +7246,26 @@ body {
 .match-shell .tutorial-panel { padding: 0; margin: 0; border: 0; background: transparent; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .match-shell .tutorial-workspace { flex: 1; min-height: 0; }
 
-/* Bid ownership is a corner tab, never an extra identity row. */
-.table-player > .seat-contract-marker {
+/* Anchor bid ownership to the avatar, not the card's trick-count corner.
+   The tab stays within the portrait width even on short/compact phones. */
+.seat-avatar-with-marker {
+  display: inline-flex;
+  position: relative;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+.seat-avatar-with-marker > .seat-contract-marker {
   position: absolute;
-  top: -7px;
-  right: 6px;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 2;
+  max-width: 100%;
+  padding: 0 2px;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 12px;
   white-space: nowrap;
   box-shadow: 0 1px 3px #49372425;
 }

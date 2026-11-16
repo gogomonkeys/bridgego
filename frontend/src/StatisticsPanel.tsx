@@ -206,7 +206,7 @@ export default function StatisticsPanel({
         onPeriod={setPeriod}
       />
       {tab === "leaderboard" ? (
-        <LeaderboardPanel token={token} />
+        <LeaderboardPanel token={token} onBack={onBack} />
       ) : (
         <>
           <div
@@ -241,8 +241,8 @@ export default function StatisticsPanel({
           </div>
         </>
       )}
-      <div className="statistics-actions">
-        {tab !== "leaderboard" && (
+      {tab !== "leaderboard" && (
+        <div className="statistics-actions">
           <button
             className="secondary"
             disabled={!current || remaining > 0}
@@ -258,11 +258,11 @@ export default function StatisticsPanel({
           >
             {remaining > 0 ? `${remaining} 秒後可重試` : "重新讀取統計"}
           </button>
-        )}
-        <button className="text-button" onClick={onBack}>
-          回到大廳
-        </button>
-      </div>
+          <button className="text-button" onClick={onBack}>
+            回到大廳
+          </button>
+        </div>
+      )}
     </section>
   );
 }

@@ -23,7 +23,7 @@ window.fetch=async(input:RequestInfo|URL)=>{
  if(url.includes("/statistics/config"))data={enabled:true,consentVersion:"statistics-v4"};
  else if(url.includes("/auth/status"))data={signedIn:signed};
  else if(url.includes("/tutorial/status"))data={enabled:true};
- else if(url.includes("/statistics/leaderboard"))data={status:"AVAILABLE",quarter:"2026-Q4",asOf:"2026-11-16T00:00:00Z",period:"SEASON",category:"FORMAL",entries:[]};
+ else if(url.includes("/statistics/leaderboard"))data={status:"AVAILABLE",quarter:"2026-Q4",asOf:"2026-11-16T00:00:00Z",period:"SEASON",category:"FORMAL",quarterEndsAt:"2026-12-31T16:00:00Z",entries:[{rank:1,nickname:"森林朋友",matches:1,wins:1,losses:0,draws:0,totalScore:6,winRate:1,mine:signed},{rank:2,nickname:"森林裡暱稱特別長的小夥伴",matches:1,wins:0,losses:1,draws:0,totalScore:-1,winRate:0,mine:false}]};
  else throw new Error("Synthetic preview blocks network");
  return new Response(JSON.stringify(data),{status:200,headers:{"Content-Type":"application/json"}});
 };

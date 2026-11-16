@@ -77,7 +77,13 @@ export function LeaderboardContent({ data }: { data: LeaderboardReport }) {
   );
 }
 
-export default function LeaderboardPanel({ token }: { token: string }) {
+export default function LeaderboardPanel({
+  token,
+  onBack,
+}: {
+  token: string;
+  onBack?: () => void;
+}) {
   const [period, setPeriod] = useState<LeaderboardPeriod>("SEASON");
   const category = "FORMAL";
   const [attempt, setAttempt] = useState(0);
@@ -162,23 +168,33 @@ export default function LeaderboardPanel({ token }: { token: string }) {
           current.data && <LeaderboardContent data={current.data} />
         )}
       </div>
-      <button
-        type="button"
-        className="secondary leaderboard-reload"
-        disabled={locked}
-        onClick={() => {
-          if (
-            flight.current ||
-            !current ||
-            statisticsRemainingSeconds(retryAt, Date.now()) > 0
-          )
-            return;
-          flight.current = true;
-          setAttempt((value) => value + 1);
-        }}
-      >
-        {remaining > 0 ? `${remaining} 秒後可重試` : "重新讀取排行榜"}
-      </button>
+      <div className="statistics-actions leaderboard-actions">
+        <button
+          type="button"
+          className="secondary leaderboard-reload"
+          aria-label={
+            remaining > 0 ? `${remaining} 秒後可重試` : "重新讀取排行榜"
+          }
+          disabled={locked}
+          onClick={() => {
+            if (
+              flight.current ||
+              !current ||
+              statisticsRemainingSeconds(retryAt, Date.now()) > 0
+            )
+              return;
+            flight.current = true;
+            setAttempt((value) => value + 1);
+          }}
+        >
+          {remaining > 0 ? `${remaining} 秒後可重試` : "重新讀取"}
+        </button>
+        {onBack && (
+          <button type="button" className="text-button" onClick={onBack}>
+            回到大廳
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { LeaderboardContent } from "./LeaderboardPanel";
+import LeaderboardPanel, { LeaderboardContent } from "./LeaderboardPanel";
 import StatisticsPanel, { StatisticsControls } from "./StatisticsPanel";
 import type { LeaderboardReport } from "./leaderboard";
 const base: LeaderboardReport = {
@@ -37,6 +37,28 @@ const base: LeaderboardReport = {
   ],
 };
 describe("leaderboard presentation", () => {
+  it("groups reload and return in one spaced action row", () => {
+    const html = renderToStaticMarkup(
+      <LeaderboardPanel token="test" onBack={() => {}} />,
+    );
+    const actions = html.slice(
+      html.indexOf('class="statistics-actions leaderboard-actions"'),
+    );
+    expect(actions).toContain("重新讀取排行榜");
+    expect(actions).toContain("回到大廳");
+    expect(html.match(/回到大廳/g)).toHaveLength(1);
+  });
+  it("keeps only one return action in embedded leaderboard", () => {
+    const html = renderToStaticMarkup(
+      <StatisticsPanel
+        token="test"
+        initialTab="leaderboard"
+        onBack={() => {}}
+      />,
+    );
+    expect(html.match(/回到大廳/g)).toHaveLength(1);
+    expect(html.match(/statistics-actions/g)).toHaveLength(1);
+  });
   it("renders server ranking, score, safe nickname, own marker and consistent win rate", () => {
     const html = renderToStaticMarkup(<LeaderboardContent data={base} />);
     expect(html.match(/第 1 名/g)).toHaveLength(2);
