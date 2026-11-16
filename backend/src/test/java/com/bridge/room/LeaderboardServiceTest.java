@@ -8,12 +8,31 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class LeaderboardServiceTest {
- @Test void defaultDisabledNeverReadsAndGuestsForbidden() {
+ @Test void defaultDisabledNeverReadsIncludingGuests() {
   var f=new StatisticsRateLimitTest.Fixture();
   var store=new MatchPersistenceTest.RecordingStore(){@Override public LeaderboardData exportLeaderboard(String a){fail("Must not read");return null;}};
   var service=new StatisticsService(f.rooms,store);
   assertEquals("DISABLED",service.readLeaderboard(f.who,Leaderboard.Period.SEASON,Leaderboard.Category.FORMAL).status());
-  assertThrows(RoomService.Failure.class,()->service.readLeaderboard(f.rooms.createSession("Guest"),Leaderboard.Period.SEASON,Leaderboard.Category.FORMAL));
+  assertEquals("DISABLED",service.readLeaderboard(f.rooms.createSession("Guest"),Leaderboard.Period.SEASON,Leaderboard.Category.FORMAL).status());
+ }
+ @Test void guestReadHasNoAccountAndStillChecksSessionChanges() {
+  var f=new StatisticsRateLimitTest.Fixture();
+  var guest=f.rooms.createSession("Guest");
+  var store=new MatchPersistenceTest.RecordingStore(){@Override public LeaderboardData exportLeaderboard(String account){
+    assertNull(account); return new LeaderboardData(List.of(),List.of(),f.clock.instant());
+  }};
+  var service=new StatisticsService(f.rooms,store,f.clock,f.nanos::get,true);
+  assertEquals("AVAILABLE",service.readLeaderboard(guest,Leaderboard.Period.SEASON,Leaderboard.Category.FORMAL).status());
+  assertThrows(RoomService.Failure.class,()->service.read(guest));
+ }
+ @Test void guestLoginDuringPublicReadDiscardsOldProjection() {
+  var f=new StatisticsRateLimitTest.Fixture(); var guest=f.rooms.createSession("Guest");
+  var store=new MatchPersistenceTest.RecordingStore(){@Override public LeaderboardData exportLeaderboard(String account){
+    f.rooms.linkAccountOutsideRoom(guest,java.util.UUID.randomUUID().toString());
+    return new LeaderboardData(List.of(),List.of(),f.clock.instant());
+  }};
+  var service=new StatisticsService(f.rooms,store,f.clock,f.nanos::get,true);
+  assertEquals("STATS_ACCOUNT_CHANGED",assertThrows(RoomService.Failure.class,()->service.readLeaderboard(guest,Leaderboard.Period.SEASON,Leaderboard.Category.FORMAL)).code);
  }
  @Test void sharedCooldownStopsBothEndpointsWithoutRetry() {
   var f=new StatisticsRateLimitTest.Fixture();
@@ -31,13 +50,18 @@ class LeaderboardServiceTest {
   var broken=new StatisticsService(f.rooms,new MatchPersistenceTest.RecordingStore(),f.clock,f.nanos::get,true);
   assertEquals("UNAVAILABLE",broken.readLeaderboard(f.other,Leaderboard.Period.SEASON,Leaderboard.Category.FORMAL).status());
  }
- @Test void httpRequiresLoginValidFiltersAndNoStore() throws Exception {
+ @Test void httpRequiresValidSessionAndFiltersAndNoStore() throws Exception {
   var f=new StatisticsRateLimitTest.Fixture();var store=new MatchPersistenceTest.RecordingStore(){
    @Override public LeaderboardData exportLeaderboard(String account){return new LeaderboardData(List.of(),List.of(),f.clock.instant());}
   };
   var service=new StatisticsService(f.rooms,store,f.clock,f.nanos::get,true);
   var mvc=MockMvcBuilders.standaloneSetup(new StatisticsController(f.rooms,service,ManagedCollectionTest.policy(),StatisticsHttpTest.ORIGIN,new MockEnvironment())).addFilters(new BetaRequestFilter(f.rooms)).build();
   mvc.perform(get("/api/statistics/leaderboard")).andExpect(status().isUnauthorized());
+  var guest = f.rooms.createSession("Guest");
+  mvc.perform(get("/api/statistics/leaderboard").header("Authorization", "Bearer " + guest.token()))
+    .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("AVAILABLE"))
+    .andExpect(header().string("Cache-Control", "no-store"));
+  mvc.perform(get("/api/statistics").header("Authorization", "Bearer " + guest.token())).andExpect(status().isForbidden());
   mvc.perform(get("/api/statistics/leaderboard").header("Authorization","Bearer "+f.who.token()).param("period","bad")).andExpect(status().isBadRequest());
   mvc.perform(get("/api/statistics/leaderboard").header("Authorization","Bearer "+f.who.token()).param("category","CASUAL")).andExpect(status().isBadRequest());
   mvc.perform(get("/api/statistics/leaderboard").header("Authorization","Bearer "+f.who.token())).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("AVAILABLE")).andExpect(jsonPath("$.entries").isEmpty()).andExpect(header().string("Cache-Control","no-store"));

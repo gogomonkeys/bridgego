@@ -17,12 +17,16 @@ const report: LeaderboardReport = {
 };
 beforeEach(() => vi.resetAllMocks());
 describe("leaderboard read boundary", () => {
-  it("requires authentication before requesting statistics", async () => {
-    vi.mocked(accountRequest).mockResolvedValueOnce({ signedIn: false });
-    await expect(readLeaderboard("t", "SEASON", "FORMAL")).rejects.toThrow(
-      "Sign-in required",
-    );
+  it("allows a valid guest session to request the public ranking without a Google status read", async () => {
+    vi.mocked(accountRequest).mockResolvedValueOnce(report);
+    expect(await readLeaderboard("guest", "SEASON", "FORMAL")).toEqual(report);
     expect(accountRequest).toHaveBeenCalledTimes(1);
+    expect(accountRequest).toHaveBeenCalledWith(
+      "/statistics/leaderboard?period=SEASON&category=FORMAL",
+      "GET",
+      undefined,
+      "guest",
+    );
   });
   it("never requests casual rankings, even from an untyped caller", async () => {
     await expect(
@@ -31,17 +35,16 @@ describe("leaderboard read boundary", () => {
     expect(accountRequest).not.toHaveBeenCalled();
   });
   it("rejects casual response instead of mixing it into formal results", async () => {
-    vi.mocked(accountRequest)
-      .mockResolvedValueOnce({ signedIn: true })
-      .mockResolvedValueOnce({ ...report, category: "CASUAL" });
+    vi.mocked(accountRequest).mockResolvedValueOnce({
+      ...report,
+      category: "CASUAL",
+    });
     await expect(readLeaderboard("t", "SEASON", "FORMAL")).rejects.toThrow(
       "Invalid leaderboard response",
     );
   });
   it("requests exact category and period and preserves backend ranks", async () => {
-    vi.mocked(accountRequest)
-      .mockResolvedValueOnce({ signedIn: true })
-      .mockResolvedValueOnce(report);
+    vi.mocked(accountRequest).mockResolvedValueOnce(report);
     expect(await readLeaderboard("t", "SEASON", "FORMAL")).toEqual(report);
     expect(accountRequest).toHaveBeenLastCalledWith(
       "/statistics/leaderboard?period=SEASON&category=FORMAL",
@@ -63,36 +66,35 @@ describe("leaderboard read boundary", () => {
     const first = readLeaderboard("dedup", "SEASON", "FORMAL");
     const second = readLeaderboard("dedup", "SEASON", "FORMAL");
     expect(second).toBe(first);
-    resolve({ signedIn: true });
+    resolve(report);
     await first;
-    expect(accountRequest).toHaveBeenCalledTimes(2);
+    expect(accountRequest).toHaveBeenCalledTimes(1);
   });
   it("rejects cross-period or invalid results rather than showing wrong statistics", async () => {
-    vi.mocked(accountRequest)
-      .mockResolvedValueOnce({ signedIn: true })
-      .mockResolvedValueOnce({ ...report, period: "LIFETIME" });
+    vi.mocked(accountRequest).mockResolvedValueOnce({
+      ...report,
+      period: "LIFETIME",
+    });
     await expect(readLeaderboard("t", "SEASON", "FORMAL")).rejects.toThrow(
       "Invalid leaderboard response",
     );
   });
   it("rejects impossible counts", async () => {
-    vi.mocked(accountRequest)
-      .mockResolvedValueOnce({ signedIn: true })
-      .mockResolvedValueOnce({
-        ...report,
-        entries: [
-          {
-            rank: 1,
-            nickname: "Player",
-            totalScore: 0,
-            matches: 1,
-            wins: 2,
-            losses: 0,
-            draws: 0,
-            mine: true,
-          },
-        ],
-      });
+    vi.mocked(accountRequest).mockResolvedValueOnce({
+      ...report,
+      entries: [
+        {
+          rank: 1,
+          nickname: "Player",
+          totalScore: 0,
+          matches: 1,
+          wins: 2,
+          losses: 0,
+          draws: 0,
+          mine: true,
+        },
+      ],
+    });
     await expect(readLeaderboard("t", "SEASON", "FORMAL")).rejects.toThrow(
       "Invalid leaderboard entries",
     );

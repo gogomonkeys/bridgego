@@ -21,7 +21,7 @@ public final class Leaderboard {
         period, category, List.of(), reason, retry);
   }
   public static Report project(StatsStore.LeaderboardData data, String requester, Instant now, Period period, Category category) {
-    Objects.requireNonNull(data); Objects.requireNonNull(requester); Objects.requireNonNull(now);
+    Objects.requireNonNull(data); Objects.requireNonNull(now);
     Objects.requireNonNull(period); Objects.requireNonNull(category);
     if (data.asOf() != null && (data.asOf().isAfter(now)
         || !QuarterlyRetention.currentQuarterStart(data.asOf()).equals(QuarterlyRetention.currentQuarterStart(now))))

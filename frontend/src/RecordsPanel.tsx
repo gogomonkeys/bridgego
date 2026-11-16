@@ -165,7 +165,13 @@ export function CurrentDealRecords({
   );
 }
 
-export function SettlementRecords({ game }: { game: Game }) {
+export function SettlementRecords({
+  game,
+  ownTeam,
+}: {
+  game: Game;
+  ownTeam?: Team;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const result =
     game.completedDealResults.find((deal) => deal.dealId === selected) ??
@@ -185,7 +191,7 @@ export function SettlementRecords({ game }: { game: Game }) {
         ))}
       </div>
       {result ? (
-        <DealBreakdown result={result} roster={game.roster} />
+        <DealBreakdown result={result} roster={game.roster} ownTeam={ownTeam} />
       ) : (
         <p className="empty-record">第一局結束後，這裡會保留各局的計分明細。</p>
       )}

@@ -156,3 +156,89 @@ describe("shared tutorial isolation", () => {
     expect(css).toContain("height: auto");
   });
 });
+
+it("final tutorial has one completion exit and keeps previous explanation navigable", () => {
+  let tree!: ReturnType<typeof create>;
+  act(() => {
+    tree = create(
+      <TutorialPlay
+        game={{ ...game, lesson: "FREE_PLAY" }}
+        busy={false}
+        onPlay={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+  });
+  const buttons = tree.root.findAllByType("button");
+  expect(
+    buttons.filter((b) => b.children.join("") === "完成，回大廳"),
+  ).toHaveLength(1);
+  expect(
+    buttons.filter((b) =>
+      ["回到大廳", "離開教學"].includes(b.children.join("")),
+    ),
+  ).toHaveLength(0);
+  expect(tree.root.findByType(HandPanel).props.enabled).toBe(false);
+  act(() =>
+    buttons.find((b) => b.children.join("") === "上一步")!.props.onClick(),
+  );
+  expect(
+    tree.root
+      .findAllByType("button")
+      .some((b) => b.children.join("") === "離開教學"),
+  ).toBe(true);
+  act(() => tree.unmount());
+});
+
+it("separates public winner explanation from the second interactive play without rewinding the session", () => {
+  const first = {
+    number: 1,
+    leaderSeat: 1,
+    winnerSeat: 3,
+    cardsVisible: true,
+    plays: [
+      {
+        seat: 1,
+        card: { suit: "CLUB" as const, rank: 2 },
+        source: "MANUAL" as const,
+      },
+    ],
+  };
+  const snapshot: TutorialSnapshot = {
+    ...game,
+    lesson: "WIN_TRICK",
+    revision: 1,
+    completedTricks: [first],
+  };
+  const play = vi.fn();
+  let tree!: ReturnType<typeof create>;
+  act(() => {
+    tree = create(
+      <TutorialPlay
+        game={snapshot}
+        busy={false}
+        onPlay={play}
+        onExit={vi.fn()}
+      />,
+    );
+  });
+  const panel = () => tree.root.findByType(GamePanel);
+  expect(panel().props.room.phase).toBe("TRICK_RESULT");
+  expect(panel().props.room.game.play.currentTrick).toEqual(first.plays);
+  expect(panel().props.tutorial.actionLocked).toBe(true);
+  expect(JSON.stringify(tree.toJSON())).toContain("6 / 9");
+  const button = (name: string) =>
+    tree.root
+      .findAllByType("button")
+      .find((b) => b.children.join("") === name)!;
+  act(() => button("下一步").props.onClick());
+  expect(panel().props.room.phase).toBe("PLAYING");
+  expect(panel().props.tutorial.actionLocked).toBe(false);
+  expect(JSON.stringify(tree.toJSON())).toContain("7 / 9");
+  act(() => button("上一步").props.onClick());
+  act(() => button("下一步").props.onClick());
+  expect(play).not.toHaveBeenCalled();
+  expect(snapshot.revision).toBe(1);
+  expect(snapshot.currentTrick).toEqual(game.currentTrick);
+  act(() => tree.unmount());
+});

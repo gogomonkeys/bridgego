@@ -1,4 +1,4 @@
-import { accountRequest, type AuthStatus } from "./google-login";
+import { accountRequest } from "./google-login";
 export type LeaderboardPeriod = "SEASON" | "LIFETIME";
 export type LeaderboardCategory = "FORMAL";
 export interface LeaderboardEntry {
@@ -39,13 +39,6 @@ async function fetchLeaderboard(
   period: LeaderboardPeriod,
   category: LeaderboardCategory,
 ): Promise<LeaderboardReport> {
-  const auth = await accountRequest<AuthStatus>(
-    "/auth/status",
-    "GET",
-    undefined,
-    token,
-  );
-  if (auth.signedIn !== true) throw new Error("Sign-in required");
   const report = await accountRequest<LeaderboardReport>(
     `/statistics/leaderboard?period=${period}&category=${category}`,
     "GET",

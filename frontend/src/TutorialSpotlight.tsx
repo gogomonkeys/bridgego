@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import "./tutorial-spotlight.css";
-type Box = { top: number; left: number; width: number; height: number };
+type Box = {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  radius?: number;
+};
 export function spotlightLayout(
   target: Box | null,
   width: number,
@@ -16,13 +22,19 @@ export function spotlightLayout(
       hole: null,
       dialog: { top: Math.max(12, height - dh - 12), left, width: dw },
     };
-  const x = Math.max(4, target.left - 5),
-    y = Math.max(4, target.top - 5);
-  const right = Math.min(width - 4, target.left + target.width + 5);
-  const bottom = Math.min(height - 4, target.top + target.height + 5);
+  const x = Math.max(4, target.left),
+    y = Math.max(4, target.top);
+  const right = Math.min(width - 4, target.left + target.width);
+  const bottom = Math.min(height - 4, target.top + target.height);
   const hole =
     right > x && bottom > y
-      ? { left: x, top: y, width: right - x, height: bottom - y }
+      ? {
+          left: x,
+          top: y,
+          width: right - x,
+          height: bottom - y,
+          borderRadius: target.radius ?? 14,
+        }
       : null;
   const below = target.top + target.height + 12,
     above = target.top - dh - 12;
@@ -31,8 +43,24 @@ export function spotlightLayout(
       ? below
       : above >= 12
         ? above
-        : Math.max(12, height - dh - 12);
+        : target.top - dh - 6 >= 8
+          ? target.top - dh - 6
+          : target.top + target.height + 6 + dh <= height - 8
+            ? target.top + target.height + 6
+            : Math.max(12, height - dh - 12);
   return { hole, dialog: { top, left, width: dw } };
+}
+/** Only asks for a one-time placement correction when both blocks can fit. */
+export function spotlightNeedsAdjustment(
+  target: Box,
+  height: number,
+  dialogHeight: number,
+) {
+  return (
+    target.top + target.height + dialogHeight + 24 > height &&
+    target.top - dialogHeight - 12 < 12 &&
+    target.height + dialogHeight + 36 <= height
+  );
 }
 type Layout = ReturnType<typeof spotlightLayout>;
 /** Navigation is local; caller owns all legal game actions. */
@@ -50,7 +78,9 @@ export default function TutorialSpotlight({
   onExit,
   interactive = false,
   allowInteraction,
+  complete = false,
 }: {
+  complete?: boolean;
   target: string;
   title: string;
   children: ReactNode;
@@ -73,16 +103,50 @@ export default function TutorialSpotlight({
     if (typeof document === "undefined" || typeof window === "undefined")
       return;
     let raf = 0;
+    let adjustmentPending = false;
+    let adjustmentBudget = 2;
+    let userInteracted = false;
+    const stopAdjustment = () => {
+      userInteracted = true;
+    };
     const getTarget = () => {
+      if (!target) return null;
       try {
         return document.querySelector<HTMLElement>(target);
       } catch {
         return null;
       }
     };
-    const measure = () => {
-      const box = getTarget()?.getBoundingClientRect();
-      const dh = dialogRef.current?.getBoundingClientRect().height || 190;
+    const measure = (allowAdjustment = false) => {
+      const element = getTarget();
+      let box = element?.getBoundingClientRect();
+      const measuredHeight = dialogRef.current?.getBoundingClientRect().height;
+      const dh = measuredHeight || 190;
+      // The first measurement can precede the popup's final width/text wrap.
+      // ResizeObserver may correct placement, but scrolling itself never does.
+      // Stop correcting as soon as the person interacts, and cap attempts.
+      if (
+        allowAdjustment &&
+        measuredHeight &&
+        element &&
+        box &&
+        !userInteracted &&
+        adjustmentBudget > 0 &&
+        spotlightNeedsAdjustment(box, window.innerHeight, dh) &&
+        typeof element.scrollIntoView === "function"
+      ) {
+        adjustmentBudget--;
+        element.scrollIntoView({
+          block: "start",
+          inline: "nearest",
+          behavior: "instant",
+        });
+        window.scrollBy?.({ top: -12, behavior: "instant" });
+        box = element.getBoundingClientRect();
+      }
+      const radius = element
+        ? parseFloat(window.getComputedStyle(element).borderTopLeftRadius) || 0
+        : 0;
       setLayout(
         spotlightLayout(
           box
@@ -91,6 +155,7 @@ export default function TutorialSpotlight({
                 left: box.left,
                 width: box.width,
                 height: box.height,
+                radius,
               }
             : null,
           window.innerWidth,
@@ -99,10 +164,17 @@ export default function TutorialSpotlight({
         ),
       );
     };
-    const update = () => {
+    const update = (allowAdjustment = false) => {
+      adjustmentPending ||= allowAdjustment;
       window.cancelAnimationFrame(raf);
-      raf = window.requestAnimationFrame(measure);
+      raf = window.requestAnimationFrame(() => {
+        const shouldAdjust = adjustmentPending;
+        adjustmentPending = false;
+        measure(shouldAdjust);
+      });
     };
+    const resizeUpdate = () => update(true);
+    const scrollUpdate = () => update(false);
     const element = getTarget();
     if (element && typeof element.scrollIntoView === "function")
       element.scrollIntoView({
@@ -110,40 +182,30 @@ export default function TutorialSpotlight({
         inline: "nearest",
         behavior: "instant",
       });
-    if (element) {
-      const box = element.getBoundingClientRect();
-      const dh = dialogRef.current?.getBoundingClientRect().height || 190;
-      const fitsBelow = box.bottom + dh + 24 <= window.innerHeight;
-      const fitsAbove = box.top - dh - 12 >= 12;
-      if (
-        !fitsBelow &&
-        !fitsAbove &&
-        box.height + dh + 36 <= window.innerHeight &&
-        typeof element.scrollIntoView === "function"
-      ) {
-        element.scrollIntoView({
-          block: "start",
-          inline: "nearest",
-          behavior: "instant",
-        });
-        window.scrollBy?.({ top: -12, behavior: "instant" });
-      }
-    }
-    measure();
+    measure(true);
     dialogRef.current?.focus({ preventScroll: true });
     const observer =
-      typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(resizeUpdate)
+        : null;
     if (element) observer?.observe(element);
     if (dialogRef.current) observer?.observe(dialogRef.current);
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    window.visualViewport?.addEventListener("resize", update);
+    window.addEventListener("resize", resizeUpdate);
+    window.addEventListener("scroll", scrollUpdate, true);
+    window.visualViewport?.addEventListener("resize", resizeUpdate);
+    for (const event of ["pointerdown", "touchstart", "wheel", "keydown"])
+      window.addEventListener(event, stopAdjustment, {
+        capture: true,
+        passive: true,
+      });
     return () => {
+      for (const event of ["pointerdown", "touchstart", "wheel", "keydown"])
+        window.removeEventListener(event, stopAdjustment, true);
       observer?.disconnect();
       window.cancelAnimationFrame(raf);
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-      window.visualViewport?.removeEventListener("resize", update);
+      window.removeEventListener("resize", resizeUpdate);
+      window.removeEventListener("scroll", scrollUpdate, true);
+      window.visualViewport?.removeEventListener("resize", resizeUpdate);
     };
   }, [target, title, stepKey]);
   useEffect(() => {
@@ -192,7 +254,7 @@ export default function TutorialSpotlight({
   }, [target, interactive, busy, onExit]);
   const hole = layout?.hole;
   const content = (
-    <div className="tutorial-spotlight-layer">
+    <div className={`tutorial-spotlight-layer${hole ? " has-spotlight" : ""}`}>
       {hole ? (
         <>
           <div
@@ -261,7 +323,7 @@ export default function TutorialSpotlight({
           >
             上一步
           </button>
-          {onNext && (
+          {onNext && !complete && (
             <button
               type="button"
               className="primary"
@@ -273,11 +335,15 @@ export default function TutorialSpotlight({
           )}
           <button
             type="button"
-            className="tutorial-popup-exit"
+            className={
+              complete
+                ? "primary tutorial-popup-complete"
+                : "tutorial-popup-exit"
+            }
             disabled={busy}
             onClick={onExit}
           >
-            離開教學
+            {complete ? "完成，回大廳" : "離開教學"}
           </button>
         </nav>
       </aside>

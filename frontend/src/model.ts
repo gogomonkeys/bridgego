@@ -221,6 +221,7 @@ export interface MatchArchive {
   forfeitEvents: Game["forfeitEvents"];
 }
 export interface RoomSummary {
+  hostDisplayName?: string | null;
   roomType?: RoomType;
   plannedDeals?: 1 | 3 | 5;
   state: "WAITING" | "ACTIVE" | "FINISHED";

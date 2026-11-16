@@ -1,0 +1,29 @@
+import {useSyncExternalStore} from "react";
+import {playedRoom} from "../../frontend/src/test-fixtures";
+const p=new URLSearchParams(location.search);
+const signed=p.get("identity")==="google";
+const name=p.has("long")?"森林裡暱稱特別長的小夥伴":"森林朋友";
+const r=playedRoom();
+r.phase="WAITING";r.game=null;r.roomId="12345678-1111-1111-1111-111111111111";r.canStart=false;r.allReady=false;r.lastMatch=null;
+r.hostPlayerId=r.players[0].playerId;
+r.players.forEach(x=>{x.displayName=name;x.connected=true;x.ready=false;x.playerType="HUMAN";x.controlMode="HUMAN";});
+const listeners=new Set<()=>void>();
+let state={initialized:true,session:{token:"synthetic",playerId:r.you!.playerId,displayName:name},room:p.get("mode")==="room"?r:null,rooms:["12345678-1111-1111-1111-111111111111","12345678-2222-2222-2222-222222222222"].map(roomId=>({roomId,hostDisplayName:name,capacity:4,playerCount:2,phase:"WAITING",state:"WAITING",joinable:true,plannedDeals:3,roomType:"CASUAL"})),busy:false,status:"online",networkAvailable:true,error:null,notice:null,pendingAction:null,snapshotReceivedAt:Date.now(),connectionEpoch:0};
+export const useClient=()=>useSyncExternalStore(fn=>{listeners.add(fn);return()=>listeners.delete(fn);},()=>state,()=>state);
+export const getClientState=()=>state;
+export const getConnectionDiagnostics=()=>[];
+const update=(patch:object)=>{state={...state,...patch};listeners.forEach(f=>f());};
+const noop=async()=>{};
+export const client={initialize:noop,clearError:noop,refresh:noop,forget:noop,create:noop,join:async()=>update({room:r}),leave:async()=>update({room:null}),ready:noop,start:noop,rematch:noop,addComputer:noop,removeComputer:noop,retryCommand:noop,synchronize:noop};
+// All requests are intercepted locally: fixture cannot access real API or storage.
+window.fetch=async(input:RequestInfo|URL)=>{
+ const url=String(input);
+ if(p.has("error") && url.includes("/auth/status"))throw new Error("Synthetic offline access check");
+ let data:unknown;
+ if(url.includes("/statistics/config"))data={enabled:true,consentVersion:"statistics-v4"};
+ else if(url.includes("/auth/status"))data={signedIn:signed};
+ else if(url.includes("/tutorial/status"))data={enabled:true};
+ else if(url.includes("/statistics/leaderboard"))data={status:"AVAILABLE",quarter:"2026-Q4",asOf:"2026-11-16T00:00:00Z",period:"SEASON",category:"FORMAL",entries:[]};
+ else throw new Error("Synthetic preview blocks network");
+ return new Response(JSON.stringify(data),{status:200,headers:{"Content-Type":"application/json"}});
+};

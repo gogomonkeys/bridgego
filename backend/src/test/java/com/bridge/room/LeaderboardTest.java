@@ -29,6 +29,15 @@ class LeaderboardTest {
   var report=project(accounts,"id104");assertEquals(101,report.entries().size());
   assertEquals(105,report.entries().get(100).rank());assertTrue(report.entries().get(100).mine());
  }
+ @Test void guestSeesPublicTopHundredWithoutMineOrPrivateIdentifiers() throws Exception {
+  var accounts=new ArrayList<StatsStore.LeaderboardAccount>();
+  for(int i=0;i<105;i++)accounts.add(account("id"+i,105-i,1,0));
+  var report=Leaderboard.project(new StatsStore.LeaderboardData(List.of(),accounts,NOW),null,NOW,Leaderboard.Period.LIFETIME,Leaderboard.Category.FORMAL);
+  assertEquals(100,report.entries().size());assertTrue(report.entries().stream().noneMatch(Leaderboard.Entry::mine));
+  String json=new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(report);
+  for(var account:accounts)assertFalse(json.contains(account.accountId()));
+  assertFalse(json.contains("email"));assertFalse(json.contains("accountId"));
+ }
  @Test void seasonDoesNotIncludeCarry() {
   var a=account("a",100,5,0);var data=new StatsStore.LeaderboardData(List.of(),List.of(a),NOW);
   assertTrue(Leaderboard.project(data,"a",NOW,Leaderboard.Period.SEASON,Leaderboard.Category.FORMAL).entries().isEmpty());

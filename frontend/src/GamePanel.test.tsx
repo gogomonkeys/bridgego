@@ -201,7 +201,7 @@ describe("v0.5 static presentation, not browser interactions", () => {
     };
     const html = render(room);
     expect(html).toContain("重連結果待裁定");
-    expect(html).not.toContain("東西隊獲勝");
+    expect(html).not.toContain("我方落敗");
     expect(html).not.toContain('aria-label="四人牌桌"');
   });
   it("distinguishes no-contest from scored draw and retains completed score", () => {
@@ -215,14 +215,14 @@ describe("v0.5 static presentation, not browser interactions", () => {
       failedTeamIds: ["NS", "EW"],
     };
     expect(render(room)).toContain("本場無勝負");
-    expect(render(room)).toContain("南北 5 分");
+    expect(render(room)).toContain("我方 5 分");
     room.game!.matchResult = {
       outcome: "SCORED",
       winnerTeamId: null,
       reason: "THREE_DEALS_COMPLETE",
       failedTeamIds: [],
     };
-    expect(render(room)).toContain("3 局總分平手");
+    expect(render(room)).toContain("<h3>平手</h3>");
   });
   it("forfeit winner comes from server, not current points", () => {
     const room = gameRoom("MATCH_RESULT");
@@ -232,7 +232,7 @@ describe("v0.5 static presentation, not browser interactions", () => {
       reason: "MANUAL_EXIT",
       failedTeamIds: ["NS"],
     };
-    expect(render(room)).toContain("東西隊獲勝");
+    expect(render(room)).toContain("我方落敗");
     expect(render(room)).toContain("不以目前積分改判");
   });
   it("attributes departed player through frozen roster", () => {

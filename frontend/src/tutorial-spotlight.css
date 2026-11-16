@@ -76,3 +76,23 @@
 .tutorial-popup-actions button:disabled {
   opacity: 0.45;
 }
+/* The rounded spotlight itself masks every outside pixel, including corners. */
+.tutorial-spotlight-layer.has-spotlight .tutorial-shade {
+  background: transparent;
+}
+.tutorial-spotlight-ring {
+  box-shadow: 0 0 0 100vmax rgb(22 29 25 / 68%);
+}
+.tutorial-popup .tutorial-popup-copy p {
+  color: #493724;
+  font-size: 15px;
+  font-weight: 500;
+}
+.tutorial-popup .tutorial-popup-copy small {
+  display: block;
+  color: #786b59;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 6px 0 12px;
+}
+.tutorial-popup-actions .tutorial-popup-complete { margin-left: auto; }

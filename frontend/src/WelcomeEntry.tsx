@@ -1,8 +1,5 @@
-import {
-  acceptStatistics,
-  readStatisticsConfig,
-  type StatisticsConfig,
-} from "./statistics";
+import { useEntryReadiness } from "./use-entry-readiness";
+import { acceptStatistics } from "./statistics";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { client, getClientState } from "./client";
 import type { Session } from "./model";
@@ -22,8 +19,6 @@ import {
   accountRequest,
   createLoginAttempt,
   loadGoogleIdentity,
-  readAuthConfig,
-  type AuthConfig,
   type AuthStatus,
   type LoginPhase,
   type LoginPurpose,
@@ -39,19 +34,10 @@ export default function WelcomeEntry({
   busy: boolean;
   onEnter: (token: string, experiment?: boolean) => void;
 }) {
-  const [statisticsConfig, setStatisticsConfig] =
-    useState<StatisticsConfig | null>(null);
-  const [statisticsFailed, setStatisticsFailed] = useState(false);
-  const loadStatistics = () => {
-    setStatisticsFailed(false);
-    void readStatisticsConfig()
-      .then((value) => {
-        if (live.current) setStatisticsConfig(value);
-      })
-      .catch(() => {
-        if (live.current) setStatisticsFailed(true);
-      });
-  };
+  const readiness = useEntryReadiness();
+  const statisticsConfig = readiness.statistics;
+  const config = readiness.auth;
+  const configFailed = readiness.authFailed;
   const [nicknameProgress, setNicknameProgress] = useState<
     "idle" | "saving" | "checking"
   >("idle");
@@ -62,8 +48,6 @@ export default function WelcomeEntry({
   const [name, setName] = useState("");
   const [composing, setComposing] = useState(false);
   const nickname = nicknameValidation(name);
-  const [config, setConfig] = useState<AuthConfig | null>(null);
-  const [configFailed, setConfigFailed] = useState(false);
   const [phase, setPhase] = useState<LoginPhase>("idle");
   const [purpose, setPurpose] = useState<LoginPurpose>("verify");
   const [message, setMessage] = useState("");
@@ -153,23 +137,7 @@ export default function WelcomeEntry({
   };
   useEffect(() => {
     live.current = true;
-    let current = true;
-    void readStatisticsConfig()
-      .then((value) => {
-        if (current) setStatisticsConfig(value);
-      })
-      .catch(() => {
-        if (current) setStatisticsFailed(true);
-      });
-    void readAuthConfig()
-      .then((value) => {
-        if (current) setConfig(value);
-      })
-      .catch(() => {
-        if (current) setConfigFailed(true);
-      });
     return () => {
-      current = false;
       live.current = false;
     };
   }, []);
@@ -299,6 +267,7 @@ export default function WelcomeEntry({
   }, [availablePurpose, phase, purpose]);
   const choose = async (choice: "account" | "guest") => {
     if (
+      !readiness.ready ||
       !statisticsConfig ||
       choiceFlight.current ||
       recoverySubmitted ||
@@ -488,7 +457,11 @@ export default function WelcomeEntry({
       });
   };
   const disabled =
-    !statisticsConfig || busy || preparing || nicknameProgress !== "idle";
+    !readiness.ready ||
+    !statisticsConfig ||
+    busy ||
+    preparing ||
+    nicknameProgress !== "idle";
   return (
     <div className="welcome-grid">
       <section
@@ -497,18 +470,38 @@ export default function WelcomeEntry({
       >
         <span className="eyebrow">WELCOME TO THE TABLE</span>
         <h2>歡迎來到 BridgeGo</h2>
-        <p>選用 Google 帳號，或直接當訪客遊玩。</p>
-        {!statisticsConfig && (
-          <p role="status">
-            {statisticsFailed
-              ? "統計與資料使用設定暫時無法確認，請重試後再進入。"
-              : "正在確認資料使用設定…"}
-            {statisticsFailed && (
-              <button className="text-button" onClick={loadStatistics}>
-                重試設定
-              </button>
-            )}
+        <p>
+          {nicknameStep
+            ? "請輸入遊戲暱稱。"
+            : "選用 Google 帳號，或直接當訪客遊玩。"}
+        </p>
+        {!readiness.ready && (
+          <p role="status" aria-live="polite">
+            {readiness.phase === "stopped"
+              ? "服務暫時無法連線，請稍後重試。"
+              : readiness.phase === "maintenance"
+                ? "服務正在切換或維護，請稍候…"
+                : readiness.phase === "limited"
+                  ? "連線較頻繁，請稍候再試。"
+                  : readiness.phase === "waiting"
+                    ? "服務可能正在喚醒，請稍候…"
+                    : "正在連線，請稍候…"}
           </p>
+        )}
+        {readiness.phase === "stopped" && (
+          <button
+            className="text-button"
+            onClick={readiness.retry}
+            disabled={
+              !readiness.retryAllowed ||
+              busy ||
+              preparing ||
+              nicknameProgress !== "idle" ||
+              phase !== "idle"
+            }
+          >
+            重新連線
+          </button>
         )}
         {nicknameStep && (
           <form onSubmit={submit}>
@@ -591,9 +584,13 @@ export default function WelcomeEntry({
                     : "使用 Google 登入"
                   : availablePurpose === "verify"
                     ? "Google 驗證（測試）"
-                    : config || configFailed
-                      ? "Google 登入尚未開放"
-                      : "正在確認 Google 服務…"}
+                    : configFailed
+                      ? "Google 暫時無法連線"
+                      : config?.enabled === false
+                        ? "Google 登入尚未開放"
+                        : config
+                          ? "Google 暫時無法登入"
+                          : "正在確認 Google 服務…"}
             </button>
           ))}
         {experimentMessage && (

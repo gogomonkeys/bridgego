@@ -3348,8 +3348,9 @@ body {
     bottom: 2px;
     right: 3px;
   }
-  .match-workspace .own-hand-panel .overlap-hand .hand-card.selected-card {
-    transform: translateY(-18px);
+  .match-workspace .own-hand-panel .overlap-hand .hand-card.selected-card,
+  .match-workspace .own-hand-panel .expanded-hand .hand-card.selected-card {
+    transform: translateY(-4px);
     z-index: 1;
     border: 2px solid #98702d;
     box-shadow: 0 4px 10px #5b412d55;
@@ -7239,3 +7240,59 @@ body {
 .tutorial-panel { min-width: 0; width: 100%; }
 .match-shell .tutorial-panel { padding: 0; margin: 0; border: 0; background: transparent; display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .match-shell .tutorial-workspace { flex: 1; min-height: 0; }
+
+/* Bid ownership is a corner tab, never an extra identity row. */
+.table-player > .seat-contract-marker {
+  position: absolute;
+  top: -7px;
+  right: 6px;
+  z-index: 2;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px #49372425;
+}
+/* One balanced contract row; wrap the name rather than pushing trump aside. */
+.contract-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+}
+.contract-divider { display: none; }
+.contract-holder { max-width: none; }
+.contract-progress { justify-content: space-between; }
+.viewport-game .table-dashboard .table-status-strip.has-contract {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 5px 8px;
+  width: 100%;
+}
+.table-status-strip .contract-badge { grid-column: 1; grid-row: span 2; }
+.table-status-strip.has-contract .redeal-count { grid-column: 1 / -1; }
+.table-status-strip .trick-number-label { grid-column: 2; text-align: center; }
+.viewport-game .table-dashboard .privilege-labelled {
+  grid-column: 2;
+  margin: 0;
+  min-width: 0;
+  padding: 3px 6px;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f5f0e6;
+}
+.viewport-game .table-dashboard .privilege-teams {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 7px;
+}
+@media (max-width: 420px) {
+  .viewport-game .table-dashboard .table-status-strip { gap: 4px; }
+  .contract-badge { padding: 5px 7px; font-size: 12px; }
+  .contract-heading { gap: 3px 6px; }
+  .contract-progress { font-size: 11px; gap: 2px 5px; }
+}
+/* Untimed explanations have no clock; do not reserve an empty desktop column. */
+.viewport-game .table-dashboard.without-turn-feedback {
+  grid-template-columns: minmax(0, 1fr);
+}
+.table-dashboard.without-turn-feedback .table-turn-feedback { display: none; }

@@ -64,11 +64,13 @@ export default function TutorialBidding({
         guide: (
           <TutorialSpotlight
             target={
-              step === 0 ? ".table-player.position-top" : ".phase-main-controls"
+              step === 0
+                ? ".table-player.position-bottom"
+                : ".phase-main-controls"
             }
             stepKey={`bid:${step}:${!!call}`}
             title={pages[step][0]}
-            progress={`${step + 1} / 8`}
+            progress={`${step + 1} / 9`}
             busy={busy}
             allowInteraction={step === 2}
             onExit={onBack}

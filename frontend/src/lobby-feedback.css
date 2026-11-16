@@ -1,0 +1,62 @@
+.forest-shell .lobby-panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.forest-shell .lobby-panel-heading .lobby-greeting {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.forest-shell .lobby-panel-heading .lobby-statistics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+.forest-shell .lobby-tutorial-entry {
+  margin: 12px 0 18px;
+}
+.forest-shell .lobby-entry-retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+.forest-shell .room-display-title {
+  overflow-wrap: anywhere;
+}
+.forest-shell .room-heading h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.forest-shell .room-heading h2 small {
+  font-size: 0.75rem;
+  color: var(--muted, #665d50);
+  font-weight: normal;
+}
+.forest-shell .room-list li > div {
+  min-width: 0;
+}
+@media (max-width: 480px) {
+  .forest-shell .lobby-panel-heading .lobby-statistics-actions {
+    width: 100%;
+    margin: 0;
+  }
+  .forest-shell .lobby-statistics-actions .lobby-statistics-button {
+    flex: 1 1 110px;
+    min-width: 0;
+    justify-content: center;
+  }
+  .forest-shell .room-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .forest-shell .room-heading > div {
+    min-width: 0;
+    flex: 1 1 180px;
+  }
+}

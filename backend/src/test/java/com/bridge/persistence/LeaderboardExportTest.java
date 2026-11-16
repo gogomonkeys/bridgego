@@ -7,8 +7,9 @@ class LeaderboardExportTest {
   var f=BatchedStatisticsExportTest.fake();String id=BatchedStatisticsExportTest.account(f);int writes=f.writes;
   f.tabs.get("accounts").set(1,List.of(id,"2","Monkey","private@example.test",LifetimeStatistics.encode(LifetimeStatsExportTest.carry())));
   try(var store=new SheetsStatsStore(BatchedStatisticsExportTest.bound(f),1,LifetimeStatsExportTest.CLOCK)) {
+   var publicData=store.exportLeaderboard(null);assertEquals(1,publicData.accounts().size());
    var data=store.exportLeaderboard(id);assertEquals(1,data.accounts().size());assertEquals("Monkey",data.accounts().get(0).nickname());
-   assertEquals(1,data.current().size());assertEquals(3,f.batches);assertEquals(writes,f.writes);
+   assertEquals(1,data.current().size());assertEquals(6,f.batches);assertEquals(writes,f.writes);
    assertFalse(data.toString().contains("private@example.test"));
   }
  }

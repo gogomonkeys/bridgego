@@ -1,3 +1,4 @@
+import { publicEntryRead } from "./public-entry-read";
 import { getClientState } from "./client";
 import { errorMessages } from "./error-messages";
 export class AccountRequestError extends Error {}
@@ -53,10 +54,13 @@ export async function accountRequest<T>(
     // Linking waits for several Sheets reads and an atomic write/readback. Do not
     // revoke a valid Google sign-in just because that work outlasts a UI read.
     signal: AbortSignal.timeout(
-      path === "/auth/google" || path === "/auth/nickname" ||
+      path === "/auth/google" ||
+        path === "/auth/nickname" ||
         path === "/auth/google/recover" ||
-        path === "/statistics" || path.startsWith("/statistics/leaderboard") ||
-        path === "/tutorial/status" || path === "/tutorial/choice"
+        path === "/statistics" ||
+        path.startsWith("/statistics/leaderboard") ||
+        path === "/tutorial/status" ||
+        path === "/tutorial/choice"
         ? 60000
         : 8000,
     ),
@@ -82,13 +86,16 @@ export async function accountRequest<T>(
 }
 
 // Config is public and contains no identity or credential. Reading it never loads Google.
-export async function readAuthConfig(): Promise<AuthConfig> {
-  const response = await fetch("/api/auth/config", {
-    cache: "no-store",
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!response.ok) throw new Error("Google 服務設定暫時無法確認。");
-  return response.json() as Promise<AuthConfig>;
+export async function readAuthConfig(
+  signal?: AbortSignal,
+): Promise<AuthConfig> {
+  const value = (await publicEntryRead(
+    "/api/auth/config",
+    signal,
+  )) as AuthConfig;
+  if (typeof value.enabled !== "boolean" || typeof value.clientId !== "string")
+    throw new Error("Google 服務設定暫時無法確認。");
+  return value;
 }
 
 export interface GoogleIdentity {

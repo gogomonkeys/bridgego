@@ -1,3 +1,6 @@
+import LeaderboardPanel from "./LeaderboardPanel";
+import { roomTitle, shortRoomId } from "./room-display";
+import "./lobby-feedback.css";
 import TutorialHelpEntry from "./TutorialHelpEntry";
 import TutorialFlow from "./TutorialFlow";
 import RoomTypeChoice, { RoomTypeBadge, roomTypeLabel } from "./RoomTypeChoice";
@@ -70,6 +73,9 @@ export default function App() {
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
   }, []);
+  const [statisticsEntryState, setStatisticsEntryState] = useState<
+    "loading" | "ready" | "guest" | "disabled" | "error"
+  >("loading");
   const [statisticsAuth, setStatisticsAuth] = useState<string | null>(null);
   const [accountEpoch, setAccountEpoch] = useState(0);
   const accountChanging = useRef(false);
@@ -105,16 +111,24 @@ export default function App() {
       accountChanging.current
     )
       return;
+    setStatisticsEntryState("loading");
     void Promise.all([
       readStatisticsConfig(),
       accountRequest<AuthStatus>("/auth/status", "GET", undefined, token),
     ])
       .then(([config, auth]) => {
-        if (live && config.enabled && auth.signedIn === true)
-          setStatisticsAuth(token);
+        if (!live) return;
+        setStatisticsEntryState(
+          !config.enabled
+            ? "disabled"
+            : auth.signedIn === true
+              ? "ready"
+              : "guest",
+        );
+        if (config.enabled && auth.signedIn === true) setStatisticsAuth(token);
       })
       .catch(() => {
-        /* Unknown authorization never exposes statistics. */
+        if (live) setStatisticsEntryState("error"); // Unknown authorization never exposes private data.
       });
     return () => {
       live = false;
@@ -127,12 +141,18 @@ export default function App() {
     statisticsAuth === state.session.token &&
     !accountChanging.current,
   );
+  const canSeeLeaderboard = Boolean(
+    state.session &&
+    !state.room &&
+    enteredToken === state.session.token &&
+    !accountChanging.current,
+  );
   const [copied, setCopied] = useState(false);
   const [diagnosticCopy, setDiagnosticCopy] = useState("");
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.14.3", disconnects: diagnostics },
+    { version: "0.14.4", disconnects: diagnostics },
     null,
     2,
   );
@@ -196,7 +216,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.14.3</span>
+            <span className="eyebrow">v0.14.4</span>
           </div>
         )}
         <PwaStatus
@@ -223,16 +243,18 @@ export default function App() {
             </button>
           </p>
         )}
-        {!tutorialTableActive && page === "room" && (!state.room || state.room.phase === "WAITING") && (
-          <div className="intro">
-            <div>
-              <span className="eyebrow">v0.14.3</span>
-              <h1>
-                {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
-              </h1>
+        {!tutorialTableActive &&
+          page === "room" &&
+          (!state.room || state.room.phase === "WAITING") && (
+            <div className="intro">
+              <div>
+                <span className="eyebrow">v0.14.4</span>
+                <h1>
+                  {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
+                </h1>
+              </div>
             </div>
-          </div>
-        )}
+          )}
         {state.error && (
           <div className="alert" role="alert">
             <span>{state.error}</span>
@@ -379,13 +401,47 @@ export default function App() {
               setTutorialRequested(false);
             }}
           />
-        ) : statisticsPage && canSeeStatistics ? (
+        ) : page === "leaderboard" && canSeeLeaderboard ? (
+          <section className="panel statistics-panel">
+            <h2>排行榜</h2>
+            <LeaderboardPanel
+              key={`${state.session!.token}:${accountEpoch}`}
+              token={state.session!.token}
+            />
+            <button className="secondary" onClick={() => navigate("room")}>
+              回到大廳
+            </button>
+          </section>
+        ) : page === "statistics" && canSeeStatistics ? (
           <StatisticsPanel
             key={`${state.session!.token}:${accountEpoch}:${page}`}
-            initialTab={page === "leaderboard" ? "leaderboard" : "personal"}
+            initialTab="personal"
             token={state.session!.token}
             onBack={() => navigate("room")}
           />
+        ) : page === "statistics" && !state.room ? (
+          <section className="panel">
+            <p role="status">
+              {statisticsEntryState === "loading"
+                ? "正在確認統計權限…"
+                : statisticsEntryState === "guest"
+                  ? "登入 Google 後可查看個人統計。"
+                  : statisticsEntryState === "disabled"
+                    ? "統計尚未開放。"
+                    : "暫時無法確認統計權限。"}
+            </p>
+            {statisticsEntryState === "error" && (
+              <button
+                className="secondary"
+                onClick={() => setAccountEpoch((value) => value + 1)}
+              >
+                重新確認
+              </button>
+            )}
+            <button className="secondary" onClick={() => navigate("room")}>
+              回到大廳
+            </button>
+          </section>
         ) : state.room && state.room.phase !== "WAITING" ? (
           <GamePanel
             room={state.room}
@@ -405,8 +461,21 @@ export default function App() {
                 <div>
                   <span className="eyebrow">PRIVATE WAITING ROOM</span>
                   <h2>
-                    房間{" "}
-                    <span data-testid="room-code">{state.room.roomId}</span>
+                    <span className="room-display-title">
+                      {roomTitle(
+                        state.room.players.find(
+                          (player) =>
+                            player.playerId === state.room!.hostPlayerId,
+                        )?.displayName,
+                      )}
+                    </span>
+                    <small data-testid="room-code" title={state.room.roomId}>
+                      #
+                      {shortRoomId(
+                        state.room.roomId,
+                        state.rooms.map((room) => room.roomId),
+                      )}
+                    </small>
                     <RoomTypeBadge type={state.room.roomType} />
                   </h2>
                 </div>
@@ -453,7 +522,12 @@ export default function App() {
             </section>
             <aside className="panel room-controls">
               {state.room.lastMatch && (
-                <PreviousMatchSummary match={state.room.lastMatch} />
+                <PreviousMatchSummary
+                  match={state.room.lastMatch}
+                  viewerPlayerId={
+                    state.room.you?.playerId ?? state.session?.playerId
+                  }
+                />
               )}
               <span className="eyebrow">MAKE YOURSELF AT HOME</span>
               <h2>你好，{state.session!.displayName}</h2>
@@ -553,47 +627,28 @@ export default function App() {
                   <span className="eyebrow">LET’S GET TOGETHER</span>
                   <h2>你好，{state.session!.displayName}</h2>
                 </div>
-                <TutorialHelpEntry
-                  key={`${state.session!.token}:${tutorialAccountEpoch}`}
-                  token={state.session!.token}
-                  direct
-                  enabled={
-                    tutorialAvailability?.key ===
-                    `${state.session!.token}:${tutorialAccountEpoch}`
-                      ? tutorialAvailability.enabled
-                      : null
-                  }
-                  onAvailability={(enabled) =>
-                    setTutorialAvailability({
-                      key: `${state.session!.token}:${tutorialAccountEpoch}`,
-                      enabled,
-                    })
-                  }
-                  onStart={() => {
-                    setTutorialRequested(true);
-                    navigate("room");
-                  }}
-                />
-                {canSeeStatistics && (
+                {canSeeLeaderboard && (
                   <div className="lobby-statistics-actions">
-                    <button
-                      type="button"
-                      className="secondary lobby-statistics-button"
-                      onClick={() => navigate("statistics")}
-                    >
-                      <svg
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        aria-hidden="true"
-                        focusable="false"
+                    {canSeeStatistics && (
+                      <button
+                        type="button"
+                        className="secondary lobby-statistics-button"
+                        onClick={() => navigate("statistics")}
                       >
-                        <path d="M3 16.5h14M5 13V9m5 4V3.5m5 9.5V6" />
-                      </svg>
-                      <span>戰績統計</span>
-                    </button>
+                        <svg
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          aria-hidden="true"
+                          focusable="false"
+                        >
+                          <path d="M3 16.5h14M5 13V9m5 4V3.5m5 9.5V6" />
+                        </svg>
+                        <span>戰績統計</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="secondary lobby-statistics-button"
@@ -615,7 +670,41 @@ export default function App() {
                   </div>
                 )}
               </div>
+              {statisticsEntryState === "error" && (
+                <div className="lobby-entry-retry" role="status">
+                  <span>統計入口暫時無法確認</span>
+                  <button
+                    className="text-button"
+                    onClick={() => setAccountEpoch((value) => value + 1)}
+                  >
+                    重試
+                  </button>
+                </div>
+              )}
               <p>開一個新房間，或加入朋友的邀請。</p>
+              <div className="lobby-tutorial-entry">
+                <TutorialHelpEntry
+                  key={`${state.session!.token}:${tutorialAccountEpoch}`}
+                  token={state.session!.token}
+                  direct
+                  enabled={
+                    tutorialAvailability?.key ===
+                    `${state.session!.token}:${tutorialAccountEpoch}`
+                      ? tutorialAvailability.enabled
+                      : null
+                  }
+                  onAvailability={(enabled) =>
+                    setTutorialAvailability({
+                      key: `${state.session!.token}:${tutorialAccountEpoch}`,
+                      enabled,
+                    })
+                  }
+                  onStart={() => {
+                    setTutorialRequested(true);
+                    navigate("room");
+                  }}
+                />
+              </div>
               <RoomTypeChoice
                 value={roomType}
                 disabled={state.busy}
@@ -694,7 +783,16 @@ export default function App() {
                   {visibleRooms.map((room) => (
                     <li key={room.roomId}>
                       <div>
-                        <strong>{room.roomId}</strong>
+                        <strong className="room-display-title">
+                          {roomTitle(room.hostDisplayName)}
+                        </strong>
+                        <small title={room.roomId}>
+                          #
+                          {shortRoomId(
+                            room.roomId,
+                            state.rooms.map((item) => item.roomId),
+                          )}
+                        </small>
                         <RoomTypeBadge type={room.roomType} />
                         <small>
                           {room.playerCount} / 4 位玩家 ·{" "}

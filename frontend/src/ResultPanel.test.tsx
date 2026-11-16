@@ -114,12 +114,12 @@ describe("authoritative scoring displays", () => {
     const archive = renderToStaticMarkup(
       <PreviousMatchSummary match={match} />,
     );
-    expect(archive).toContain("南北 <b>7</b> 分");
+    expect(archive).toContain("南北隊 <b>7</b> 分");
     expect(archive).toContain("不以新規則重算");
     const game = gameRoom("MATCH_RESULT").game!;
     Object.assign(game, match, { completedDeals: 1, plannedDeals: 1 });
     const summary = renderToStaticMarkup(<MatchSummary game={game} />);
-    expect(summary).toContain("南北 7 分");
+    expect(summary).toContain("南北隊 7 分");
     expect(summary).toContain("南北隊獲勝");
   });
 });
@@ -192,4 +192,89 @@ describe("server-recorded per-deal duration", () => {
       }
     },
   );
+});
+
+describe("player-relative outcomes", () => {
+  it.each(["NS", "EW"] as const)(
+    "uses %s viewer perspective without recomputing winner",
+    (ownTeam) => {
+      const game = gameRoom("MATCH_RESULT").game!;
+      game.matchResult = {
+        outcome: "FORFEIT",
+        winnerTeamId: ownTeam,
+        reason: "MANUAL_EXIT",
+        failedTeamIds: [ownTeam === "NS" ? "EW" : "NS"],
+      };
+      game.teamTotals =
+        ownTeam === "NS" ? { NS: -8, EW: 15 } : { NS: 15, EW: -8 };
+      let html = renderToStaticMarkup(
+        <MatchSummary game={game} ownTeam={ownTeam} />,
+      );
+      expect(html).toContain("我方獲勝");
+      expect(html).toContain("我方 -8 分");
+      expect(html).toContain("判定失敗隊伍：對方");
+      game.matchResult.winnerTeamId = ownTeam === "NS" ? "EW" : "NS";
+      html = renderToStaticMarkup(
+        <MatchSummary game={game} ownTeam={ownTeam} />,
+      );
+      expect(html).toContain("我方落敗");
+    },
+  );
+  it("distinguishes ties, no contest and unresolved forfeits", () => {
+    const game = gameRoom("MATCH_RESULT").game!;
+    for (const [outcome, expected] of [
+      ["SCORED", "平手"],
+      ["NO_CONTEST", "本場無勝負"],
+      ["FORFEIT", "結果待確認"],
+    ] as const) {
+      game.matchResult = {
+        outcome,
+        winnerTeamId: null,
+        reason: "BOTH_TEAMS_FAILED",
+        failedTeamIds: [],
+      };
+      expect(
+        renderToStaticMarkup(<MatchSummary game={game} ownTeam="EW" />),
+      ).toContain(expected);
+    }
+  });
+  it("uses archived roster identity, not the current seating arrangement", () => {
+    const game = gameRoom("MATCH_RESULT").game!;
+    const match: MatchArchive = {
+      gameId: "archive",
+      roster: game.roster,
+      teamTotals: { NS: 2, EW: 7 },
+      completedDealResults: [],
+      forfeitEvents: [],
+      matchResult: {
+        outcome: "SCORED",
+        winnerTeamId: "EW",
+        reason: "PLANNED_DEALS_COMPLETE",
+        failedTeamIds: [],
+      },
+    };
+    expect(
+      renderToStaticMarkup(
+        <PreviousMatchSummary match={match} viewerPlayerId="bob" />,
+      ),
+    ).toContain("我方獲勝");
+    expect(
+      renderToStaticMarkup(
+        <PreviousMatchSummary match={match} viewerPlayerId="alice" />,
+      ),
+    ).toContain("我方落敗");
+    const outsider = renderToStaticMarkup(
+      <PreviousMatchSummary match={match} viewerPlayerId="new-player" />,
+    );
+    expect(outsider).toContain("東西隊獲勝");
+    expect(outsider).not.toContain("我方");
+  });
+  it("labels both score breakdowns relative to the viewer without changing values", () => {
+    const html = renderToStaticMarkup(
+      <DealBreakdown result={completedDeal()} ownTeam="EW" />,
+    );
+    expect(teamCard(html, "EW")).toContain("<strong>我方</strong>");
+    expect(teamCard(html, "NS")).toContain("<strong>對方</strong>");
+    expect(teamCard(html, "NS")).toContain("<b>5</b>");
+  });
 });

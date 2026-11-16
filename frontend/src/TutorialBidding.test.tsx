@@ -5,6 +5,7 @@ import TutorialBidding, {
   tutorialStrains,
 } from "./TutorialBidding";
 import BidControls from "./BidControls";
+import TutorialSpotlight from "./TutorialSpotlight";
 import GamePanel from "./GamePanel";
 beforeEach(() =>
   vi.stubGlobal("window", {
@@ -43,7 +44,10 @@ describe("shared bidding lesson", () => {
         .find((b) => b.children.join("") === name)!;
     expect(tree.root.findByType(GamePanel)).toBeTruthy();
     expect(tree.root.findByType(BidControls).props.locked).toBe(true);
-    expect(button("返回教學選擇").props.disabled).toBe(false);
+    expect(button("離開教學").props.disabled).toBe(false);
+    expect(tree.root.findByType(TutorialSpotlight).props.target).toBe(
+      ".table-player.position-bottom",
+    );
     act(() => button("下一步").props.onClick());
     act(() => button("下一步").props.onClick());
     expect(tree.root.findByType(BidControls).props.locked).toBe(false);

@@ -109,7 +109,7 @@ public final class StatisticsService {
   }
 
   public Leaderboard.Report readLeaderboard(RoomService.Identity who, Leaderboard.Period period, Leaderboard.Category category) {
-    String account = rooms.statisticsAccount(who);
+    String account = rooms.leaderboardAccount(who);
     if (!leaderboardEnabled || !rooms.statisticsEnabled())
       return Leaderboard.unavailable("DISABLED", clock.instant(), period, category, null, null);
     int retry = retrySeconds();
@@ -126,7 +126,7 @@ public final class StatisticsService {
         result = Leaderboard.unavailable("UNAVAILABLE", clock.instant(), period, category, "RATE_LIMITED", retrySeconds());
       } else result = Leaderboard.unavailable("UNAVAILABLE", clock.instant(), period, category, "STORAGE_UNAVAILABLE", null);
     } finally { reader.release(); }
-    rooms.requireStatisticsAccountUnchanged(who, account);
+    rooms.requireLeaderboardAccountUnchanged(who, account);
     return rooms.statisticsEnabled() ? result : Leaderboard.unavailable("DISABLED", clock.instant(), period, category, null, null);
   }
 

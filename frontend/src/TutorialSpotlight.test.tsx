@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { act, create } from "react-test-renderer";
-import TutorialSpotlight, { spotlightLayout } from "./TutorialSpotlight";
+import TutorialSpotlight, {
+  spotlightLayout,
+  spotlightNeedsAdjustment,
+} from "./TutorialSpotlight";
 describe("tutorial spotlight", () => {
   it("places a phone popup below a compact target without covering it", () => {
     const r = spotlightLayout(
@@ -64,4 +67,67 @@ describe("tutorial spotlight", () => {
     expect(exit).toHaveBeenCalledOnce();
     act(() => tree.unmount());
   });
+});
+
+it("matches the actual target bounds and corner radius", () => {
+  const r = spotlightLayout(
+    { top: 100, left: 20, width: 120, height: 80, radius: 18 },
+    390,
+    844,
+    180,
+  );
+  expect(r.hole).toEqual({
+    top: 100,
+    left: 20,
+    width: 120,
+    height: 80,
+    borderRadius: 18,
+  });
+});
+it("completion replaces exit in its slot, with one mutation callback", () => {
+  const exit = vi.fn(),
+    next = vi.fn();
+  let tree!: ReturnType<typeof create>;
+  act(() => {
+    tree = create(
+      <TutorialSpotlight
+        target=".target"
+        title="完成"
+        complete
+        onPrevious={() => {}}
+        onNext={next}
+        onExit={exit}
+      >
+        <p>完成</p>
+      </TutorialSpotlight>,
+    );
+  });
+  const buttons = tree.root.findAllByType("button");
+  expect(buttons.map((b) => b.children.join(""))).toEqual([
+    "上一步",
+    "完成，回大廳",
+  ]);
+  act(() => buttons[1].props.onClick());
+  expect(exit).toHaveBeenCalledOnce();
+  expect(next).not.toHaveBeenCalled();
+  act(() => tree.unmount());
+});
+
+it("requests correction after actual text wrapping changes a short-phone popup", () => {
+  const target = { top: 220, left: 20, width: 280, height: 160 };
+  expect(spotlightNeedsAdjustment(target, 568, 190)).toBe(false);
+  expect(spotlightNeedsAdjustment(target, 568, 202)).toBe(true);
+  const after = spotlightLayout({ ...target, top: 12 }, 320, 568, 202);
+  expect(after.dialog.top).toBeGreaterThanOrEqual(172);
+  expect(after.dialog.top + 202).toBeLessThanOrEqual(556);
+});
+it("uses compact spacing rather than overlapping when scrolling is clamped", () => {
+  const r = spotlightLayout(
+    { top: 220, left: 20, width: 280, height: 160 },
+    320,
+    568,
+    202,
+  );
+  expect(r.dialog.top).toBeGreaterThanOrEqual(8);
+  expect(r.dialog.top + 202).toBeLessThan(220);
 });

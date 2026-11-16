@@ -218,6 +218,6 @@ describe("explicit one-time recovery offer", () => {
  it("discloses automatic formal ranking without exposing account identifiers", () => {
   expect(managedLoginConsent).toContain("私人 Google 試算表");
   expect(managedLoginConsent).toContain("自動列入排行榜");
-  expect(managedLoginConsent).toContain("向其他登入玩家顯示暱稱及正式場戰績");
+  expect(managedLoginConsent).toContain("向登入玩家與訪客顯示暱稱及正式場戰績");
   expect(managedLoginConsent).not.toContain("休閒場戰績");
 });

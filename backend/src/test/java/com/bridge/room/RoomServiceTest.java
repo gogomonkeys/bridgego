@@ -182,6 +182,19 @@ class RoomServiceTest {
   }
 
   @Test
+  void roomListUsesCurrentHostNicknameWithoutChangingId() {
+    var a = player("同名");
+    var b = player("接手房主");
+    String id = create(a);
+    join(id, b);
+    assertEquals("同名", service.list().get(0).hostDisplayName());
+    service.leave(id, a);
+    assertEquals(id, service.list().get(0).roomId());
+    assertEquals("接手房主", service.list().get(0).hostDisplayName());
+    assertEquals(b.playerId(), service.get(id, b).hostPlayerId());
+  }
+
+  @Test
   void multiTabRetainsSeatUntilLastSocketCloses() {
     var p = player("A");
     String r = create(p);

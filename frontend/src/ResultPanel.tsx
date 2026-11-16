@@ -9,6 +9,25 @@ import type {
 } from "./model";
 import { playerLabel } from "./player-label";
 import { rankLabel, symbols, teamNames } from "./game-view";
+/** Resolve perspective from the match roster, never from a new room's seats. */
+export function resultTeamLabel(team: Team, ownTeam?: Team): string {
+  return ownTeam ? (team === ownTeam ? "我方" : "對方") : teamNames[team];
+}
+export function resultHeadline(
+  result: NonNullable<Game["matchResult"]>,
+  ownTeam?: Team,
+): string {
+  if (result.outcome === "NO_CONTEST") return "本場無勝負";
+  if (result.winnerTeamId) {
+    return ownTeam
+      ? result.winnerTeamId === ownTeam
+        ? "我方獲勝"
+        : "我方落敗"
+      : `${teamNames[result.winnerTeamId]}獲勝`;
+  }
+  // A missing winner on an incomplete forfeit is not evidence of a tie.
+  return result.outcome === "SCORED" ? "平手" : "結果待確認";
+}
 export function PublicCards({
   plays,
   winnerSeat,
@@ -135,7 +154,9 @@ function DealTimings({ deals }: { deals: DealResult[] }) {
 export function DealBreakdown({
   result,
   roster = [],
+  ownTeam,
 }: {
+  ownTeam?: Team;
   result: DealResult;
   roster?: Game["roster"];
 }) {
@@ -147,7 +168,7 @@ export function DealBreakdown({
       </p>
       <p>
         定約 {result.contract.level} {symbols[result.contract.strain]} ·{" "}
-        {teamNames[result.contract.teamId]} ·{" "}
+        {resultTeamLabel(result.contract.teamId, ownTeam)} ·{" "}
         {playerLabel(roster, result.contract.holderSeat)}叫到 · 目標{" "}
         {6 + result.contract.level} 墩
       </p>
@@ -161,10 +182,10 @@ export function DealBreakdown({
             <section
               className={`score-card team-${team}`}
               key={team}
-              aria-label={`${teamNames[team]}計分明細`}
+              aria-label={`${resultTeamLabel(team, ownTeam)}計分明細`}
             >
               <div className="score-card-heading">
-                <strong>{teamNames[team]}</strong>
+                <strong>{resultTeamLabel(team, ownTeam)}</strong>
                 <span>{score.won ? "★ 本局勝" : "本局負"}</span>
               </div>
               <p className="score-card-total">
@@ -202,7 +223,9 @@ export function DealBreakdown({
 }
 export function MatchSummary({
   game,
+  ownTeam,
 }: {
+  ownTeam?: Team;
   game: Pick<
     Game,
     | "roomType"
@@ -228,13 +251,7 @@ export function MatchSummary({
     <section className="contract-result" aria-label="整場結果" role="status">
       <span className="eyebrow">MATCH RESULT</span>
       <RoomTypeBadge type={game.roomType} />
-      <h3>
-        {result.outcome === "NO_CONTEST"
-          ? "本場無勝負"
-          : result.winnerTeamId
-            ? `${teamNames[result.winnerTeamId]}獲勝`
-            : `${game.plannedDeals} 局總分平手`}
-      </h3>
+      <h3>{resultHeadline(result, ownTeam)}</h3>
       <p>
         {reason}。
         {result.outcome === "FORFEIT" &&
@@ -243,12 +260,17 @@ export function MatchSummary({
       {result.failedTeamIds.length > 0 && (
         <p>
           判定失敗隊伍：
-          {result.failedTeamIds.map((team) => teamNames[team]).join("、")}
+          {result.failedTeamIds
+            .map((team) => resultTeamLabel(team, ownTeam))
+            .join("、")}
         </p>
       )}
       <p>
-        已完成 {game.completedDeals} / {game.plannedDeals} 局 · 南北{" "}
-        {game.teamTotals.NS} 分 · 東西 {game.teamTotals.EW} 分
+        已完成 {game.completedDeals} / {game.plannedDeals} 局 ·{" "}
+        {resultTeamLabel(ownTeam ?? "NS", ownTeam)}{" "}
+        {game.teamTotals[ownTeam ?? "NS"]} 分 ·{" "}
+        {resultTeamLabel(ownTeam === "EW" ? "NS" : "EW", ownTeam)}{" "}
+        {game.teamTotals[ownTeam === "EW" ? "NS" : "EW"]} 分
       </p>
       <DealTimings deals={game.completedDealResults} />
       <p>已完成的分數保留；未完成的局不計分。之後離開或斷線不改變此結果。</p>
@@ -258,7 +280,9 @@ export function MatchSummary({
 
 export function ForfeitAttribution({
   game,
+  ownTeam,
 }: {
+  ownTeam?: Team;
   game: Pick<Game, "roster" | "forfeitEvents">;
 }) {
   if (!game.forfeitEvents.length) return null;
@@ -272,7 +296,7 @@ export function ForfeitAttribution({
         return (
           <p key={index}>
             {playerLabel(game.roster, event.seat)} ·{" "}
-            {member ? teamNames[member.teamId] : ""}：
+            {member ? resultTeamLabel(member.teamId, ownTeam) : ""}：
             {event.cause === "MANUAL_EXIT" ? "主動退出" : "重連逾時"}
           </p>
         );
@@ -282,18 +306,23 @@ export function ForfeitAttribution({
 }
 
 /** Previous match is intentionally a compact outcome, not another history tree. */
-export function PreviousMatchSummary({ match }: { match: MatchArchive }) {
+export function PreviousMatchSummary({
+  match,
+  viewerPlayerId,
+}: {
+  match: MatchArchive;
+  viewerPlayerId?: string;
+}) {
+  const ownTeam = match.roster.find(
+    (player) => player.playerId === viewerPlayerId,
+  )?.teamId;
   const result = match.matchResult;
   return (
     <section className="last-match-archive" aria-label="上一場結果">
       <span className="eyebrow">上一場結果</span>
       <RoomTypeBadge type={match.roomType} />
       <strong>
-        {result.outcome === "NO_CONTEST"
-          ? "無勝負"
-          : result.winnerTeamId
-            ? `${teamNames[result.winnerTeamId]}獲勝`
-            : "平手"}
+        {resultHeadline(result, ownTeam)}
         {result.outcome === "FORFEIT" && (
           <small>
             {" "}
@@ -306,10 +335,12 @@ export function PreviousMatchSummary({ match }: { match: MatchArchive }) {
       <DealTimings deals={match.completedDealResults} />
       <div className="previous-totals">
         <span>
-          南北 <b>{match.teamTotals.NS}</b> 分
+          {resultTeamLabel(ownTeam ?? "NS", ownTeam)}{" "}
+          <b>{match.teamTotals[ownTeam ?? "NS"]}</b> 分
         </span>
         <span>
-          東西 <b>{match.teamTotals.EW}</b> 分
+          {resultTeamLabel(ownTeam === "EW" ? "NS" : "EW", ownTeam)}{" "}
+          <b>{match.teamTotals[ownTeam === "EW" ? "NS" : "EW"]}</b> 分
         </span>
       </div>
     </section>

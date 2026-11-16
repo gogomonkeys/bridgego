@@ -61,3 +61,24 @@ describe("contract holder seat marker", () => {
     ).not.toContain("seat-contract-marker");
   });
 });
+
+it.each([0, 1, 2, 3])(
+  "keeps holder %s out of identity flow for every viewpoint",
+  (holder) => {
+    const room = playedRoom();
+    room.you!.seat = (holder + 1) % 4;
+    room.game!.auction.result!.holderSeat = holder;
+    room.players[holder].displayName = "名字很長的森林小兔子";
+    const html = renderToStaticMarkup(
+      <TableSeats room={room} turnSeat={holder} />,
+    );
+    expect(html).toMatch(
+      /data-seat="\d"[^>]*><span class="seat-contract-marker"/,
+    );
+    expect(html.match(/class="seat-contract-marker"/g)).toHaveLength(1);
+    expect(html).not.toMatch(
+      /class="seat-identity"(?:(?!<\/article>)[\s\S])*class="seat-contract-marker"/,
+    );
+    expect(html).toContain("active-turn");
+  },
+);

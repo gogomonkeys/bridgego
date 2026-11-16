@@ -1,6 +1,10 @@
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import WelcomeEntry from "./WelcomeEntry";
+vi.mock("./public-entry-read", async (original) => ({
+  ...(await original<typeof import("./public-entry-read")>()),
+  readEntryHealth: async () => {},
+}));
 const fixture = vi.hoisted(() => ({
   session: { token: "fixture", playerId: "player", displayName: "玩家" },
   saved: false,

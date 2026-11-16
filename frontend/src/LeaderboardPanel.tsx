@@ -157,7 +157,7 @@ export default function LeaderboardPanel({ token }: { token: string }) {
         {!current ? (
           <p role="status">正在讀取排行榜…</p>
         ) : current.error ? (
-          <p role="alert">目前無法取得排行榜或確認登入狀態，請稍後重試。</p>
+          <p role="alert">目前無法取得排行榜，請稍後重試。</p>
         ) : (
           current.data && <LeaderboardContent data={current.data} />
         )}

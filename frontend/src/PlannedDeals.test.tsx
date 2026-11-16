@@ -47,7 +47,7 @@ describe("room deal count", () => {
     game.completedDeals = count;
     game.matchResult = { outcome: "SCORED", winnerTeamId: null, reason: count === 3 ? "THREE_DEALS_COMPLETE" : "PLANNED_DEALS_COMPLETE", failedTeamIds: [] };
     const html = renderToStaticMarkup(<MatchSummary game={game} />);
-    expect(html).toContain(`${count} 局總分平手`);
+    expect(html).toContain("<h3>平手</h3>");
     expect(html).toContain(`已完成 ${count} / ${count} 局`);
     expect(html).toContain(count === 3 ? "三局皆已完成" : `${count} 局皆已完成`);
   });

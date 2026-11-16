@@ -66,7 +66,7 @@ public class RoomService {
   private record AcceptedAction(String signature, long revision) {}
 
   public record Summary(
-      String roomId, int playerCount, int capacity, String state, String phase, boolean joinable, int plannedDeals, String roomType) {}
+      String roomId, int playerCount, int capacity, String state, String phase, boolean joinable, int plannedDeals, String roomType, String hostDisplayName) {}
 
   public static class Failure extends RuntimeException {
     public final int status;
@@ -177,6 +177,17 @@ public class RoomService {
     String account = accountsByPlayer.get(who.playerId());
     if (account == null) throw fail(403, "STATS_LOGIN_REQUIRED", "Sign in to view statistics");
     return account;
+  }
+
+  /** Guests may view the public ranking projection, never private statistics. */
+  synchronized String leaderboardAccount(Identity who) {
+    requireCurrentSession(who);
+    return accountsByPlayer.get(who.playerId());
+  }
+
+  synchronized void requireLeaderboardAccountUnchanged(Identity who, String expected) {
+    if (!Objects.equals(leaderboardAccount(who), expected))
+      throw fail(409, "STATS_ACCOUNT_CHANGED", "The signed-in account changed");
   }
 
   synchronized void requireStatisticsAccountUnchanged(Identity who, String expected) {
@@ -356,7 +367,8 @@ public class RoomService {
                     4,
                     r.game == null ? "WAITING" : r.game.active() ? "ACTIVE" : "FINISHED",
                     r.game == null ? "WAITING" : r.game.phase,
-                    r.game == null && r.members.size() < 4, r.plannedDeals, r.roomType))
+                    r.game == null && r.members.size() < 4, r.plannedDeals, r.roomType,
+                    r.members.containsKey(r.hostPlayerId) ? r.members.get(r.hostPlayerId).identity.displayName() : null))
         .toList();
   }
 

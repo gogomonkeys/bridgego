@@ -174,9 +174,11 @@ export default function GamePanel({
         <span
           role="status"
           aria-label={
-            tutorial ? "教學不限時" : online
-              ? "即時同步"
-              : "非即時畫面：多人遊戲需要網路，恢復連線後確認席位。"
+            tutorial
+              ? "教學不限時"
+              : online
+                ? "即時同步"
+                : "非即時畫面：多人遊戲需要網路，恢復連線後確認席位。"
           }
           title={online ? undefined : "多人遊戲需要網路，恢復連線後確認席位。"}
           className={`sync-badge ${online ? "" : "away"}`}
@@ -260,18 +262,18 @@ export default function GamePanel({
               "正在確認雙方離開狀態，避免近同時離開造成錯誤裁定；請等候最終結果。"
             )}
           </p>
-          <ForfeitAttribution game={game} />
+          <ForfeitAttribution game={game} ownTeam={ownTeam} />
         </section>
       )}
       {terminal && !tutorial && (
         <section className="panel outcome-screen">
-          <MatchSummary game={game} />
+          <MatchSummary game={game} ownTeam={ownTeam} />
           <MatchPersistence
             key={game.gameId}
             roomId={room.roomId}
             gameId={game.gameId}
           />
-          <ForfeitAttribution game={game} />
+          <ForfeitAttribution game={game} ownTeam={ownTeam} />
           {room.phase === "ABORTED" && (
             <p>本場遊戲已中止，未完成的局不計分。</p>
           )}
@@ -296,6 +298,7 @@ export default function GamePanel({
           <span className="eyebrow">DEAL RESULT · 暫不發新牌</span>
           {game.completedDealResults.at(-1) && (
             <DealBreakdown
+              ownTeam={ownTeam}
               result={game.completedDealResults.at(-1)!}
               roster={game.roster}
             />
@@ -342,8 +345,13 @@ export default function GamePanel({
       )}
       {gameplay && (
         <>
-          <section className="table-dashboard" aria-label="本局狀態與操作倒數">
-            <div className="table-status-strip">
+          <section
+            className={`table-dashboard${!collecting && (tutorial || !game.operationTimer) ? " without-turn-feedback" : ""}`}
+            aria-label="本局狀態與操作倒數"
+          >
+            <div
+              className={`table-status-strip${game.auction.result ? " has-contract" : ""}`}
+            >
               {game.redealCount > 0 && (
                 <span
                   className="redeal-count"
@@ -429,9 +437,11 @@ export default function GamePanel({
                     </small>
                   </h3>
                   <p className="collecting-status">
-                    {game.paused
-                      ? "暫停回合結算 · 等候重連"
-                      : "四張牌已出齊 · 稍後繼續"}
+                    {tutorial
+                      ? "教學回顧 · 按下一步繼續"
+                      : game.paused
+                        ? "暫停回合結算 · 等候重連"
+                        : "四張牌已出齊 · 稍後繼續"}
                   </p>
                 </div>
               ) : (
@@ -560,15 +570,17 @@ export default function GamePanel({
       )}
       {!tutorial && <OwnTimeoutNotice room={room} />}
       {tutorial ? (
-        <footer className="match-utilities">
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={tutorial.onExit}
-          >
-            {tutorial.exitLabel ?? "離開教學"}
-          </button>
-        </footer>
+        tutorial.guide ? null : (
+          <footer className="match-utilities">
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={tutorial.onExit}
+            >
+              {tutorial.exitLabel ?? "離開教學"}
+            </button>
+          </footer>
+        )
       ) : (
         <footer className="match-utilities">
           <button
@@ -609,7 +621,7 @@ export default function GamePanel({
           >
             <summary>更多</summary>
             <div className="match-more-panel">
-              <small>v0.14.3 · 狀態版本 {room.revision}</small>
+              <small>v0.14.4 · 狀態版本 {room.revision}</small>
               <button
                 className="secondary"
                 disabled={busy}
@@ -679,7 +691,7 @@ export default function GamePanel({
                 ownTeam={ownTeam}
               />
             ) : (
-              <SettlementRecords game={game} />
+              <SettlementRecords game={game} ownTeam={ownTeam} />
             )}
           </section>
         </div>

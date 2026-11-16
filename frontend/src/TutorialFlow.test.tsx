@@ -397,6 +397,7 @@ describe("tutorial flow", () => {
     act(() => button("下一步").props.onClick());
     const lessons = ["WIN_TRICK", "TRUMP_WHEN_VOID", "FREE_PLAY"] as const;
     for (let i = 0; i < lessons.length; i++) {
+      if (i === 1) act(() => button("下一步").props.onClick());
       act(() => tree.root.findByProps({ "aria-label": "梅花 2" }).props.onClick());
       request.mockResolvedValueOnce({ ...game, revision: i + 1, lesson: lessons[i] });
       await act(async () => button("出這張牌").props.onClick());

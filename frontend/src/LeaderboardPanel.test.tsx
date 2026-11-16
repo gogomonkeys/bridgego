@@ -126,7 +126,7 @@ describe("direct lobby leaderboard entry", () => {
     expect(html).toContain("我的本季戰績");
     expect(html).not.toContain("本季排行榜");
   });
-  it("gates both lobby entries and both routes by authenticated statistics access", () => {
+  it("separates session leaderboard access from private authenticated statistics", () => {
     const source = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
     const block = source.slice(
       source.indexOf("{canSeeStatistics && ("),
@@ -134,10 +134,9 @@ describe("direct lobby leaderboard entry", () => {
     );
     expect(block).toContain('navigate("statistics")');
     expect(block).toContain('navigate("leaderboard")');
-    expect(source).toContain("statisticsPage && canSeeStatistics");
-    expect(source).toContain(
-      'initialTab={page === "leaderboard" ? "leaderboard" : "personal"}',
-    );
+    expect(source).toContain('page === "statistics" && canSeeStatistics');
+    expect(source).toContain('page === "leaderboard" && canSeeLeaderboard');
+    expect(source).toContain('initialTab="personal"');
     expect(source).toContain(
       '(route === "statistics" || route === "leaderboard") && state.room',
     );

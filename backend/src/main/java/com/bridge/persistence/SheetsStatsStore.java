@@ -136,8 +136,8 @@ public final class SheetsStatsStore implements StatsStore, AutoCloseable {
         var accounts = before.get("accounts");
         AccountProfileRows.validateTable(accounts);
         var erasure = new ErasureLedger(before.get("erasure_ledger"));
-        if (erasure.contains("ACCOUNT", requestingAccount)
-            || accounts.stream().skip(1).noneMatch(r -> r.get(0).equals(requestingAccount)))
+        if (requestingAccount != null && (erasure.contains("ACCOUNT", requestingAccount)
+            || accounts.stream().skip(1).noneMatch(r -> r.get(0).equals(requestingAccount))))
             throw new SheetsGateway.Conflict();
         var people = new ArrayList<LeaderboardAccount>();
         for (var row : accounts.subList(1, accounts.size())) {
