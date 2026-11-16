@@ -53,7 +53,7 @@ describe("shared bidding lesson", () => {
     act(() => button("下一步").props.onClick());
     expect(begin).not.toHaveBeenCalled();
     expect(back).not.toHaveBeenCalled();
-    act(() => button("開始出牌教學").props.onClick());
+    act(() => button("繼續出牌示範").props.onClick());
     expect(begin).toHaveBeenCalledOnce();
     act(() => tree.unmount());
   });

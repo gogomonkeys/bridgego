@@ -1,0 +1,78 @@
+/* Outside the production grid: explanations never push the table down. */
+.tutorial-spotlight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+.tutorial-shade {
+  position: absolute;
+  background: rgb(22 29 25 / 68%);
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+.tutorial-shade-full {
+  inset: 0;
+}
+.tutorial-spotlight-ring {
+  position: absolute;
+  box-sizing: border-box;
+  border: 3px solid #ffd15c;
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 80%);
+}
+.tutorial-popup {
+  position: absolute;
+  bottom: auto;
+  top: 12px;
+  left: 12px;
+  width: min(360px, calc(100vw - 24px));
+  box-sizing: border-box;
+  max-height: min(40dvh, 300px);
+  overflow-y: auto;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #ddc690;
+  background: #fffaf0;
+  color: #493724;
+  box-shadow: 0 8px 28px #0005;
+  pointer-events: auto;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.tutorial-popup-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tutorial-popup-heading strong {
+  font-size: 17px;
+}
+.tutorial-popup-heading small {
+  white-space: nowrap;
+  color: #71604c;
+}
+.tutorial-popup-copy p {
+  margin: 8px 0 12px;
+}
+.tutorial-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.tutorial-popup-actions button {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.tutorial-popup-actions .tutorial-popup-exit {
+  margin-left: auto;
+  background: transparent;
+  border-color: transparent;
+  color: #705b46;
+}
+.tutorial-popup-actions button:disabled {
+  opacity: 0.45;
+}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Call, Strain } from "./model";
 import { strainNames, symbols } from "./game-view";
 import GamePanel from "./GamePanel";
+import TutorialSpotlight from "./TutorialSpotlight";
 import { tutorialRoom } from "./tutorial-room";
 export const tutorialStrains: Strain[] = [
   "CLUB",
@@ -25,12 +26,14 @@ export default function TutorialBidding({
   busy,
   onBegin,
   onBack,
+  initialStep = 0,
 }: {
   busy: boolean;
   onBegin: () => void;
   onBack: () => void;
+  initialStep?: number;
 }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep);
   const [call, setCall] = useState<Call | null>(null);
   const pages = [
     [
@@ -59,43 +62,34 @@ export default function TutorialBidding({
           if (!busy && step === 2) setCall(next);
         },
         guide: (
-          <aside className="tutorial-guide" aria-label="叫牌練習">
-            <strong>{pages[step][0]}</strong>
+          <TutorialSpotlight
+            target={
+              step === 0 ? ".table-player.position-top" : ".phase-main-controls"
+            }
+            stepKey={`bid:${step}:${!!call}`}
+            title={pages[step][0]}
+            progress={`${step + 1} / 8`}
+            busy={busy}
+            allowInteraction={step === 2}
+            onExit={onBack}
+            onPrevious={step > 0 ? () => setStep(step - 1) : undefined}
+            onNext={step < 2 ? () => setStep(step + 1) : onBegin}
+            nextLabel={step === 2 ? "繼續出牌示範" : "下一步"}
+          >
             <p>{pages[step][1]}</p>
-            {call && (
-              <>
-                <p role="status">
-                  {call.type === "PASS"
-                    ? "這次不加叫，之後輪到你仍可再叫。"
-                    : practiceBidDescription(
-                        call.level!,
-                        call.strain as Strain,
-                      )}
-                </p>
-                <p>接下來切換到電腦 2 定約 1♠ 的出牌教學，與剛才的選擇無關。</p>
-              </>
+            {call && step === 2 && (
+              <p role="status">
+                {call.type === "PASS"
+                  ? "Pass 代表這次不加叫。"
+                  : practiceBidDescription(call.level!, call.strain as Strain)}
+              </p>
             )}
-            <div className="tutorial-actions">
-              <button
-                disabled={busy || step === 0}
-                onClick={() => setStep((s) => Math.max(0, s - 1))}
-              >
-                上一步
-              </button>
-              <button
-                disabled={busy || step === 2}
-                onClick={() => setStep((s) => Math.min(2, s + 1))}
-              >
-                下一步
-              </button>
-              <button disabled={busy} onClick={onBegin}>
-                {call ? "開始出牌教學" : "略過叫牌練習並開始出牌"}
-              </button>
-            </div>
-            {!call && (
-              <p className="fine">出牌練習使用預設 1♠，不沿用這次叫牌選擇。</p>
+            {step === 2 && (
+              <small>
+                可自由試叫或直接繼續。下一段固定示範 1♠，與剛才的選擇無關。
+              </small>
             )}
-          </aside>
+          </TutorialSpotlight>
         ),
       }}
     />

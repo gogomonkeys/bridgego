@@ -149,10 +149,10 @@ describe("shared tutorial isolation", () => {
     expect(practice.game!.auction.result).toBeNull();
     expect(practice.you!.legalCalls).toHaveLength(36);
   });
-  it("keeps tutorial explanations in a scrollable layout with no fixed grid placement", () => {
+  it("keeps the production grid with portal explanations", () => {
     const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
     expect(css).toContain(".match-shell .tutorial-workspace");
-    expect(css).toContain("grid-row: auto");
+    expect(css).not.toContain(".match-shell .tutorial-workspace > *");
     expect(css).toContain("height: auto");
   });
 });

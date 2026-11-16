@@ -16,7 +16,7 @@ const lessons: Record<TutorialLesson, { title: string; text: string }> = {
     title: "3 · 缺花切王",
     text: "沒有首引花色時，可以出王，也可以墊其他花色。",
   },
-  FREE_PLAY: { title: "接下來自己試試", text: "照相同規則打完這局吧。" },
+  FREE_PLAY: { title: "基本教學完成", text: "回大廳選一般場，實際體驗吧。" },
 };
 export function TutorialInvitation({
   busy,
@@ -33,7 +33,7 @@ export function TutorialInvitation({
       aria-labelledby="tutorial-invitation-title"
     >
       <h2 id="tutorial-invitation-title">要先體驗新手教學嗎？</h2>
-      <p>與三位電腦練習，前三次出牌有提示。</p>
+      <p>跟著重點提示認識玩法，簡短練習後就回大廳。</p>
       <div className="tutorial-actions">
         <button
           type="button"

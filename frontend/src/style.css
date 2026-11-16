@@ -7235,14 +7235,7 @@ body {
 .contract-progress { display: flex; flex-wrap: wrap; gap: .25rem .8rem; font-size: .8rem; font-variant-numeric: tabular-nums; }
 .seat-contract-marker { display: inline-block; width: fit-content; padding: .08rem .35rem; border: 1px solid #ad8c48; border-radius: .35rem; background: #fff4cf; color: #604713; font-size: .65rem; font-weight: 700; line-height: 1.25; }
 
-/* Teaching shares the real table but explanations need natural vertical scroll. */
-.tutorial-panel .tutorial-workspace { height: auto; max-height: none; overflow: visible; }
-.tutorial-workspace > .tutorial-guide, .tutorial-workspace > div:first-child { grid-column: 1 / -1; }
-.tutorial-workspace .tutorial-actions { flex-wrap: wrap; margin-bottom: .5rem; }
-.tutorial-workspace .tutorial-actions button { min-height: 44px; }
-
-.match-shell .tutorial-workspace { display: flex; flex-direction: column; height: auto; max-height: none; overflow: visible; }
-.match-shell .tutorial-workspace > * { grid-row: auto; grid-column: auto; flex-shrink: 0; }
-.match-shell .tutorial-workspace > .match-surface { height: auto; }
+/* Tutorial uses the production table grid; its explanation is a portal overlay. */
 .tutorial-panel { min-width: 0; width: 100%; }
-.forest-shell.match-shell.tutorial-shell { height: auto; min-height: 100dvh; overflow: visible; }
+.match-shell .tutorial-panel { padding: 0; margin: 0; border: 0; background: transparent; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.match-shell .tutorial-workspace { flex: 1; min-height: 0; }

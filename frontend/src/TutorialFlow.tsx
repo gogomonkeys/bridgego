@@ -25,6 +25,7 @@ export default function TutorialFlow({
 }) {
   const [status, setStatus] = useState<TutorialStatus | null>(null);
   const [biddingPractice, setBiddingPractice] = useState(false);
+  const [reviewIntroduction, setReviewIntroduction] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [uncertain, setUncertain] = useState(false);
@@ -174,6 +175,15 @@ export default function TutorialFlow({
         </>
       ) : !game && !status.enabled ? (
         <p role="status">教學暫停開放。</p>
+      ) : game && reviewIntroduction ? (
+        <TutorialBidding
+          busy={busy}
+          initialStep={2}
+          onBack={() =>
+            void update("/tutorial/exit", { sessionId: game.sessionId }, true)
+          }
+          onBegin={() => setReviewIntroduction(false)}
+        />
       ) : !game && biddingPractice ? (
         <TutorialBidding
           busy={busy}
@@ -197,6 +207,7 @@ export default function TutorialFlow({
         <TutorialPlay
           key={game.sessionId}
           game={game}
+          onReviewIntroduction={() => setReviewIntroduction(true)}
           busy={busy}
           onPlay={(card) =>
             update("/tutorial/play", {

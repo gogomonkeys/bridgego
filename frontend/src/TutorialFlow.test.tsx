@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import TutorialFlow from "./TutorialFlow";
+import GamePanel from "./GamePanel";
 import { accountRequest } from "./google-login";
 import type { TutorialSnapshot } from "./tutorial";
 vi.mock("./google-login", () => ({ accountRequest: vi.fn() }));
@@ -101,6 +102,7 @@ describe("tutorial flow", () => {
     });
     await flush();
     expect(done).not.toHaveBeenCalled();
+    act(() => button("下一步").props.onClick());
     act(() =>
       tree.root.findByProps({ "aria-label": "梅花 2" }).props.onClick(),
     );
@@ -118,7 +120,7 @@ describe("tutorial flow", () => {
     act(() => button("下一步").props.onClick());
     act(() => button("下一步").props.onClick());
     act(() => button("Pass · 不叫").props.onClick());
-    await act(async () => button("開始出牌教學").props.onClick());
+    await act(async () => button("繼續出牌示範").props.onClick());
     request.mockResolvedValueOnce({
       enabled: false,
       signedIn: false,
@@ -215,6 +217,7 @@ describe("tutorial flow", () => {
   });
   it("prevents illegal selection and submits only selected legal card with revision", async () => {
     await mount(false, game);
+    act(() => button("下一步").props.onClick());
     const cards = tree.root.findAllByProps({ "aria-label": "黑桃 2" });
     expect(cards[0].props.disabled).toBe(true);
     act(() =>
@@ -235,6 +238,7 @@ describe("tutorial flow", () => {
   });
   it("does not resend unknown play and only reads state for recovery", async () => {
     await mount(false, game);
+    act(() => button("下一步").props.onClick());
     act(() =>
       tree.root.findByProps({ "aria-label": "梅花 2" }).props.onClick(),
     );
@@ -293,7 +297,7 @@ describe("tutorial flow", () => {
     expect(done).toHaveBeenCalledOnce();
     expect(request.mock.calls.filter((c) => c[1] === "POST")).toHaveLength(1);
   });
-  it("keeps all four previous cards visible alongside the new lead", async () => {
+  it("uses the shared production table for the winning-trick explanation", async () => {
     await mount(false, {
       ...game,
       lesson: "WIN_TRICK",
@@ -314,23 +318,10 @@ describe("tutorial flow", () => {
         },
       ],
     });
-    const previous = tree.root.findByProps({ "aria-label": "上一墩回顧" });
-    expect(
-      previous.findAll(
-        (n) =>
-          typeof n.props.className === "string" &&
-          n.props.className.startsWith("played-card "),
-      ),
-    ).toHaveLength(4);
-    expect(
-      previous
-        .findAllByType("p")
-        .map((n) => n.children.join(""))
-        .join(""),
-    ).toContain("電腦1獲勝");
-    expect(
-      tree.root.findAllByProps({ "aria-label": "本回合出牌" }),
-    ).toHaveLength(2);
+    // The tour uses the production table rather than a separate recap panel.
+    expect(tree.root.findAllByProps({ "aria-label": "上一墩回顧" })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ "aria-label": "本回合出牌" }).length).toBeGreaterThan(0);
+    expect(JSON.stringify(tree.toJSON())).toContain("誰贏得這一墩？");
   });
   it("runs bidding locally then explicitly starts the independent fixed deal", async () => {
     await mount();
@@ -358,9 +349,11 @@ describe("tutorial flow", () => {
     expect(request.mock.calls.filter((c) => c[1] === "POST")).toHaveLength(0);
     expect(localStorage.setItem).not.toHaveBeenCalled();
     request.mockResolvedValueOnce(game);
-    await act(async () => button("開始出牌教學").props.onClick());
+    await act(async () => button("繼續出牌示範").props.onClick());
     expect(request).toHaveBeenLastCalledWith("/tutorial", "POST", {}, "token");
-    expect(button("出這張牌")).toBeTruthy();
+    expect(JSON.stringify(tree.toJSON())).toContain("王牌與目標");
+    act(() => button("下一步").props.onClick());
+    expect(tree.root.findByProps({ "aria-label": "梅花 2" }).props.disabled).toBe(false);
     expect(tree.root.findAllByProps({ "aria-label": "叫牌練習" })).toHaveLength(
       0,
     );
@@ -372,7 +365,7 @@ describe("tutorial flow", () => {
     act(() => button("下一步").props.onClick());
     act(() => button("下一步").props.onClick());
     act(() => button("Pass · 不叫").props.onClick());
-    const start = button("開始出牌教學");
+    const start = button("繼續出牌示範");
     act(() => {
       start.props.onClick();
       start.props.onClick();
@@ -390,7 +383,7 @@ describe("tutorial flow", () => {
     });
     expect(button("先選一張牌")).toBeUndefined();
     request.mockResolvedValueOnce({ exited: true });
-    await act(async () => button("進入大廳").props.onClick());
+    await act(async () => button("完成，回大廳").props.onClick());
     expect(request).toHaveBeenLastCalledWith(
       "/tutorial/exit",
       "POST",
@@ -398,6 +391,49 @@ describe("tutorial flow", () => {
       "token",
     );
     expect(done).toHaveBeenCalledOnce();
+  });
+  it("locks play after three cards reach FREE_PLAY and completes through exit only", async () => {
+    const done = await mount(false, game);
+    act(() => button("下一步").props.onClick());
+    const lessons = ["WIN_TRICK", "TRUMP_WHEN_VOID", "FREE_PLAY"] as const;
+    for (let i = 0; i < lessons.length; i++) {
+      act(() => tree.root.findByProps({ "aria-label": "梅花 2" }).props.onClick());
+      request.mockResolvedValueOnce({ ...game, revision: i + 1, lesson: lessons[i] });
+      await act(async () => button("出這張牌").props.onClick());
+    }
+    expect(request.mock.calls.filter(c => c[0] === "/tutorial/play")).toHaveLength(3);
+    expect(button("完成，回大廳")).toBeTruthy();
+    expect(tree.root.findByProps({ "aria-label": "梅花 2" }).props.disabled).toBe(true);
+    await act(async () => tree.root.findByType(GamePanel).props.tutorial.onPlay(game.hand[0]));
+    act(() => button("上一步").props.onClick());
+    expect(tree.root.findByProps({ "aria-label": "梅花 2" }).props.disabled).toBe(true);
+    await act(async () => tree.root.findByType(GamePanel).props.tutorial.onPlay(game.hand[0]));
+    expect(request.mock.calls.filter(c => c[0] === "/tutorial/play")).toHaveLength(3);
+    act(() => button("下一步").props.onClick());
+    request.mockResolvedValueOnce({ exited: true });
+    await act(async () => button("完成，回大廳").props.onClick());
+    expect(request).toHaveBeenLastCalledWith("/tutorial/exit", "POST", { sessionId: "practice" }, "token");
+    expect(done).toHaveBeenCalledOnce();
+  });
+  it("reviews introduction and returns to the existing game without starting again", async () => {
+    await mount();
+    act(() => button("開始教學").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("下一步").props.onClick());
+    request.mockResolvedValueOnce(game);
+    await act(async () => button("繼續出牌示範").props.onClick());
+    expect(JSON.stringify(tree.toJSON())).toContain("王牌與目標");
+    act(() => button("上一步").props.onClick());
+    // Introduction is local, including backwards navigation and another practice bid.
+    act(() => button("上一步").props.onClick());
+    act(() => button("上一步").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("下一步").props.onClick());
+    act(() => button("Pass · 不叫").props.onClick());
+    await act(async () => button("繼續出牌示範").props.onClick());
+    expect(JSON.stringify(tree.toJSON())).toContain("王牌與目標");
+    expect(request.mock.calls.filter(c => c[1] === "POST")).toHaveLength(1);
+    expect(request.mock.calls.filter(c => c[0] === "/tutorial")).toHaveLength(1);
   });
   it("ignores responses after leaving", async () => {
     let resolve!: (value: unknown) => void;
