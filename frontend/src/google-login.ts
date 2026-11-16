@@ -42,6 +42,8 @@ export async function accountRequest<T>(
   const changesAccount =
     [
       "/auth/google",
+      "/auth/google/redirect/start",
+      "/auth/google/redirect/finish",
       "/auth/google/recover",
       "/auth/logout",
       "/auth/nonce",
@@ -54,6 +56,7 @@ export async function accountRequest<T>(
     // Linking waits for several Sheets reads and an atomic write/readback. Do not
     // revoke a valid Google sign-in just because that work outlasts a UI read.
     signal: AbortSignal.timeout(
+      path === "/auth/google/redirect/finish" ||
       path === "/auth/google" ||
         path === "/auth/nickname" ||
         path === "/auth/google/recover" ||
@@ -103,6 +106,8 @@ export interface GoogleIdentity {
     client_id: string;
     nonce: string;
     auto_select: false;
+    ux_mode?: "popup" | "redirect";
+    login_uri?: string;
     callback: (response: { credential?: string }) => void;
   }): void;
   renderButton(

@@ -1,3 +1,4 @@
+import { createRedirectAttempt, hasRedirectAttempt, isIOSWebApp } from "./google-redirect";
 import { useEntryReadiness } from "./use-entry-readiness";
 import { acceptStatistics } from "./statistics";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -20,6 +21,7 @@ import {
   createLoginAttempt,
   loadGoogleIdentity,
   type AuthStatus,
+  type LoginAttemptDependencies,
   type LoginPhase,
   type LoginPurpose,
   type VerifiedIdentity,
@@ -62,6 +64,7 @@ export default function WelcomeEntry({
   const button = useRef<HTMLDivElement>(null);
   const loginUpdates = useRef(0);
   const controller = useRef<ReturnType<typeof createLoginAttempt> | null>(null);
+  const resumeRedirect = useRef<(() => void) | null>(null);
   const live = useRef(true);
   const enter = useRef(onEnter);
   enter.current = onEnter;
@@ -156,17 +159,17 @@ export default function WelcomeEntry({
         getClientState().session?.token,
         Boolean(getClientState().room),
       );
-    const attempt = createLoginAttempt({
-      nonce: (purpose) =>
+    const dependencies: LoginAttemptDependencies = {
+      nonce: (purpose: LoginPurpose) =>
         accountRequest("/auth/nonce", "POST", { purpose }, token),
-      verify: (credential) =>
+      verify: (credential: string) =>
         accountRequest(
           "/auth/google/verify",
           "POST",
           { credential, consent: true },
           token,
         ),
-      link: (credential) =>
+      link: (credential: string) =>
         accountRequest(
           "/auth/google",
           "POST",
@@ -178,7 +181,7 @@ export default function WelcomeEntry({
           },
           token,
         ),
-      recover: (credential) =>
+      recover: (credential: string) =>
         accountRequest(
           "/auth/google/recover",
           "POST",
@@ -190,10 +193,10 @@ export default function WelcomeEntry({
       load: loadGoogleIdentity,
       readStatus: () =>
         accountRequest<AuthStatus>("/auth/status", "GET", undefined, token),
-      cancel: (nonce) =>
+      cancel: (nonce: string) =>
         accountRequest("/auth/cancel", "POST", { nonce }, token),
       eligible,
-      update: (next, text, signedIn) => {
+      update: (next: LoginPhase, text?: string, signedIn?: boolean) => {
         if (!eligible()) return;
         loginUpdates.current++;
         setPhase(next);
@@ -211,13 +214,39 @@ export default function WelcomeEntry({
           void finishAccount(token);
         }
       },
-    });
+    };
+    const popup = createLoginAttempt(dependencies);
+    const redirect = createRedirectAttempt({token, eligible, load: loadGoogleIdentity, update: dependencies.update});
+    let redirectSelected = hasRedirectAttempt();
+    const attempt = {
+      start: (clientId: string, element: HTMLElement, purpose: LoginPurpose = "link") => {
+        redirectSelected = isIOSWebApp() && purpose === "link" && isManagedCollection(configRef.current);
+        return redirectSelected ? redirect.start(clientId, element, purpose) : popup.start(clientId, element, purpose);
+      },
+      cancel: () => { if (redirectSelected) redirect.cancel(); else popup.cancel(); },
+      dispose: () => { popup.dispose(); redirect.dispose(); },
+    };
     controller.current = attempt;
+    resumeRedirect.current = () => {
+      if (!hasRedirectAttempt()) return;
+      redirectSelected = true;
+      setPurpose("link");
+      entryChoice.current = "account";
+      setLinkAttempted(true);
+      redirect.resume();
+    };
     return () => {
       attempt.dispose();
       controller.current = null;
+      resumeRedirect.current = null;
     };
   }, [token]);
+  useEffect(() => {
+    if (token && config && readiness.ready) resumeRedirect.current?.();
+    if (typeof location !== "undefined" && new URLSearchParams(location.search).has("google_return") && !hasRedirectAttempt()) {
+      setMessage("Google 驗證已返回。若這不是原本的主畫面 App，請關閉此視窗並返回原 App 確認登入；不會自動建立另一個帳號連結。");
+    }
+  }, [token, config, readiness.ready]);
   useEffect(() => {
     if (!requested || requested.token !== token || !pending.current) return;
     pending.current = null;

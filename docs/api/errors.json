@@ -198,6 +198,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "CSRF_REJECTED",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleRedirectController.java"
+      ],
+      "exampleMessage": "Redirect sign-in not confirmed",
+      "category": "auth",
+      "meaning": "重新導向登入未確認",
+      "handling": "返回原始 App 查詢狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "EXPERIMENT_EXPIRED",
       "httpStatuses": [
         403
@@ -437,6 +451,20 @@
       "category": "validation",
       "meaning": "輸入或目前席位/流程不符合要求",
       "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_CALLBACK",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleRedirectController.java"
+      ],
+      "exampleMessage": "Redirect sign-in not confirmed",
+      "category": "auth",
+      "meaning": "重新導向登入未確認",
+      "handling": "返回原始 App 查詢狀態，不自動重送修改。",
       "automaticMutationRetry": false
     },
     {
@@ -708,6 +736,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "ORIGIN_DENIED",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleRedirectController.java"
+      ],
+      "exampleMessage": "Redirect sign-in not confirmed",
+      "category": "auth",
+      "meaning": "重新導向登入未確認",
+      "handling": "返回原始 App 查詢狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "ORIGIN_NOT_ALLOWED",
       "httpStatuses": [
         403
@@ -775,6 +817,48 @@
       "category": "domain",
       "meaning": "自己的手牌不符合倒牌資格",
       "handling": "依最新私人快照eligible/canChoose決定操作；不得推測其他玩家資格",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "REDIRECT_DISABLED",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleRedirectController.java"
+      ],
+      "exampleMessage": "Redirect sign-in not confirmed",
+      "category": "auth",
+      "meaning": "重新導向登入未確認",
+      "handling": "返回原始 App 查詢狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "REDIRECT_EXPIRED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleRedirectController.java"
+      ],
+      "exampleMessage": "Redirect sign-in not confirmed",
+      "category": "auth",
+      "meaning": "重新導向登入未確認",
+      "handling": "返回原始 App 查詢狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "REDIRECT_PENDING",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/GoogleRedirectController.java"
+      ],
+      "exampleMessage": "Redirect sign-in not confirmed",
+      "category": "auth",
+      "meaning": "重新導向登入未確認",
+      "handling": "返回原始 App 查詢狀態，不自動重送修改。",
       "automaticMutationRetry": false
     },
     {

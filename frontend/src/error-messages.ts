@@ -1,5 +1,11 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  CSRF_REJECTED: "Google 返回驗證未通過，請返回原本的 App 確認登入狀態。",
+  INVALID_CALLBACK: "Google 返回資料無法確認，請返回原本的 App。",
+  ORIGIN_DENIED: "請從原本的遊戲頁面操作。",
+  REDIRECT_DISABLED: "主畫面 App 登入暫未支援，請先改用 Safari。",
+  REDIRECT_EXPIRED: "這次登入已過期或已處理，請確認登入狀態。",
+  REDIRECT_PENDING: "前次登入仍待確認，請先確認狀態，不要重複送出。",
   ACCOUNT_NICKNAME_REQUIRED: "請使用帳號已保存的暱稱。",
   NICKNAME_REQUIRED: "請先選擇遊戲暱稱。",
   PROFILE_CONSENT_REQUIRED: "請返回入口確認資料使用說明。",
