@@ -76,7 +76,7 @@ export default function FriendsHub({
   entryTarget = null,
   entryPlacement = "default",
 }: Props) {
-  const playing = !!room && !["WAITING", "MATCH_RESULT", "ABORTED"].includes(room.phase);
+  const playing = !!room && room.phase !== "WAITING";
   const disabled = externallyDisabled || playing;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -262,9 +262,9 @@ export default function FriendsHub({
     );
   }, [open, disabled, data?.enabled]);
   useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
-  if (disabled || !data?.enabled) return null;
+    if (disabled || entryPlacement === "hidden") setOpen(false);
+  }, [disabled, entryPlacement]);
+  if (disabled || entryPlacement === "hidden" || !data?.enabled) return null;
   const locked = busy || uncertain;
   const waiting =
     room?.phase === "WAITING" && room.players.length < room.capacity;
@@ -585,13 +585,11 @@ export default function FriendsHub({
   );
   return (
     <>
-      {entryPlacement === "hidden"
-        ? null
-        : entryPlacement === "lobby"
-          ? entryTarget
-            ? createPortal(entry, entryTarget)
-            : null
-          : entry}
+      {entryPlacement === "lobby"
+        ? entryTarget
+          ? createPortal(entry, entryTarget)
+          : null
+        : entry}
       {drawer}
     </>
   );

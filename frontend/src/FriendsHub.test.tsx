@@ -141,7 +141,7 @@ describe("friends panel", () => {
     expect(tree.root.findAllByProps({ role: "dialog" })).toHaveLength(0);
     expect(tree.root.findAllByProps({ className: "friends-notice" })).toHaveLength(0);
   });
-  it.each(["REDEAL_DECISION", "PRIVILEGE_DECISION", "BIDDING", "DEAL_RESULT", "PLAYING", "TRICK_RESULT", "FORFEIT_PENDING"] as const)("hides all social entries during %s", async (phase) => {
+  it.each(["REDEAL_DECISION", "PRIVILEGE_DECISION", "BIDDING", "DEAL_RESULT", "PLAYING", "TRICK_RESULT", "FORFEIT_PENDING", "MATCH_RESULT", "ABORTED"] as const)("hides all social entries during %s", async (phase) => {
     await mount(gameRoom(phase));
     expect(tree.toJSON()).toBeNull();
   });
@@ -159,7 +159,7 @@ describe("friends panel", () => {
     const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
     const controls = app.slice(app.indexOf('<aside className="panel room-controls">'));
     expect(controls).toContain('<div className="room-friends-slot" ref={setFriendsEntryTarget} />');
-    expect(app).toContain('page === "room" && (!state.room || state.room.phase === "WAITING")');
+    expect(app).toContain("entryPlacement={friendsEntryPlacement(page, state.room)}");
   });
   it("hides guests and stops polling", async () => {
     mocks.request.mockResolvedValue({ ...sample, enabled: false });
@@ -471,6 +471,10 @@ describe("friends panel", () => {
     await act(async () => {
       button("接受").props.onClick();
     });
+    await act(async () => {
+      tree.update(<FriendsHub token="test" room={null} entryPlacement="hidden" />);
+    });
+    expect(tree.toJSON()).toBeNull();
     const target = {} as HTMLElement;
     await act(async () => {
       tree.update(
@@ -482,6 +486,7 @@ describe("friends panel", () => {
         />,
       );
     });
+    await act(async () => button("我的好友").props.onClick());
     expect(mocks.portal).toHaveBeenCalledWith(expect.anything(), target);
     expect(button("接受").props.disabled).toBe(true);
     await act(async () => {
@@ -525,6 +530,16 @@ describe("friends panel", () => {
     });
     expect(button("我的好友")).toBeDefined();
     expect(mocks.portal).toHaveBeenCalledWith(expect.anything(), target);
+  });
+  it("closes a panel on hidden pages and does not reopen on return", async () => {
+    await mount();
+    await act(async () => button("我的好友").props.onClick());
+    expect(tree.root.findAllByProps({ role: "dialog" })).toHaveLength(1);
+    await act(async () => tree.update(<FriendsHub token="test" room={null} entryPlacement="hidden" />));
+    expect(tree.toJSON()).toBeNull();
+    await act(async () => tree.update(<FriendsHub token="test" room={null} />));
+    expect(button("我的好友")).toBeDefined();
+    expect(tree.root.findAllByProps({ role: "dialog" })).toHaveLength(0);
   });
   it("hides the help-page entry without unmounting the social session", async () => {
     await mount();

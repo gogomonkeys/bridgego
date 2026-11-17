@@ -9,11 +9,33 @@ type Box = {
   height: number;
   radius?: number;
 };
+export function spotlightBounds(
+  target: Box,
+  children: Box[] = [],
+  padding = 0,
+): Box {
+  const visible = [
+    target,
+    ...children.filter((b) => b.width > 0 && b.height > 0),
+  ];
+  const left = Math.min(...visible.map((b) => b.left)) - padding;
+  const top = Math.min(...visible.map((b) => b.top)) - padding;
+  const right = Math.max(...visible.map((b) => b.left + b.width)) + padding;
+  const bottom = Math.max(...visible.map((b) => b.top + b.height)) + padding;
+  return {
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+    radius: target.radius,
+  };
+}
 export function spotlightLayout(
   target: Box | null,
   width: number,
   height: number,
   dialogHeight: number,
+  dockBottom = false,
 ) {
   const dw = Math.min(360, Math.max(0, width - 24));
   const dh = Math.min(dialogHeight, Math.max(0, height - 24));
@@ -49,7 +71,14 @@ export function spotlightLayout(
           : target.top + target.height + 6 + dh <= height - 8
             ? target.top + target.height + 6
             : Math.max(12, height - dh - 12);
-  return { hole, dialog: { top, left, width: dw } };
+  return {
+    hole,
+    dialog: {
+      top: dockBottom ? Math.max(12, height - dh - 12) : top,
+      left,
+      width: dw,
+    },
+  };
 }
 /** Only asks for a one-time placement correction when both blocks can fit. */
 export function spotlightNeedsAdjustment(
@@ -64,6 +93,22 @@ export function spotlightNeedsAdjustment(
   );
 }
 type Layout = ReturnType<typeof spotlightLayout>;
+export function sameSpotlightLayout(a: Layout | null, b: Layout): boolean {
+  return (
+    !!a &&
+    a.dialog.top === b.dialog.top &&
+    a.dialog.left === b.dialog.left &&
+    a.dialog.width === b.dialog.width &&
+    ((a.hole === null && b.hole === null) ||
+      (!!a.hole &&
+        !!b.hole &&
+        a.hole.top === b.hole.top &&
+        a.hole.left === b.hole.left &&
+        a.hole.width === b.hole.width &&
+        a.hole.height === b.hole.height &&
+        a.hole.borderRadius === b.hole.borderRadius))
+  );
+}
 /** Navigation is local; caller owns all legal game actions. */
 export default function TutorialSpotlight({
   target,
@@ -80,8 +125,12 @@ export default function TutorialSpotlight({
   interactive = false,
   allowInteraction,
   complete = false,
+  includeTargetChildren,
+  targetPadding = 0,
 }: {
   complete?: boolean;
+  includeTargetChildren?: string;
+  targetPadding?: number;
   target: string;
   title: string;
   children: ReactNode;
@@ -104,6 +153,8 @@ export default function TutorialSpotlight({
     if (typeof document === "undefined" || typeof window === "undefined")
       return;
     let raf = 0;
+    let trackingRaf = 0;
+    let lastLayout: Layout | null = null;
     let adjustmentPending = false;
     let adjustmentBudget = 2;
     let userInteracted = false;
@@ -120,7 +171,21 @@ export default function TutorialSpotlight({
     };
     const measure = (allowAdjustment = false) => {
       const element = getTarget();
-      let box = element?.getBoundingClientRect();
+      const readBox = () =>
+        element
+          ? spotlightBounds(
+              element.getBoundingClientRect(),
+              includeTargetChildren
+                ? [
+                    ...element.querySelectorAll<HTMLElement>(
+                      includeTargetChildren,
+                    ),
+                  ].map((n) => n.getBoundingClientRect())
+                : [],
+              targetPadding,
+            )
+          : undefined;
+      let box = readBox();
       const measuredHeight = dialogRef.current?.getBoundingClientRect().height;
       const dh = measuredHeight || 190;
       // The first measurement can precede the popup's final width/text wrap.
@@ -133,37 +198,48 @@ export default function TutorialSpotlight({
         box &&
         !userInteracted &&
         adjustmentBudget > 0 &&
-        spotlightNeedsAdjustment(box, window.innerHeight, dh) &&
+        (window.innerWidth <= 600
+          ? box.top < 12 || box.top + box.height > window.innerHeight - dh - 24
+          : spotlightNeedsAdjustment(box, window.innerHeight, dh)) &&
         typeof element.scrollIntoView === "function"
       ) {
         adjustmentBudget--;
-        element.scrollIntoView({
-          block: "start",
-          inline: "nearest",
-          behavior: "instant",
-        });
-        window.scrollBy?.({ top: -12, behavior: "instant" });
-        box = element.getBoundingClientRect();
+        if (window.innerWidth <= 600) {
+          const available = window.innerHeight - dh - 36;
+          const desiredTop = Math.max(12, 12 + (available - box.height) / 2);
+          window.scrollBy?.({ top: box.top - desiredTop, behavior: "instant" });
+        } else {
+          element.scrollIntoView({
+            block: "start",
+            inline: "nearest",
+            behavior: "instant",
+          });
+          window.scrollBy?.({ top: -12, behavior: "instant" });
+        }
+        box = readBox();
       }
       const radius = element
         ? parseFloat(window.getComputedStyle(element).borderTopLeftRadius) || 0
         : 0;
-      setLayout(
-        spotlightLayout(
-          box
-            ? {
-                top: box.top,
-                left: box.left,
-                width: box.width,
-                height: box.height,
-                radius,
-              }
-            : null,
-          window.innerWidth,
-          window.innerHeight,
-          dh,
-        ),
+      const nextLayout = spotlightLayout(
+        box
+          ? {
+              top: box.top,
+              left: box.left,
+              width: box.width,
+              height: box.height,
+              radius,
+            }
+          : null,
+        window.innerWidth,
+        window.innerHeight,
+        dh,
+        window.innerWidth <= 600,
       );
+      if (!sameSpotlightLayout(lastLayout, nextLayout)) {
+        lastLayout = nextLayout;
+        setLayout(nextLayout);
+      }
     };
     const update = (allowAdjustment = false) => {
       adjustmentPending ||= allowAdjustment;
@@ -184,6 +260,15 @@ export default function TutorialSpotlight({
         behavior: "instant",
       });
     measure(true);
+    // A seat can move without changing its own size (late image/font layout,
+    // parent resize, PWA viewport changes). ResizeObserver alone misses that.
+    // Track geometry while the guide is open; never scroll from this loop and
+    // never re-render when the measured geometry is unchanged.
+    const trackPosition = () => {
+      measure(false);
+      trackingRaf = window.requestAnimationFrame(trackPosition);
+    };
+    trackingRaf = window.requestAnimationFrame(trackPosition);
     dialogRef.current?.focus({ preventScroll: true });
     const observer =
       typeof ResizeObserver !== "undefined"
@@ -194,6 +279,7 @@ export default function TutorialSpotlight({
     window.addEventListener("resize", resizeUpdate);
     window.addEventListener("scroll", scrollUpdate, true);
     window.visualViewport?.addEventListener("resize", resizeUpdate);
+    window.visualViewport?.addEventListener("scroll", scrollUpdate);
     for (const event of ["pointerdown", "touchstart", "wheel", "keydown"])
       window.addEventListener(event, stopAdjustment, {
         capture: true,
@@ -204,11 +290,13 @@ export default function TutorialSpotlight({
         window.removeEventListener(event, stopAdjustment, true);
       observer?.disconnect();
       window.cancelAnimationFrame(raf);
+      window.cancelAnimationFrame(trackingRaf);
       window.removeEventListener("resize", resizeUpdate);
       window.removeEventListener("scroll", scrollUpdate, true);
       window.visualViewport?.removeEventListener("resize", resizeUpdate);
+      window.visualViewport?.removeEventListener("scroll", scrollUpdate);
     };
-  }, [target, title, stepKey]);
+  }, [target, title, stepKey, includeTargetChildren, targetPadding]);
   useEffect(() => {
     if (typeof document === "undefined") return;
     const keys = (event: KeyboardEvent) => {
@@ -257,104 +345,113 @@ export default function TutorialSpotlight({
   const content = (
     <>
       {target && <div className="tutorial-scroll-space" aria-hidden="true" />}
-    <div className={`tutorial-spotlight-layer${hole ? " has-spotlight" : ""}`}>
-      {hole ? (
-        <>
-          <div
-            className="tutorial-shade"
-            style={{ top: 0, left: 0, right: 0, height: hole.top }}
-          />
-          <div
-            className="tutorial-shade"
-            style={{
-              top: hole.top + hole.height,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-          />
-          <div
-            className="tutorial-shade"
-            style={{
-              top: hole.top,
-              left: 0,
-              width: hole.left,
-              height: hole.height,
-            }}
-          />
-          <div
-            className="tutorial-shade"
-            style={{
-              top: hole.top,
-              left: hole.left + hole.width,
-              right: 0,
-              height: hole.height,
-            }}
-          />
-          <div
-            className="tutorial-spotlight-ring"
-            style={{
-              ...hole,
-              pointerEvents: interactive && !busy ? "none" : "auto",
-            }}
-          />
-        </>
-      ) : (
-        <div className="tutorial-shade tutorial-shade-full" />
-      )}
-      <aside
-        ref={dialogRef}
-        className="tutorial-popup"
-        role="dialog"
-        tabIndex={-1}
-        aria-modal="false"
-        aria-label={title}
-        style={layout?.dialog}
+      <div
+        className={`tutorial-spotlight-layer${hole ? " has-spotlight" : ""}`}
       >
-        <div className="tutorial-popup-heading">
-          <TutorialCompanion />
-          <div className="tutorial-speaker">
-            <span className="tutorial-speaker-label">小狐狸帶你學</span>
-            <strong>{title}</strong>
+        {hole ? (
+          <>
+            <div
+              className="tutorial-shade"
+              style={{ top: 0, left: 0, right: 0, height: hole.top }}
+            />
+            <div
+              className="tutorial-shade"
+              style={{
+                top: hole.top + hole.height,
+                left: 0,
+                right: 0,
+                bottom: 0,
+              }}
+            />
+            <div
+              className="tutorial-shade"
+              style={{
+                top: hole.top,
+                left: 0,
+                width: hole.left,
+                height: hole.height,
+              }}
+            />
+            <div
+              className="tutorial-shade"
+              style={{
+                top: hole.top,
+                left: hole.left + hole.width,
+                right: 0,
+                height: hole.height,
+              }}
+            />
+            <div
+              className="tutorial-spotlight-ring"
+              style={{
+                ...hole,
+                pointerEvents: interactive && !busy ? "none" : "auto",
+              }}
+            />
+          </>
+        ) : (
+          <div className="tutorial-shade tutorial-shade-full" />
+        )}
+        <aside
+          ref={dialogRef}
+          className="tutorial-popup"
+          role="dialog"
+          tabIndex={-1}
+          aria-modal="false"
+          aria-label={title}
+          style={layout?.dialog}
+        >
+          <div className="tutorial-popup-heading">
+            <TutorialCompanion />
+            <div className="tutorial-speaker">
+              <span className="tutorial-speaker-label">小狐狸帶你學</span>
+              <strong>{title}</strong>
+            </div>
+            {stepLabel && (
+              <small
+                className="tutorial-step-count"
+                aria-label={`教學進度 ${stepLabel}`}
+              >
+                {stepLabel}
+              </small>
+            )}
           </div>
-          {stepLabel && <small className="tutorial-step-count" aria-label={`教學進度 ${stepLabel}`}>{stepLabel}</small>}
-        </div>
-        <div className="tutorial-popup-copy" aria-live="polite">
-          {children}
-        </div>
-        <nav aria-label="教學步驟" className="tutorial-popup-actions">
-          <button
-            type="button"
-            disabled={busy || !onPrevious}
-            onClick={onPrevious}
-          >
-            上一步
-          </button>
-          {onNext && !complete && (
+          <div className="tutorial-popup-copy" aria-live="polite">
+            {children}
+          </div>
+          <nav aria-label="教學步驟" className="tutorial-popup-actions">
             <button
               type="button"
-              className="primary"
-              disabled={busy}
-              onClick={onNext}
+              disabled={busy || !onPrevious}
+              onClick={onPrevious}
             >
-              {nextLabel}
+              上一步
             </button>
-          )}
-          <button
-            type="button"
-            className={
-              complete
-                ? "primary tutorial-popup-complete"
-                : "tutorial-popup-exit"
-            }
-            disabled={busy}
-            onClick={onExit}
-          >
-            {complete ? "完成，回大廳" : "離開教學"}
-          </button>
-        </nav>
-      </aside>
-    </div>
+            {onNext && !complete && (
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={onNext}
+              >
+                {nextLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              className={
+                complete
+                  ? "primary tutorial-popup-complete"
+                  : "tutorial-popup-exit"
+              }
+              disabled={busy}
+              onClick={onExit}
+            >
+              {complete ? "完成，回大廳" : "離開教學"}
+            </button>
+          </nav>
+        </aside>
+      </div>
     </>
   );
   return typeof document !== "undefined" && document.body

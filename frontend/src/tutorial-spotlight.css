@@ -183,3 +183,28 @@
    short screens. It does not resize or replace the production table/grid and
    disappears immediately when the tutorial closes. */
 .tutorial-scroll-space { height: 100dvh; width: 1px; pointer-events: none; }
+/* Phone guide stays in one predictable bottom dock. Only the explanation
+   scrolls; heading and navigation remain available without scrolling the page. */
+@media (max-width: 600px) {
+  .tutorial-popup {
+    height: min(260px, 38dvh);
+    max-height: min(260px, 38dvh);
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    overflow: hidden;
+  }
+  .tutorial-popup-heading { flex: 0 0 auto; gap: 8px; }
+  .tutorial-popup .tutorial-companion { width: 34px; height: 34px; flex-basis: 34px; }
+  .tutorial-popup-heading strong { font-size: 15px; }
+  .tutorial-popup .tutorial-speaker-label { font-size: 10px; }
+  .tutorial-popup-copy { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 3px; }
+  .tutorial-popup .tutorial-popup-copy p { margin: 7px 0; font-size: 14px; line-height: 1.5; }
+  .tutorial-popup .tutorial-popup-copy small { font-size: 11px; margin: 6px 0; }
+  .tutorial-popup-actions { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; flex: 0 0 auto; gap: 6px; padding-top: 6px; }
+  .tutorial-popup-actions button { min-width: 0; padding: 6px 8px; font-size: 12px; line-height: 1.3; min-height: 44px; }
+  .tutorial-popup-actions .tutorial-popup-exit,
+  .tutorial-popup-actions .tutorial-popup-complete { margin-left: 0; }
+  .tutorial-popup-actions .tutorial-popup-complete { grid-column: 2 / -1; }
+  .tutorial-scroll-space { height: calc(min(260px, 38dvh) + 24px); }
+}

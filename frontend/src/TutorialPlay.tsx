@@ -103,6 +103,12 @@ export default function TutorialPlay({
                     ? ".trick-positions"
                     : ".own-hand-panel"
             }
+            includeTargetChildren={
+              step === 1
+                ? ".played-card, .public-lead-badge, .public-card-corner"
+                : undefined
+            }
+            targetPadding={step === 1 ? 8 : 0}
             stepKey={`${game.revision}:${step}`}
             title={content.title}
             progress={step === -1 ? "4 / 9" : `${step + 5} / 9`}

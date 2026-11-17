@@ -13,6 +13,15 @@ describe("forest record presentation", () => {
     expect(html).toContain("我的本季戰績");
     expect(html).toContain("每一局，都是新的成長。");
   });
+  it("keeps the title first and the small mascot out of its text column", () => {
+    const html = render(<StatisticsPanel token="fixture" onBack={() => {}} />);
+    expect(html.indexOf('class="forest-records-heading"')).toBeLessThan(html.indexOf("animal-bear.webp"));
+    const css = readFileSync(new URL("./forest-records.css", import.meta.url), "utf8");
+    expect(css).toContain("grid-template-columns: minmax(0, 1fr) 44px");
+    expect(css).toContain("grid-template-columns: minmax(0, 1fr) 36px");
+    expect(css).toContain("min-height: 0");
+    expect(css).toContain("justify-content: start");
+  });
   it("keeps leaderboard context and both actions with its decorative fox", () => {
     const html = render(<LeaderboardPanel token="fixture" onBack={() => {}} />);
     expect(html).toContain("animal-fox.webp");

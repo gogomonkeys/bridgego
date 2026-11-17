@@ -1,4 +1,5 @@
 import FriendsHub from "./FriendsHub";
+import { friendsEntryPlacement } from "./friends-entry-placement";
 import LeaderboardPanel from "./LeaderboardPanel";
 import { roomTitle, shortRoomId } from "./room-display";
 import "./lobby-feedback.css";
@@ -154,7 +155,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.15.5", disconnects: diagnostics },
+    { version: "0.15.6", disconnects: diagnostics },
     null,
     2,
   );
@@ -218,7 +219,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.15.5</span>
+            <span className="eyebrow">v0.15.6</span>
           </div>
         )}
         <PwaStatus
@@ -250,7 +251,7 @@ export default function App() {
           (!state.session || state.room?.phase === "WAITING") && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.15.5</span>
+                <span className="eyebrow">v0.15.6</span>
                 <h1>
                   {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
                 </h1>
@@ -271,13 +272,7 @@ export default function App() {
             token={state.session.token}
             room={state.room}
             entryTarget={friendsEntryTarget}
-            entryPlacement={
-              (page === "help" || page === "leaderboard")
-                ? "hidden"
-                : page === "room" && (!state.room || state.room.phase === "WAITING")
-                  ? "lobby"
-                  : "default"
-            }
+            entryPlacement={friendsEntryPlacement(page, state.room)}
             disabled={
               tutorialTableActive ||
               !!state.serviceMaintenance ||
@@ -612,7 +607,7 @@ export default function App() {
                 <div className="lobby-greeting">
                   <img className="lobby-welcome-animal" src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true" draggable={false} />
                   <div>
-                    <span className="eyebrow">森林牌桌 · v0.15.5</span>
+                    <span className="eyebrow">森林牌桌 · v0.15.6</span>
                     <h2>你好，{state.session!.displayName}</h2>
                     <p>找個座位，一起玩一場。</p>
                   </div>

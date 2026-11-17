@@ -13,10 +13,19 @@
   gap: 12px;
   min-width: 0;
 }
-.statistics-panel .forest-records-welcome { margin-bottom: 20px; }
+.statistics-panel .forest-records-welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  justify-content: start;
+  min-height: 0;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+.statistics-panel .forest-records-heading { min-width: 0; text-align: left; }
 .statistics-panel .forest-records-welcome img {
-  width: 72px;
-  height: 72px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   flex: 0 0 auto;
 }
@@ -63,8 +72,8 @@
 .statistics-panel .leaderboard-score strong { color: #294a37; }
 @media (max-width: 500px) {
   .panel.statistics-panel { padding: 18px 14px; border-radius: 20px; }
-  .statistics-panel .forest-records-welcome { gap: 10px; }
-  .statistics-panel .forest-records-welcome img { width: 58px; height: 58px; }
+  .statistics-panel .forest-records-welcome { gap: 10px; grid-template-columns: minmax(0, 1fr) 36px; }
+  .statistics-panel .forest-records-welcome img { width: 36px; height: 36px; }
   .statistics-panel .forest-records-welcome p { font-size: 12px; }
   .statistics-panel .forest-records-title { gap: 8px; }
   .statistics-panel .forest-records-title img { width: 36px; height: 36px; }

@@ -131,3 +131,22 @@ it("uses compact spacing rather than overlapping when scrolling is clamped", () 
   expect(r.dialog.top).toBeGreaterThanOrEqual(8);
   expect(r.dialog.top + 202).toBeLessThan(220);
 });
+
+it("keeps phone guidance in the same bottom dock across changing targets", () => {
+  const high = spotlightLayout(
+    { top: 40, left: 20, width: 120, height: 80 },
+    390,
+    844,
+    260,
+    true,
+  );
+  const low = spotlightLayout(
+    { top: 400, left: 20, width: 120, height: 80 },
+    390,
+    844,
+    260,
+    true,
+  );
+  expect(high.dialog.top).toBe(572);
+  expect(low.dialog.top).toBe(572);
+});
