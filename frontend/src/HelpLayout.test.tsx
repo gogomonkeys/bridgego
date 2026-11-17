@@ -30,7 +30,7 @@ describe("help page layout", () => {
       html.indexOf('class="pwa-help"'),
     );
     for (const text of [
-      "v0.15.2",
+      "v0.15.3",
       "加入主畫面",
       "保持螢幕開啟",
       "使用說明",
@@ -45,7 +45,7 @@ describe("help page layout", () => {
       source.indexOf("<DataPrivacyHelp />"),
     );
     expect(help).not.toContain("<TutorialHelpEntry");
-    expect(source).toMatch(/page === "help"\s*\? "hidden"/);
+    expect(source).toMatch(/page === "help" \|\| page === "leaderboard"\)\s*\? "hidden"/);
     expect(source.match(/<TutorialHelpEntry/g)).toHaveLength(1);
     vi.stubGlobal("window", { location: { hash: "#help" } });
     const html = renderToStaticMarkup(<App />);
@@ -61,7 +61,7 @@ describe("help page layout", () => {
     vi.stubGlobal("window", { location: { hash: "#statistics" } });
     const html = renderToStaticMarkup(<App />);
     expect(html).toContain('class="statistics-page"');
-    expect(html).toContain("v0.15.2");
+    expect(html).toContain("v0.15.3");
     expect(html).not.toContain("四個座位，一起相聚。");
     expect(html).not.toContain("已離開房間");
   });

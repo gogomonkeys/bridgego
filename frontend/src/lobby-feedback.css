@@ -127,3 +127,64 @@
   .forest-shell .lobby-join-panel .join-row button { width: 100%; }
   .forest-shell .lobby-statistics-button { flex-direction: row; }
 }
+
+/* A compact forest welcome, not another competing action card. */
+.forest-shell .lobby-account-panel {
+  padding: 14px 20px 8px;
+  background: linear-gradient(110deg, #f8f1df, #eef2e4);
+  border: 1px solid #d5d9bd;
+  box-shadow: 0 3px 14px #5364430d;
+}
+.forest-shell .lobby-account-panel .lobby-panel-heading { align-items: center; }
+.forest-shell .lobby-greeting { display: flex; align-items: center; gap: 14px; }
+.forest-shell .lobby-welcome-animal { width: 70px; height: 70px; object-fit: contain; flex: none; }
+.forest-shell .lobby-greeting .eyebrow { font-size: 0.68rem; letter-spacing: 0.08em; color: #657453; }
+.forest-shell .lobby-greeting h2 { margin: 2px 0; font-size: 1.2rem; line-height: 1.35; }
+.forest-shell .lobby-greeting p { margin: 3px 0 0; color: #67735e; font-size: 0.85rem; }
+.forest-shell .lobby-tools-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; border-top: 1px solid #d8ddc8; margin-top: 10px; }
+.forest-shell .lobby-account-panel .lobby-tutorial-entry { margin: 0; gap: 6px; }
+.forest-shell .lobby-account-panel .lobby-statistics-button,
+.forest-shell .lobby-account-panel .lobby-tutorial-entry button {
+  background: transparent; border-color: transparent; box-shadow: none;
+  color: #435b3b; padding: 8px 10px; border-radius: 8px;
+  font-size: 0.86rem; min-height: 44px; font-weight: 650;
+  flex-direction: row;
+}
+.forest-shell .lobby-account-panel button:hover:not(:disabled) { background: #e3e9d4; }
+.forest-shell .lobby-account-panel button:focus-visible { outline: 2px solid #536b42; outline-offset: 2px; }
+.forest-shell .lobby-identity-return { font-size: 0.78rem; color: #737667; margin: 0; min-height: 44px; padding: 8px; }
+.forest-shell .lobby-create-panel,
+.forest-shell .lobby-join-panel,
+.forest-shell .lobby-rooms-panel { padding: 22px; }
+.forest-shell .lobby-create-panel h2,
+.forest-shell .lobby-join-panel h2,
+.forest-shell .lobby-rooms-panel h2 { font-size: 1.12rem; }
+.forest-shell .lobby-create-panel h2,
+.forest-shell .lobby-join-panel h2 { margin-bottom: 14px; }
+.forest-shell .lobby-create-panel .room-type-options label { padding: 12px; }
+.forest-shell .lobby-create-panel .room-type-choice p { font-size: 0.75rem; line-height: 1.5; margin-bottom: 14px; }
+.forest-shell .lobby-rooms-panel .list-heading > button { background: transparent; box-shadow: none; border-color: transparent; font-size: 0.8rem; padding: 8px; min-height: 44px; }
+@media (max-width: 730px) {
+  .forest-shell .lobby-layout.forest-lobby { gap: 12px; }
+  .forest-shell .lobby-account-panel { padding: 12px 14px 4px; }
+  .forest-shell .lobby-account-panel .lobby-panel-heading { flex-wrap: wrap; gap: 4px 8px; }
+  .forest-shell .lobby-welcome-animal { width: 54px; height: 54px; }
+  .forest-shell .lobby-greeting { gap: 10px; }
+  .forest-shell .lobby-greeting h2 { font-size: 1.05rem; }
+  .forest-shell .lobby-greeting p { font-size: 0.8rem; }
+  .forest-shell .lobby-panel-heading .lobby-statistics-actions { width: auto; margin-left: auto; gap: 0; }
+  .forest-shell .lobby-statistics-actions .lobby-statistics-button { flex: 0 1 auto; padding: 8px; }
+  .forest-shell .lobby-tools-row { margin-top: 4px; gap: 0; }
+  .forest-shell .lobby-create-panel,
+  .forest-shell .lobby-join-panel,
+  .forest-shell .lobby-rooms-panel { padding: 18px; }
+}
+
+/* Keep a full text line for the welcome on narrow phones. */
+@media (max-width: 480px) {
+  .forest-shell .lobby-account-panel .lobby-panel-heading .lobby-greeting { flex: 1 1 100%; }
+  .forest-shell .lobby-greeting > div { min-width: 0; }
+  .forest-shell .lobby-greeting h2 { overflow-wrap: anywhere; }
+  .forest-shell .lobby-account-panel .lobby-statistics-actions { width: 100%; margin-left: 0; justify-content: flex-start; }
+  .forest-shell .lobby-welcome-animal { width: 62px; height: 62px; }
+}

@@ -154,7 +154,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.15.2", disconnects: diagnostics },
+    { version: "0.15.3", disconnects: diagnostics },
     null,
     2,
   );
@@ -218,7 +218,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.15.2</span>
+            <span className="eyebrow">v0.15.3</span>
           </div>
         )}
         <PwaStatus
@@ -247,10 +247,10 @@ export default function App() {
         )}
         {!tutorialTableActive &&
           page === "room" &&
-          (!state.room || state.room.phase === "WAITING") && (
+          (!state.session || state.room?.phase === "WAITING") && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.15.2</span>
+                <span className="eyebrow">v0.15.3</span>
                 <h1>
                   {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
                 </h1>
@@ -272,7 +272,7 @@ export default function App() {
             room={state.room}
             entryTarget={friendsEntryTarget}
             entryPlacement={
-              page === "help"
+              (page === "help" || page === "leaderboard")
                 ? "hidden"
                 : !state.room && page === "room"
                   ? "lobby"
@@ -609,8 +609,12 @@ export default function App() {
             <section className="panel lobby-account-panel" aria-label="玩家與功能">
               <div className="lobby-panel-heading">
                 <div className="lobby-greeting">
-                  <span className="eyebrow">遊戲大廳</span>
-                  <h2>你好，{state.session!.displayName}</h2>
+                  <img className="lobby-welcome-animal" src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true" draggable={false} />
+                  <div>
+                    <span className="eyebrow">森林牌桌 · v0.15.3</span>
+                    <h2>你好，{state.session!.displayName}</h2>
+                    <p>找個座位，一起玩一場。</p>
+                  </div>
                 </div>
                 {canSeeLeaderboard && (
                   <div className="lobby-statistics-actions">
@@ -666,6 +670,7 @@ export default function App() {
                   </button>
                 </div>
               )}
+              <div className="lobby-tools-row">
               <div className="lobby-tutorial-entry">
                 <TutorialHelpEntry
                   key={`${state.session!.token}:${tutorialAccountEpoch}`}
@@ -700,6 +705,7 @@ export default function App() {
               >
                 返回身分選擇
               </button>
+              </div>
             </section>
             <section className="panel lobby-create-panel" aria-labelledby="create-room-title">
               <h2 id="create-room-title">建立房間</h2>

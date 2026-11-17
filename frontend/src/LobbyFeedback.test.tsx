@@ -46,6 +46,7 @@ vi.mock("./StatisticsPanel", () => ({
   default: () => <div>Private statistics</div>,
 }));
 import App from "./App";
+import FriendsHub from "./FriendsHub";
 let tree: ReactTestRenderer;
 const listeners = new Map<string, () => void>();
 const click = async (label: string) => {
@@ -95,6 +96,9 @@ describe("lobby feedback authorization", () => {
     expect(panel("lobby-join-panel").findByProps({ id: "room-code" })).toBeTruthy();
     expect(panel("lobby-rooms-panel").findByProps({ id: "available-rooms-title" })).toBeTruthy();
     expect(text()).not.toContain("換一個訪客身分");
+    expect(tree.root.findByProps({ className: "lobby-welcome-animal" }).props.src).toBe("/assets/forest/animal-fox.webp");
+    expect(text()).not.toContain("四個座位，一起相聚。");
+    expect(tree.root.findByType(FriendsHub).props.entryPlacement).toBe("lobby");
     await click("返回身分選擇");
     expect(mocks.forget).toHaveBeenCalledTimes(1);
   });
@@ -144,6 +148,7 @@ describe("lobby feedback authorization", () => {
       )!;
     await act(async () => ranking.props.onClick());
     expect(text()).toContain("Public ranking");
+    expect(tree.root.findByType(FriendsHub).props.entryPlacement).toBe("hidden");
     expect(text()).not.toContain("Private statistics");
   });
   it("keeps public ranking during failed private access checks and offers explicit recovery", async () => {
