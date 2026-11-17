@@ -74,7 +74,7 @@ final class LiveQuarterWorkbook {
       emptyArrays(root, ROOT_EMPTY_ARRAYS);
       boolean carlitoTheme = properties(required(root, "properties"));
       JsonNode sheets = required(root, "sheets");
-      if (!sheets.isArray() || sheets.size() != ManualQuarterMaintenance.HEADERS.size()) throw failure();
+      if (!sheets.isArray() || (sheets.size() != ManualQuarterMaintenance.HEADERS.size() && sheets.size() != ManualQuarterMaintenance.HEADERS.size()+1)) throw failure();
       var tables = new TreeMap<String,List<List<String>>>();
       var grids = new TreeMap<String,Grid>();
       var sheetMetadata = new TreeMap<String,JsonNode>();
@@ -86,8 +86,8 @@ final class LiveQuarterWorkbook {
         fields(p, Set.of("sheetId", "title", "index", "sheetType", "gridProperties", "hidden", "rightToLeft",
             "tabColor", "tabColorStyle", "dataSourceSheetProperties"));
         String title = text(p, "title");
-        List<String> header = ManualQuarterMaintenance.HEADERS.get(title);
-        int id = integer(p, "sheetId", 0, Integer.MAX_VALUE), index = optionalInteger(p, "index", 0, 0, 7);
+        List<String> header = title.equals("social")?SocialRows.HEADER:ManualQuarterMaintenance.HEADERS.get(title);
+        int id = integer(p, "sheetId", 0, Integer.MAX_VALUE), index = optionalInteger(p, "index", 0, 0, sheets.size()-1);
         if (header == null || !ids.add(id) || !indices.add(index)
             || p.has("sheetType") && !"GRID".equals(text(p, "sheetType"))) throw failure();
         falseBoolean(p, "hidden"); falseBoolean(p, "rightToLeft");
@@ -112,7 +112,7 @@ final class LiveQuarterWorkbook {
         metadata.set("gridDataMetadata", parsed.metadata());
         sheetMetadata.put(title, metadata);
       }
-      if (!grids.keySet().equals(ManualQuarterMaintenance.HEADERS.keySet())) throw failure();
+      if (!ManualQuarterMaintenance.knownTables(grids.keySet())) throw failure();
       // Do not expose completeKnownLayout=true until every grid, dimension and metadata field has passed.
       var snapshot = new ManualQuarterMaintenance.Snapshot(binding.spreadsheetId(), true, tables);
       if (scaffoldMarker == null) ManualQuarterMaintenance.validate(snapshot, binding, clock);
@@ -128,6 +128,7 @@ final class LiveQuarterWorkbook {
   }
 
   private static void validateScaffold(ManualQuarterMaintenance.Snapshot snapshot, String marker) {
+    if(!snapshot.tables().keySet().equals(ManualQuarterMaintenance.HEADERS.keySet()))throw failure();
     for (var entry : ManualQuarterMaintenance.HEADERS.entrySet()) {
       List<List<String>> expected = entry.getKey().equals("auth_identities")
           ? List.of(entry.getValue(), List.of("", marker, "", "")) : List.of(entry.getValue());

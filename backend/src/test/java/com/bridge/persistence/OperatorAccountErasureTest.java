@@ -21,6 +21,7 @@ class OperatorAccountErasureTest {
             tabs.put("dataset",new ArrayList<>(List.of(List.of("purpose","bridgego-restricted-test"),List.of("dataset_id","test-fixture"))));
         }
         public synchronized List<List<String>> read(String tab){if(failReads)throw new Failure(503,0);return new ArrayList<>(tabs.get(tab));}
+        public Optional<List<List<String>>> readSocialIfPresent(){return Optional.ofNullable(tabs.get("social"));}
         public synchronized void appendAtomic(Map<String,List<List<Object>>> rows){rows.forEach((k,v)->v.forEach(r->tabs.get(k).add(r.stream().map(Object::toString).toList())));}
         public synchronized void replaceAtomic(Map<String,List<List<Object>>> rows){replacements++;if(notApplied)throw new Failure(503,0);rows.forEach((k,v)->tabs.put(k,new ArrayList<>(v.stream().map(r->r.stream().map(Object::toString).toList()).toList())));if(failReadback)failReads=true;if(timeoutAfter){timeoutAfter=false;throw new Failure(0,0);}}
     }
@@ -40,6 +41,14 @@ class OperatorAccountErasureTest {
         OperatorAccountErasure service(boolean enabled){return new OperatorAccountErasure(db,verifier,"expected-audience",Clock.systemUTC(),()->true,enabled);}
         OperatorAccountErasure.Preview preview(OperatorAccountErasure service){var c=service.challenge();return service.preview("owner:"+c.nonce(),c.nonce());}
         OperatorAccountErasure.Outcome execute(OperatorAccountErasure service,OperatorAccountErasure.Preview plan,String who){var c=service.challenge();return service.execute(plan.planId(),plan.beforeDigest(),plan.confirmationText(),who+":"+c.nonce(),c.nonce());}
+    }
+    @Test void socialIsErasedInSameAtomicBatchAndOtherCodeRemains() throws Exception {
+        Fixture f=new Fixture();String request=UUID.randomUUID().toString();
+        f.db.tabs.put("social",List.of(SocialRows.HEADER,List.of("CODE",f.account,"code","1234567890ABCDEF","1"),List.of("CODE",f.other,"code","ABCDEF1234567890","1"),List.of("EDGE",f.account,f.other,"PENDING",request),List.of("OP",f.account,request,"a".repeat(64),"1")));
+        var service=f.service(true);var plan=f.preview(service);
+        assertEquals(OperatorAccountErasure.Outcome.VERIFIED,f.execute(service,plan,"owner"));
+        assertEquals(1,f.db.replacements);
+        assertEquals(List.of(SocialRows.HEADER,List.of("CODE",f.other,"code","ABCDEF1234567890","1")),f.db.tabs.get("social"));
     }
     @Test void erasureRemovesProfileAndRetainsOtherAccountProfile() throws Exception {
         Fixture f=new Fixture();

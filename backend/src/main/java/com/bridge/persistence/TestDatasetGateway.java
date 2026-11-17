@@ -27,6 +27,8 @@ public final class TestDatasetGateway implements SheetsGateway {
     if (rows.containsKey("dataset")) throw new IllegalArgumentException("Test dataset marker is immutable");
     delegate.appendAtomic(rows);
   }
+  @Override public Optional<List<List<String>>> readSocialIfPresent() { checkedDataset();return delegate.readSocialIfPresent(); }
+  @Override public void replaceSocial(List<List<String>> rows) { checkedDataset();delegate.replaceSocial(rows); }
   @Override public void acknowledgeTutorial(int row) { checkedDataset();delegate.acknowledgeTutorial(row); }
   @Override public void saveAccountProfile(int row,List<String> account,List<String> identity) { checkedDataset();delegate.saveAccountProfile(row,account,identity); }
   @Override public void replaceAtomic(Map<String,List<List<Object>>> rows) {

@@ -30,6 +30,20 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "ACTION_CONFLICT",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Action already used",
+      "category": "friends",
+      "meaning": "這次操作識別碼已使用，請先確認目前狀態。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "ACTION_ID_REUSED",
       "httpStatuses": [
         409
@@ -300,6 +314,188 @@
       "automaticMutationRetry": false
     },
     {
+      "code": "FRIENDS_ALREADY_IN_ROOM",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Leave your current room before accepting",
+      "category": "friends",
+      "meaning": "你已在房間內，請先自行離開再加入。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_INVALID_REQUEST",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsController.java"
+      ],
+      "exampleMessage": "好友操作無法完成，請確認好友碼或重新讀取清單。",
+      "category": "friends",
+      "meaning": "好友操作無法完成，請確認好友碼或重新讀取清單。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_INVITE_EXPIRED",
+      "httpStatuses": [
+        404
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Invitation expired",
+      "category": "friends",
+      "meaning": "邀請已過期或已處理。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_LOGIN_REQUIRED",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Sign in with Google to use friends",
+      "category": "friends",
+      "meaning": "請使用 Google 帳號登入以使用好友功能。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_NOT_FRIENDS",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Friend required",
+      "category": "friends",
+      "meaning": "你們目前不是好友，請重新讀取清單。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_NOT_INITIALIZED",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Open friends first",
+      "category": "friends",
+      "meaning": "Open friends first",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_NOT_SAME_ROOM",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Same table required",
+      "category": "friends",
+      "meaning": "Same table required",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_OFFLINE",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Friend is offline",
+      "category": "friends",
+      "meaning": "好友目前已離線。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_RATE_LIMITED",
+      "httpStatuses": [
+        429
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Try again later",
+      "category": "friends",
+      "meaning": "操作太頻繁，請稍後。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_ROOM_UNAVAILABLE",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Waiting room with an empty seat required",
+      "category": "friends",
+      "meaning": "好友目前沒有可加入的等待房。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_STORAGE_UNAVAILABLE",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsController.java"
+      ],
+      "exampleMessage": "好友資料暫時無法確認，請勿重複送出。",
+      "category": "friends",
+      "meaning": "好友資料暫時無法確認，請勿重複送出。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_TARGET_UNAVAILABLE",
+      "httpStatuses": [
+        404
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomService.java"
+      ],
+      "exampleMessage": "Player unavailable",
+      "category": "friends",
+      "meaning": "這位玩家目前無法接受好友申請。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_UNAVAILABLE",
+      "httpStatuses": [
+        503
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Friends are unavailable",
+      "category": "friends",
+      "meaning": "好友服務暫時無法使用。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
       "code": "GAME_IN_PROGRESS",
       "httpStatuses": [
         409
@@ -479,6 +675,20 @@
       "category": "validation",
       "meaning": "輸入或目前席位/流程不符合要求",
       "handling": "檢查請求與最新快照；修正後由使用者重新操作，不自動重送",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "INVALID_FRIEND_TARGET",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Choose one target",
+      "category": "friends",
+      "meaning": "這位玩家目前無法接受好友申請。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
       "automaticMutationRetry": false
     },
     {

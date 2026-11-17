@@ -43,6 +43,14 @@ class ManualQuarterMaintenanceTest {
     return service.execute(p.planId(), p.confirmationText());
   }
 
+  @Test void optionalSocialSurvivesQuarterByteForByte() {
+    var s=new Storage();var accounts=s.f.tables.get("accounts");String a=accounts.get(1).get(0),b=accounts.get(2).get(0);
+    var social=List.of(SocialRows.HEADER,List.of("CODE",a,"code","1234567890ABCDEF","1"),List.of("CODE",b,"code","ABCDEF1234567890","1"),List.of("EDGE",a,b,"PENDING",UUID.randomUUID().toString()));
+    s.f.tables.put("social",social);
+    var service=s.service();var p=preview(s,service);
+    assertEquals(ManualQuarterMaintenance.Outcome.COMPLETE,execute(service,p).outcome());
+    assertEquals(social,s.f.tables.get("social"));
+  }
   @Test void quarterCleanupPreservesProfileAndLegacyAccountsExactly() {
     var s = new Storage();
     var rows = s.f.tables.get("accounts");

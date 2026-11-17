@@ -28,6 +28,10 @@ public interface SheetsGateway {
      * Implementations must reject incomplete read cycles rather than return a stale fingerprint.
      */
     default Optional<String> snapshotFingerprint() { return Optional.empty(); }
+    /** Optional social table presence; legacy gateways have no social capability. */
+    default Optional<List<List<String>>> readSocialIfPresent() { return Optional.empty(); }
+    /** Narrow whole social-state write; pre-provisioned table only, no implicit initialization. */
+    default void replaceSocial(List<List<String>> rows) { throw new UnsupportedOperationException("Social storage unavailable"); }
     void appendAtomic(Map<String,List<List<Object>>> rows);
     /** Operator-maintenance only: all replacement rows including headers in one atomic batch. */
     default void replaceAtomic(Map<String,List<List<Object>>> rows) { throw new UnsupportedOperationException("Atomic replacement unavailable"); }

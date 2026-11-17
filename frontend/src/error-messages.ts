@@ -1,5 +1,23 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  FRIENDS_NOT_INITIALIZED: "請先開啟好友功能。",
+  FRIENDS_NOT_SAME_ROOM: "只能對同桌玩家送出申請。",
+  FRIENDS_INVALID_REQUEST: "好友操作無法完成，請確認好友碼或重新讀取清單。",
+  FRIENDS_STORAGE_UNAVAILABLE: "好友資料暫時無法確認，請勿重複送出。",
+
+  ACTION_CONFLICT: "這次操作識別碼已使用，請先確認目前狀態。",
+  FRIENDS_INVITE_EXPIRED: "邀請已過期或已處理。",
+  FRIENDS_LOGIN_REQUIRED: "請使用 Google 帳號登入以使用好友功能。",
+  FRIENDS_NOT_FRIENDS: "你們目前不是好友，請重新讀取清單。",
+  FRIENDS_OFFLINE: "好友目前已離線。",
+  FRIENDS_RATE_LIMITED: "操作太頻繁，請稍後。",
+  FRIENDS_ROOM_UNAVAILABLE: "好友目前沒有可加入的等待房。",
+  FRIENDS_UNAVAILABLE: "好友服務暫時無法使用。",
+  INVALID_FRIEND_TARGET: "這位玩家目前無法接受好友申請。",
+  FRIENDS_ALREADY_IN_ROOM: "你已在房間內，請先自行離開再加入。",
+  FRIENDS_TARGET_UNAVAILABLE: "這位玩家目前無法接受好友申請。",
+  FRIENDS_WAITING_REQUIRED: "請在尚未開始的等待房邀請好友。",
+
   CSRF_REJECTED: "Google 返回驗證未通過，請返回原本的 App 確認登入狀態。",
   INVALID_CALLBACK: "Google 返回資料無法確認，請返回原本的 App。",
   ORIGIN_DENIED: "請從原本的遊戲頁面操作。",

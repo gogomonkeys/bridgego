@@ -1,0 +1,254 @@
+.friends-hub {
+  width: 100%;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.friends-entry-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.35rem 0;
+}
+.friends-entry-row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+}
+.friends-count {
+  display: inline-grid;
+  place-items: center;
+  background: #a52c3c;
+  color: #fff;
+  border-radius: 2rem;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.8rem;
+}
+.friends-panel {
+  margin-top: 0.6rem;
+  max-width: 720px;
+  margin-left: auto;
+}
+.friends-heading,
+.friends-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.friends-heading h2 {
+  margin: 0;
+}
+.friends-panel h3 {
+  margin: 1.2rem 0 0.5rem;
+}
+.friends-row {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(55, 90, 70, 0.15);
+}
+.friends-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.friends-row small {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+  color: #58685f;
+}
+.friends-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.friends-row button,
+.friends-heading button,
+.friends-code-form button {
+  min-height: 44px;
+  margin: 0;
+}
+.friends-row summary {
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+.friends-code-form {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+.friends-code-form input {
+  min-width: 0;
+  width: 100%;
+}
+.friend-code {
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+.friends-invites {
+  border: 1px solid #aac7b4;
+  background: #f4faf5;
+  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  margin-top: 0.5rem;
+}
+.friends-invites .friends-row:last-child {
+  border: 0;
+}
+.friends-help,
+.friends-notice {
+  font-size: 0.85rem;
+  margin: 0.65rem 0 0;
+}
+.friend-presence.presence-online {
+  color: #24633b;
+}
+@media (max-width: 480px) {
+  .friends-row {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .friends-row > span {
+    flex: 1 1 45%;
+  }
+  .friends-row-actions {
+    flex-shrink: 1;
+  }
+  .friends-code-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .friends-code-form label {
+    grid-column: 1 / -1;
+  }
+}
+/* User-opened drawer is portalled out of the game shell; no table reflow. */
+.friends-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(20px, env(safe-area-inset-top)) 20px
+    max(20px, env(safe-area-inset-bottom));
+  background: rgba(13, 32, 23, 0.48);
+  overscroll-behavior: contain;
+}
+.friends-backdrop .friends-panel {
+  width: min(100%, 640px);
+  max-height: calc(
+    100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+  );
+  margin: 0;
+  padding: 0 20px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fffdf7;
+  color: #203c2c;
+  border: 1px solid #bdcdbf;
+  border-radius: 20px;
+  box-shadow: 0 18px 64px rgba(0, 0, 0, 0.28);
+  text-align: left;
+}
+.friends-panel .friends-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 16px 0 12px;
+  background: #fffdf7;
+  border-bottom: 1px solid #d7e0d7;
+}
+.friends-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.friends-room-context {
+  display: block;
+  margin-top: 4px;
+  color: #52695b;
+  font-size: 0.78rem;
+}
+.friends-panel button.primary,
+.friends-invites button.primary {
+  background: #286844;
+  color: white;
+  border: 1px solid #286844;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  min-height: 44px;
+}
+.friends-panel button.secondary,
+.friends-invites button.secondary {
+  background: #f0f5ee;
+  color: #254d34;
+  border: 1px solid #aabdac;
+  border-radius: 10px;
+  padding: 10px 12px;
+  line-height: 1.25;
+  min-height: 44px;
+}
+.friends-panel button:disabled,
+.friends-invites button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+.friends-panel button:focus-visible,
+.friends-panel a:focus-visible,
+.friends-panel summary:focus-visible {
+  outline: 3px solid #bd7f1f;
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .friends-backdrop {
+    align-items: flex-end;
+    padding: max(40px, env(safe-area-inset-top)) 0 0;
+  }
+  .friends-backdrop .friends-panel {
+    width: 100%;
+    max-height: calc(100dvh - max(64px, env(safe-area-inset-top)));
+    border-radius: 20px 20px 0 0;
+    padding: 0 14px max(20px, env(safe-area-inset-bottom));
+  }
+  .friends-heading {
+    gap: 10px;
+  }
+  .friends-heading-actions {
+    gap: 6px;
+  }
+  .friends-heading h2 {
+    font-size: 1.2rem;
+  }
+  .friends-heading-actions button {
+    font-size: 0.8rem;
+    padding: 9px;
+  }
+  .friends-row-actions {
+    gap: 6px;
+  }
+}
+.friends-entry-row {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.friends-invite-entry {
+  font-size: 0.85rem;
+}
+@media (min-width: 601px) {
+  .friends-backdrop {
+    justify-content: flex-end;
+    align-items: stretch;
+  }
+  .friends-backdrop .friends-panel {
+    width: min(100%, 480px);
+    height: calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}

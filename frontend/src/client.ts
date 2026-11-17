@@ -776,6 +776,19 @@ export const client = {
     run(async () =>
       enter(await api<Room>("/rooms", "POST", { plannedDeals, roomType })),
     ),
+  // Social invite acceptance has already joined on the server. Never submit join twice.
+  acceptSocialRoom: (expectedToken: string, room: Room) => {
+    if (state.session?.token !== expectedToken || state.room) return false;
+    if (
+      !room?.roomId ||
+      !room.players?.some(
+        (player) => player.playerId === state.session?.playerId,
+      )
+    )
+      return false;
+    enter(room);
+    return true;
+  },
   join: (id: string) =>
     run(async () =>
       enter(

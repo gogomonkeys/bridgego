@@ -329,6 +329,61 @@ public class RoomService {
     return accountsByPlayer.get(who.playerId());
   }
 
+  // Social data never enters public game snapshots. All hooks authenticate the live session.
+  record SocialPeer(String playerId, String accountId, String nickname) {}
+  synchronized List<SocialPeer> socialPeers(Identity who) {
+    requireCurrentSession(who);
+    String roomId = membership.get(who.playerId());
+    if (roomId == null) return List.of();
+    Room r = room(roomId);
+    return r.members.values().stream().filter(m -> !m.computer && !m.takeover
+        && !m.identity.playerId().equals(who.playerId()))
+        .map(m -> new SocialPeer(m.identity.playerId(), accountsByPlayer.get(m.identity.playerId()),
+            m.identity.displayName())).toList();
+  }
+  synchronized String socialTarget(Identity who, String roomId, String playerId) {
+    requireCurrentSession(who);
+    if (!Objects.equals(membership.get(who.playerId()), roomId))
+      throw fail(403, "FRIENDS_NOT_SAME_ROOM", "Same table required");
+    return socialPeers(who).stream().filter(p -> p.playerId().equals(playerId))
+        .map(SocialPeer::accountId).filter(Objects::nonNull).findFirst()
+        .orElseThrow(() -> fail(404, "FRIENDS_TARGET_UNAVAILABLE", "Player unavailable"));
+  }
+  synchronized String socialWaitingRoom(Identity who, String roomId) {
+    requireCurrentSession(who);
+    Room r = room(roomId); Member m = member(r, who);
+    if (m.computer || m.takeover || r.game != null || r.members.size() >= 4)
+      throw fail(409, "FRIENDS_ROOM_UNAVAILABLE", "Waiting room with an empty seat required");
+    return r.members.get(r.hostPlayerId).identity.displayName() + "的房間";
+  }
+  synchronized boolean socialPlaying(String accountId) {
+    return rooms.values().stream().anyMatch(r -> r.game != null && r.game.active()
+        && r.members.values().stream().anyMatch(m -> !m.computer && !m.takeover
+        && accountId.equals(accountsByPlayer.get(m.identity.playerId()))));
+  }
+  synchronized boolean socialSessionLinked(String token, String accountId) {
+    Identity id = sessions.get(token);
+    return id != null && accountId.equals(accountsByPlayer.get(id.playerId()));
+  }
+  synchronized String socialJoinableRoom(String accountId) {
+    return rooms.values().stream().filter(r -> r.closedAtTick == null && r.game == null
+        && r.members.size() < 4 && r.members.values().stream().anyMatch(m ->
+        !m.computer && !m.takeover && accountId.equals(accountsByPlayer.get(m.identity.playerId()))))
+        .map(r -> r.id).findFirst().orElse(null);
+  }
+  synchronized Snapshot socialJoin(String roomId, Identity who, String friendAccount) {
+    requireCurrentSession(who);
+    Room target = room(roomId);
+    if (target.game != null || target.members.values().stream().noneMatch(m -> !m.computer && !m.takeover
+        && friendAccount.equals(accountsByPlayer.get(m.identity.playerId()))))
+      throw fail(409, "FRIENDS_ROOM_UNAVAILABLE", "Friend has left this waiting room");
+    String account = accountsByPlayer.get(who.playerId());
+    if (membership.containsKey(who.playerId()) || accountsByPlayer.entrySet().stream()
+        .anyMatch(e -> Objects.equals(account,e.getValue()) && membership.containsKey(e.getKey())))
+      throw fail(409, "FRIENDS_ALREADY_IN_ROOM", "Leave your current room before accepting");
+    return join(roomId, who);
+  }
+
   public synchronized String persistenceStatus(String roomId, String gameId, Identity who) {
     authenticate(who.token());
     Room r = room(roomId);

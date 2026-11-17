@@ -86,6 +86,7 @@ public final class OperatorAccountErasure {
             addTombstone(ledgerRows,"ACCOUNT",accountId);
             for(List<String> row:data(before,"auth_identities"))if(row.get(2).equals(accountId))addTombstone(ledgerRows,"IDENTITY",ErasureLedger.identityKey(row.get(0),row.get(1)));
             after.get("accounts").removeIf(row->row.get(0).equals(accountId));
+            if(after.containsKey("social"))after.put("social",new ArrayList<>(SocialRows.erase(after.get("social"),accountId)));
             after.get("auth_identities").removeIf(row->row.size()==4&&row.get(2).equals(accountId));
             List<FinalMatchEnvelope> envelopes=verifiedEnvelopes(before);
             after.put("envelopes",new ArrayList<>(List.of(HEADERS.get("envelopes"))));after.put("commits",new ArrayList<>(List.of(HEADERS.get("commits"))));
@@ -135,6 +136,7 @@ public final class OperatorAccountErasure {
         requireOffline();
         Map<String,List<List<Object>>> replacement=new TreeMap<>();
         for(String tab:HEADERS.keySet())replacement.put(tab,plan.replacement.get(tab).stream().map(r->new ArrayList<Object>(r)).map(r->(List<Object>)r).toList());
+        if(plan.replacement.containsKey("social"))replacement.put("social",plan.replacement.get("social").stream().map(r->(List<Object>)new ArrayList<Object>(r)).toList());
         try { gateway.replaceAtomic(replacement); }
         catch(SheetsGateway.Failure uncertain) { return verifyOutcome(plan); }
         return verifyOutcome(plan);
@@ -144,7 +146,7 @@ public final class OperatorAccountErasure {
         catch(RuntimeException unavailable){return Outcome.UNCERTAIN;}
     }
     private Map<String,List<List<String>>> readSnapshot() {
-        Map<String,List<List<String>>> snapshot=new TreeMap<>();for(String tab:HEADERS.keySet())snapshot.put(tab,gateway.read(tab));snapshot.put("dataset",gateway.read("dataset"));validateSnapshot(snapshot);return snapshot;
+        Map<String,List<List<String>>> snapshot=new TreeMap<>();for(String tab:HEADERS.keySet())snapshot.put(tab,gateway.read(tab));snapshot.put("dataset",gateway.read("dataset"));gateway.readSocialIfPresent().ifPresent(rows->snapshot.put("social",rows));validateSnapshot(snapshot);return snapshot;
     }
     private static void validateSnapshot(Map<String,List<List<String>>> snapshot) {
         for(var entry:HEADERS.entrySet()) {
@@ -160,6 +162,7 @@ public final class OperatorAccountErasure {
             if(ledger.contains("IDENTITY",ErasureLedger.identityKey(row.get(0),row.get(1)))||!row.get(0).equals("https://accounts.google.com")||row.get(1).isBlank()||!row.get(3).equals("1")||!accounts.contains(row.get(2)))throw new SheetsGateway.Conflict();
             String previous=identities.putIfAbsent(ErasureLedger.identityKey(row.get(0),row.get(1)),row.get(2));if(previous!=null&&!previous.equals(row.get(2)))throw new SheetsGateway.Conflict();
         }
+        if(snapshot.containsKey("social"))SocialRows.validate(snapshot.get("social"),accounts);
         verifiedEnvelopes(snapshot);
     }
     private static List<FinalMatchEnvelope> verifiedEnvelopes(Map<String,List<List<String>>> snapshot) {

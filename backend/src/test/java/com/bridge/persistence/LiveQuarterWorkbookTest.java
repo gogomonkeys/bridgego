@@ -15,6 +15,14 @@ class LiveQuarterWorkbookTest {
   ObjectNode root;
   @BeforeEach void setup() { fixture = new LocalManualQuarterRehearsal.Fixture(); root = fixtureTree(fixture); }
 
+  @Test void acceptsOnlyValidatedOptionalSocialSheet() {
+    String a=fixture.tables.get("accounts").get(1).get(0);
+    fixture.tables.put("social",List.of(SocialRows.HEADER,List.of("CODE",a,"code","1234567890ABCDEF","1")));
+    var parsed=LiveQuarterWorkbook.parse(fixtureJson(fixture),fixture.binding,fixture.clock);
+    assertEquals(fixture.tables.get("social"),parsed.snapshot().tables().get("social"));
+    fixture.tables.put("unrecognized",fixture.tables.remove("social"));
+    assertThrows(RuntimeException.class,()->LiveQuarterWorkbook.parse(fixtureJson(fixture),fixture.binding,fixture.clock));
+  }
   static byte[] fixtureJson(LocalManualQuarterRehearsal.Fixture fixture) { return bytes(fixtureTree(fixture)); }
   static ObjectNode fixtureTree(LocalManualQuarterRehearsal.Fixture fixture) {
     ObjectNode root = JSON.createObjectNode();

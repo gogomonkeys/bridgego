@@ -11,6 +11,19 @@ public class PersistenceConfiguration {
         return DatasetBinding.open(env, sheet -> new GoogleSheetsGateway(sheet,
             env.getRequiredProperty("BRIDGE_GOOGLE_SERVICE_ACCOUNT_JSON")));
     }
+    @Bean public SocialStore socialStore(Environment env,SheetsGateway gateway) {
+        if(Boolean.parseBoolean(env.getProperty("BRIDGE_FRIENDS_ENABLED","false"))
+            && Boolean.parseBoolean(env.getProperty("BRIDGE_SHEETS_ENABLED","false"))
+            && !"single_tester_experiment".equals(env.getProperty("BRIDGE_COLLECTION_MODE")))return new SheetsSocialStore(gateway);
+        return new SocialStore(){
+            public boolean enabled(){return false;}
+            private IllegalStateException disabled(){return new IllegalStateException("Friends unavailable");}
+            public Snapshot snapshot(String id){throw disabled();} public String ensureCode(String id){throw disabled();}
+            public Snapshot request(String id,String code,String action){throw disabled();}
+            public Snapshot respond(String id,String request,boolean accept,String action){throw disabled();}
+            public Snapshot remove(String id,String code,String action){throw disabled();}
+        };
+    }
     @Bean public StatsStore statsStore(Environment env,SheetsGateway gateway,org.springframework.beans.factory.ObjectProvider<ExperimentRuntimeConfiguration.Handle> experiment) {
         if("single_tester_experiment".equals(env.getProperty("BRIDGE_COLLECTION_MODE"))) {
             var store=experiment.getObject().store();

@@ -16,7 +16,7 @@ public final class GoogleSheetsGateway implements SheetsGateway {
         .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
         .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final int RANGE_BYTES=4*1024*1024;
-    private static final Set<String> READ_TABS=Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","dataset","retention_ledger","quarterly_aggregates");
+    private static final Set<String> READ_TABS=Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","dataset","retention_ledger","quarterly_aggregates","social");
     private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final String spreadsheet,email; private final PrivateKey key;
     private final BoundedGoogleBody boundedBody=new BoundedGoogleBody();
@@ -160,11 +160,20 @@ public final class GoogleSheetsGateway implements SheetsGateway {
             try{return Duration.between(now,until).toMillis();}catch(ArithmeticException overflow){return Long.MAX_VALUE;}
         }catch(RuntimeException invalid){return 0;}
     }
+    @Override public synchronized Optional<List<List<String>>> readSocialIfPresent() {
+        ensureSheetIds();return sheetIds.containsKey("social")?Optional.of(read("social")):Optional.empty();
+    }
+    @Override public synchronized void replaceSocial(List<List<String>> rows) {
+        ensureSheetIds();if(!sheetIds.containsKey("social")||columnCounts.getOrDefault("social",0)<5)throw new Conflict();
+        var data=rows.stream().map(GoogleSheetsGateway::profileRow).toList();
+        request(":batchUpdate",Map.of("requests",List.of(Map.of("updateCells",Map.of("range",Map.of("sheetId",sheetIds.get("social"),"startColumnIndex",0,"endColumnIndex",5),"rows",data,"fields","userEnteredValue")))));
+    }
     public synchronized void replaceAtomic(Map<String,List<List<Object>>> rows) {
         ensureSheetIds();request(":batchUpdate",replacementBody(rows,sheetIds));
     }
     static Map<String,Object> replacementBody(Map<String,List<List<Object>>> rows,Map<String,Integer> sheetIds) {
-        if(!rows.keySet().equals(Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger")) && !rows.keySet().equals(Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","retention_ledger","quarterly_aggregates")))throw new IllegalArgumentException("Whole erasure dataset required");
+        var baseKeys=new HashSet<>(rows.keySet());baseKeys.remove("social");
+        if(!baseKeys.equals(Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger")) && !baseKeys.equals(Set.of("envelopes","commits","accounts","auth_identities","erasure_ledger","retention_ledger","quarterly_aggregates")))throw new IllegalArgumentException("Whole erasure dataset required");
         List<Object> requests=new ArrayList<>();
         for(var entry:rows.entrySet()) {
             Integer id=sheetIds.get(entry.getKey());if(id==null)throw new Failure(400,0);

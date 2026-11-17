@@ -57,6 +57,8 @@ public record DatasetBinding(String spreadsheetId, String datasetId, String purp
       public List<List<String>> read(String tab) { var marker=checked();return "dataset".equals(tab)?marker:delegate.read(tab); }
       public void appendAtomic(Map<String,List<List<Object>>> rows) { checked();mutable(rows);delegate.appendAtomic(rows); }
       public void replaceAtomic(Map<String,List<List<Object>>> rows) { checked();mutable(rows);delegate.replaceAtomic(rows); }
+      public Optional<List<List<String>>> readSocialIfPresent() { checked();return delegate.readSocialIfPresent(); }
+      public void replaceSocial(List<List<String>> rows) { checked();delegate.replaceSocial(rows); }
       public void acknowledgeTutorial(int row) { checked();delegate.acknowledgeTutorial(row); }
       public void saveAccountProfile(int row,List<String> account,List<String> identity) { checked();delegate.saveAccountProfile(row,account,identity); }
       private void mutable(Map<String,List<List<Object>>> rows) {

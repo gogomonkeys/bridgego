@@ -190,6 +190,7 @@ public final class ManualQuarterMaintenance {
       }).toList()).toList()));
       Snapshot candidate = new Snapshot(binding.spreadsheetId, true, tables);
       validate(candidate, binding, clock);
+      if(!Objects.equals(before.tables.get("social"),candidate.tables.get("social")))reject();
       for (String tab : PRESERVED) if (!before.tables.get(tab).equals(candidate.tables.get(tab))) reject();
       // Raw current-quarter payloads, scores and canonical hashes must remain byte-for-byte identical.
       Map<String,FinalMatchEnvelope> prior = decoded(before.tables), after = decoded(candidate.tables);
@@ -223,9 +224,12 @@ public final class ManualQuarterMaintenance {
     }
   }
 
+  static boolean knownTables(Set<String> names) {
+    var base=new HashSet<>(names);base.remove("social");return base.equals(HEADERS.keySet());
+  }
   static void validate(Snapshot snapshot, Binding binding, Clock clock) {
     if (snapshot == null || !snapshot.completeKnownLayout || !binding.spreadsheetId.equals(snapshot.spreadsheetId)
-        || !snapshot.tables.keySet().equals(HEADERS.keySet())) reject();
+        || !knownTables(snapshot.tables.keySet())) reject();
     int total = 0;
     for (var header : HEADERS.entrySet()) {
       var rows = snapshot.tables.get(header.getKey());
@@ -251,6 +255,7 @@ public final class ManualQuarterMaintenance {
       uuid(row.get(0));
       if (!accounts.add(row.get(0)) || erasures.contains("ACCOUNT", row.get(0))) reject();
     }
+    if(snapshot.tables.containsKey("social"))SocialRows.validate(snapshot.tables.get("social"),accounts);
     for (var row : data(snapshot, "auth_identities")) {
       String key = ErasureLedger.identityKey(row.get(0), row.get(1));
       if (!row.get(0).equals("https://accounts.google.com") || row.get(1).isBlank() || row.get(1).length() > 255
@@ -281,7 +286,7 @@ public final class ManualQuarterMaintenance {
       if (!rootNames.equals(Set.of("match", "participants", "completed_deals"))) reject();
       var match = root.path("match"); fields(match, MATCH_FIELDS);
       typedScalars(match, Set.of("revision", "schema_version", "planned_deals", "completed_deals", "ns_total", "ew_total"), Set.of());
-      if (!Set.of("0.12.1", "0.12.2", "0.13.0", "0.13.1", "0.13.2", "0.14.0", "0.14.1", "0.14.2", "0.14.3", "0.14.4", "0.14.5", "0.14.6").contains(match.path("app_version").asText())
+      if (!Set.of("0.12.1", "0.12.2", "0.13.0", "0.13.1", "0.13.2", "0.14.0", "0.14.1", "0.14.2", "0.14.3", "0.14.4", "0.14.5", "0.14.6", "0.15.0").contains(match.path("app_version").asText())
           || !match.path("score_version").asText().equals("bridgego-custom-v0.11-1")) reject();
       Instant started = Instant.parse(match.path("started_at").asText()), finished = QuarterlyRetention.finishedAt(envelope);
       if (started.isAfter(finished) || finished.isAfter(clock.instant())) reject();
