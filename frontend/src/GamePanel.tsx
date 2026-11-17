@@ -266,7 +266,7 @@ export default function GamePanel({
         </section>
       )}
       {terminal && !tutorial && (
-        <section className="panel outcome-screen">
+        <section className="panel outcome-screen forest-match-outcome">
           <MatchSummary game={game} ownTeam={ownTeam} />
           <MatchPersistence
             key={game.gameId}
@@ -621,7 +621,7 @@ export default function GamePanel({
           >
             <summary>更多</summary>
             <div className="match-more-panel">
-              <small>v0.15.4 · 狀態版本 {room.revision}</small>
+              <small>v0.15.5 · 狀態版本 {room.revision}</small>
               <button
                 className="secondary"
                 disabled={busy}

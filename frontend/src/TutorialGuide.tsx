@@ -1,3 +1,5 @@
+import TutorialCompanion from "./TutorialCompanion";
+import "./tutorial-spotlight.css";
 /** Presentation only. Eligibility and persistence policy belong to the caller.
  * Never infers completion from a click or writes first-visit/account state.
  */
@@ -29,11 +31,18 @@ export function TutorialInvitation({
 }) {
   return (
     <section
-      className="tutorial-guide"
+      className="tutorial-guide tutorial-forest-invitation"
       aria-labelledby="tutorial-invitation-title"
     >
-      <h2 id="tutorial-invitation-title">要先體驗新手教學嗎？</h2>
-      <p>跟著重點提示認識玩法，簡短練習後就回大廳。</p>
+      <div className="tutorial-invitation-welcome">
+        <TutorialCompanion welcome />
+        <div>
+          <span className="tutorial-speaker-label">森林新手小徑</span>
+          <h2 id="tutorial-invitation-title">一起認識牌桌吧！</h2>
+          <p>跟著小狐狸，學叫牌、跟花與切王。</p>
+        </div>
+      </div>
+      <p className="tutorial-invitation-note">不計時，隨時能回看或離開。</p>
       <div className="tutorial-actions">
         <button
           type="button"

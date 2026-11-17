@@ -1,3 +1,4 @@
+import "./forest-records.css";
 import LeaderboardPanel from "./LeaderboardPanel";
 import PersonalStatisticsSummary from "./PersonalStatisticsSummary";
 import { taiwanSettlementTime } from "./statistics-format";
@@ -196,7 +197,10 @@ export default function StatisticsPanel({
   }, [token, attempt, statisticsActive]);
   return (
     <section className="panel statistics-panel" aria-label="戰績統計">
-      <h2>戰績統計</h2>
+      <header className="forest-records-welcome">
+        <img src="/assets/forest/animal-bear.webp" alt="" aria-hidden="true" draggable={false} />
+        <div><h2>戰績統計</h2><p>每一局，都是新的成長。</p></div>
+      </header>
       <StatisticsControls
         tab={tab}
         category={category}

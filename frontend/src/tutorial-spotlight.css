@@ -96,3 +96,90 @@
   margin: 6px 0 12px;
 }
 .tutorial-popup-actions .tutorial-popup-complete { margin-left: auto; }
+
+/* Forest guides use existing local artwork; the production table stays untouched. */
+.tutorial-popup {
+  border: 1px solid #b9c9a8;
+  background: linear-gradient(145deg, #fffdf5, #f2f7e9);
+  color: #314d3e;
+  box-shadow: 0 10px 32px #13291d55, inset 0 3px #d7e6bf;
+}
+.tutorial-companion {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 50%;
+  background: #e3edcf;
+  border: 1px solid #c3d3ad;
+  overflow: hidden;
+}
+.tutorial-companion img { width: 100%; height: 100%; object-fit: contain; }
+.tutorial-speaker { flex: 1; min-width: 0; }
+.tutorial-speaker-label {
+  display: block;
+  color: #657a51;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .06em;
+}
+.tutorial-popup-heading strong { display: block; color: #294a37; font-size: 17px; line-height: 1.3; }
+.tutorial-popup-heading .tutorial-step-count {
+  padding: 3px 8px;
+  border: 1px solid #d2ddbf;
+  border-radius: 20px;
+  background: #edf3df;
+  color: #536b43;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tutorial-popup .tutorial-popup-copy p { color: #354b3b; }
+.tutorial-popup .tutorial-popup-copy small { color: #6b7566; }
+.tutorial-popup-actions { border-top: 1px solid #dde4ce; padding-top: 8px; }
+.tutorial-popup-actions button { border-radius: 12px; border-color: #c0cfb1; background: #fffdf4; color: #425d3d; }
+.tutorial-popup-actions button.primary { background: #3f6849; border-color: #3f6849; color: #fffdf1; }
+.tutorial-popup-actions .tutorial-popup-exit { color: #65745b; }
+.tutorial-spotlight-ring { border-color: #d5e987; }
+.tutorial-popup button:focus-visible, .tutorial-guide.tutorial-forest-invitation button:focus-visible {
+  outline: 3px solid #9a6f24; outline-offset: 3px;
+}
+.tutorial-guide.tutorial-forest-invitation {
+  max-width: 600px;
+  margin: 12px auto;
+  padding: clamp(18px, 4vw, 30px);
+  border: 1px solid #c1d2ad;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #fffcf0, #eef5e4);
+  box-shadow: 0 6px 22px #38533212;
+}
+.tutorial-invitation-welcome { display: flex; align-items: center; gap: 16px; }
+.tutorial-companion-welcome { width: 80px; height: 80px; flex-basis: 80px; }
+.tutorial-guide.tutorial-forest-invitation h2 { margin: 4px 0 8px; font-size: clamp(20px, 4vw, 25px); color: #304f39; }
+.tutorial-guide.tutorial-forest-invitation p { margin: 0; color: #53664b; }
+.tutorial-guide.tutorial-forest-invitation .tutorial-invitation-note { margin: 18px 0; font-size: 13px; color: #6b775f; }
+.tutorial-guide.tutorial-forest-invitation .tutorial-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.tutorial-guide.tutorial-forest-invitation button { min-height: 44px; border-radius: 12px; }
+.tutorial-guide.tutorial-forest-invitation button.primary { background: #3f6849; color: #fffdf1; border-color: #3f6849; }
+@media (max-width: 360px) {
+  .tutorial-popup { padding: 12px; }
+  .tutorial-popup-heading { gap: 8px; }
+  .tutorial-companion { width: 40px; height: 40px; flex-basis: 40px; }
+  .tutorial-popup-heading strong { font-size: 16px; }
+  .tutorial-popup-actions { gap: 6px; }
+  .tutorial-popup-actions button { padding: 8px 10px; }
+  .tutorial-invitation-welcome { gap: 10px; }
+  .tutorial-companion-welcome { width: 58px; height: 58px; flex-basis: 58px; }
+}
+/* Short phones need room for both the real cards and the guide, not a second screen. */
+@media (max-height: 620px) {
+  .tutorial-popup { padding: 10px; }
+  .tutorial-popup .tutorial-companion { width: 34px; height: 34px; flex-basis: 34px; }
+  .tutorial-popup .tutorial-speaker-label { font-size: 10px; }
+  .tutorial-popup-heading strong { font-size: 15px; }
+  .tutorial-popup-copy p { margin: 6px 0 8px; }
+  .tutorial-popup-actions { padding-top: 6px; }
+}
+/* Portal-only scroll reserve lets the measured target move above the popup on
+   short screens. It does not resize or replace the production table/grid and
+   disappears immediately when the tutorial closes. */
+.tutorial-scroll-space { height: 100dvh; width: 1px; pointer-events: none; }

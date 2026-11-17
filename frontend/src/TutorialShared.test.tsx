@@ -3,6 +3,7 @@ import { act, create } from "react-test-renderer";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import TutorialPlay from "./TutorialPlay";
+import TutorialSpotlight from "./TutorialSpotlight";
 import GamePanel from "./GamePanel";
 import HandPanel from "./HandPanel";
 import { tutorialRoom } from "./tutorial-room";
@@ -240,5 +241,12 @@ it("separates public winner explanation from the second interactive play without
   expect(play).not.toHaveBeenCalled();
   expect(snapshot.revision).toBe(1);
   expect(snapshot.currentTrick).toEqual(game.currentTrick);
+  act(() => tree.unmount());
+});
+
+it("highlights only the four cards in the trick review instead of the tall table summary", () => {
+  let tree!: ReturnType<typeof create>;
+  act(() => { tree = create(<TutorialPlay game={{...game, lesson: "WIN_TRICK"}} busy={false} onPlay={vi.fn()} onExit={vi.fn()} />); });
+  expect(tree.root.findByType(TutorialSpotlight).props.target).toBe(".trick-positions");
   act(() => tree.unmount());
 });

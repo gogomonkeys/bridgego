@@ -1,3 +1,4 @@
+import "./forest-records.css";
 import { useEffect, useRef, useState } from "react";
 import { personalWinRate, taiwanSettlementTime } from "./statistics-format";
 import { statisticsRemainingSeconds } from "./statistics";
@@ -43,6 +44,7 @@ export function LeaderboardContent({ data }: { data: LeaderboardReport }) {
             >
               <span
                 className="leaderboard-rank"
+                data-podium={entry.rank <= 3 ? entry.rank : undefined}
                 aria-label={`第 ${entry.rank} 名`}
               >
                 {entry.rank}
@@ -157,7 +159,10 @@ export default function LeaderboardPanel({
         aria-busy={!current}
       >
         <div className="statistics-results-heading">
-          <h3>{period === "SEASON" ? "本季" : "生涯"}排行榜</h3>
+          <div className="forest-records-title">
+            <img src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true" draggable={false} />
+            <h3>{period === "SEASON" ? "本季" : "生涯"}排行榜</h3>
+          </div>
           <span className="statistics-category-label">正式場</span>
         </div>
         {!current ? (

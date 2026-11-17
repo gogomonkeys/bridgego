@@ -278,3 +278,35 @@ describe("player-relative outcomes", () => {
     expect(teamCard(html, "NS")).toContain("<b>5</b>");
   });
 });
+
+describe("forest final settlement presentation", () => {
+  it("keeps decoration out of accessible results and places the viewer first", () => {
+    const game = gameRoom("MATCH_RESULT").game!;
+    game.matchResult = {
+      outcome: "SCORED",
+      winnerTeamId: "EW",
+      reason: "PLANNED_DEALS_COMPLETE",
+      failedTeamIds: [],
+    };
+    game.teamTotals = { NS: -3, EW: 12 };
+    const html = renderToStaticMarkup(
+      <MatchSummary game={game} ownTeam="EW" />,
+    );
+    expect(html).toContain('class="contract-result forest-match-summary"');
+    expect(html).toContain(
+      'src="/assets/forest/animal-bear.webp" alt="" aria-hidden="true"',
+    );
+    expect(html).toContain("我方獲勝");
+    expect(html).toContain('aria-label="我方 12 分"');
+    expect(html).toContain('aria-label="對方 -3 分"');
+    expect(html.indexOf('aria-label="我方 12 分"')).toBeLessThan(
+      html.indexOf('aria-label="對方 -3 分"'),
+    );
+    expect(html).toContain("未完成的局不計分");
+  });
+  it("does not invent a final result or decorate pending state as completed", () => {
+    const game = gameRoom("BIDDING").game!;
+    game.matchResult = null;
+    expect(renderToStaticMarkup(<MatchSummary game={game} />)).toBe("");
+  });
+});

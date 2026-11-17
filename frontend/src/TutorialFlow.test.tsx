@@ -163,7 +163,7 @@ describe("tutorial flow", () => {
     await act(async () => {
       tree = create(<TutorialFlow token="new-google" onDone={done} />);
     });
-    expect(JSON.stringify(tree.toJSON())).toContain("要先體驗新手教學嗎？");
+    expect(JSON.stringify(tree.toJSON())).toContain("一起認識牌桌吧！");
     expect(button("稍後再說")).toBeTruthy();
     expect(done).not.toHaveBeenCalled();
     expect(localStorage.setItem).not.toHaveBeenCalled();

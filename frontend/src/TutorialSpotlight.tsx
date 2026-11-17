@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import "./tutorial-spotlight.css";
+import TutorialCompanion from "./TutorialCompanion";
 type Box = {
   top: number;
   left: number;
@@ -254,6 +255,8 @@ export default function TutorialSpotlight({
   }, [target, interactive, busy, onExit]);
   const hole = layout?.hole;
   const content = (
+    <>
+      {target && <div className="tutorial-scroll-space" aria-hidden="true" />}
     <div className={`tutorial-spotlight-layer${hole ? " has-spotlight" : ""}`}>
       {hole ? (
         <>
@@ -309,8 +312,12 @@ export default function TutorialSpotlight({
         style={layout?.dialog}
       >
         <div className="tutorial-popup-heading">
-          <strong>{title}</strong>
-          {stepLabel && <small>{stepLabel}</small>}
+          <TutorialCompanion />
+          <div className="tutorial-speaker">
+            <span className="tutorial-speaker-label">小狐狸帶你學</span>
+            <strong>{title}</strong>
+          </div>
+          {stepLabel && <small className="tutorial-step-count" aria-label={`教學進度 ${stepLabel}`}>{stepLabel}</small>}
         </div>
         <div className="tutorial-popup-copy" aria-live="polite">
           {children}
@@ -348,6 +355,7 @@ export default function TutorialSpotlight({
         </nav>
       </aside>
     </div>
+    </>
   );
   return typeof document !== "undefined" && document.body
     ? createPortal(content, document.body)

@@ -1,0 +1,73 @@
+/* Forest record book: visual layer only; statistics and ranking rules stay intact. */
+.panel.statistics-panel {
+  background: linear-gradient(145deg, #fffdf5, #f2f7e9);
+  border: 1px solid #b9c9a8;
+  border-radius: 24px;
+  box-shadow: 0 12px 36px #294a3712;
+  color: #294a37;
+}
+.statistics-panel .forest-records-welcome,
+.statistics-panel .forest-records-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.statistics-panel .forest-records-welcome { margin-bottom: 20px; }
+.statistics-panel .forest-records-welcome img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.statistics-panel .forest-records-welcome h2 { margin: 0; color: #294a37; }
+.statistics-panel .forest-records-welcome p { margin: 5px 0 0; font-size: 14px; color: #52634b; }
+.statistics-panel .forest-records-title img { width: 48px; height: 48px; object-fit: contain; flex: 0 0 auto; }
+.statistics-panel .statistics-audience { border-color: #becdb2; gap: 4px; }
+.statistics-panel .statistics-audience button { color: #52634b; border-radius: 12px 12px 0 0; }
+.statistics-panel .statistics-audience button[aria-pressed="true"] { color: #294a37; border-bottom-color: #3f6849; background: #e4ecd9; }
+.statistics-panel .statistics-segment { background: #eaf0e1; border-color: #bdcdb2; }
+.statistics-panel .statistics-segment button { color: #52634b; }
+.statistics-panel .statistics-segment button[aria-pressed="true"] { color: #fffdf5; background: #3f6849; border-color: #3f6849; box-shadow: 0 2px 4px #294a3718; }
+.statistics-panel .statistics-filter-caption,
+.statistics-panel .statistics-range,
+.statistics-panel .statistics-counts dt,
+.statistics-panel .fine { color: #52634b; }
+.statistics-panel .statistics-results,
+.statistics-panel .statistics-actions,
+.statistics-panel .statistics-breakdown { border-color: #c8d4bc; }
+.statistics-panel .statistics-results-heading { flex-wrap: wrap; }
+.statistics-panel .statistics-results-heading h3 { color: #294a37; }
+.statistics-panel .statistics-category-label { color: #3e5a35; background: #e4ecd9; border: 1px solid #c5d2b8; border-radius: 20px; }
+.statistics-panel .statistics-counts { border-color: #c5d2b8; background: #c5d2b8; }
+.statistics-panel .statistics-counts > div { background: #fffef8; }
+.statistics-panel .personal-statistics-highlights > div { background: #f6f9ee; }
+.statistics-panel .statistics-counts dd { color: #294a37; font-variant-numeric: tabular-nums; }
+.statistics-panel .statistics-breakdown summary { color: #3f6849; min-height: 44px; }
+.statistics-panel .statistics-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.statistics-panel .statistics-actions button { flex: 1 1 160px; min-width: 0; min-height: 44px; margin: 0; white-space: normal; }
+.statistics-panel .statistics-actions .secondary { color: #294a37; background: #e4ecd9; border: 1px solid #b9c9a8; border-radius: 12px; }
+.statistics-panel .statistics-actions .text-button { color: #fffdf5; background: #3f6849; border: 1px solid #3f6849; border-radius: 12px; }
+.statistics-panel button:focus-visible,
+.statistics-panel a:focus-visible,
+.statistics-panel summary:focus-visible { outline: 3px solid #8b6535; outline-offset: 3px; }
+.statistics-panel .leaderboard-list { border-color: #c5d2b8; background: #fffef8; }
+.statistics-panel .leaderboard-row { background: #fffef8; }
+.statistics-panel .leaderboard-row + .leaderboard-row { border-color: #d9e2cf; }
+.statistics-panel .leaderboard-row.is-me { background: #e7efda; box-shadow: inset 4px 0 #3f6849; }
+.statistics-panel .leaderboard-rank { color: #52634b; }
+.statistics-panel .leaderboard-rank[data-podium] { border-radius: 50% 50% 42% 42%; background: #f0e4c7; color: #71521f; padding-block: 5px; }
+.statistics-panel .leaderboard-me { background: #3f6849; color: #fffdf5; border-radius: 6px; }
+.statistics-panel .leaderboard-detail,
+.statistics-panel .leaderboard-score span { color: #52634b; }
+.statistics-panel .leaderboard-score strong { color: #294a37; }
+@media (max-width: 500px) {
+  .panel.statistics-panel { padding: 18px 14px; border-radius: 20px; }
+  .statistics-panel .forest-records-welcome { gap: 10px; }
+  .statistics-panel .forest-records-welcome img { width: 58px; height: 58px; }
+  .statistics-panel .forest-records-welcome p { font-size: 12px; }
+  .statistics-panel .forest-records-title { gap: 8px; }
+  .statistics-panel .forest-records-title img { width: 36px; height: 36px; }
+  .statistics-panel .statistics-audience button { font-size: 14px; padding-inline: 4px; }
+  .statistics-panel .statistics-actions button { flex-basis: 120px; font-size: 14px; padding: 12px 8px; }
+}

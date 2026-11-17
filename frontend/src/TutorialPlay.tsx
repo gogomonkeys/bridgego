@@ -100,7 +100,7 @@ export default function TutorialPlay({
                 : step === -1
                   ? ".contract-badge"
                   : step === 1
-                    ? ".table-focus"
+                    ? ".trick-positions"
                     : ".own-hand-panel"
             }
             stepKey={`${game.revision}:${step}`}

@@ -167,7 +167,7 @@ export default function TutorialFlow({
       ) : !status ? (
         <>
           <p role="status">
-            {busy ? "正在準備教學…" : "可稍後從使用說明進入教學。"}
+            {busy ? "正在準備教學…" : "可稍後從大廳開啟新手教學。"}
           </p>
           <button disabled={busy} onClick={() => done.current()}>
             先進大廳
