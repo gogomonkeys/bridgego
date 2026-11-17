@@ -24,6 +24,8 @@ import AnimalAvatar from "./AnimalAvatar";
 import { PreviousMatchSummary } from "./ResultPanel";
 export default function App() {
   const state = useClient();
+  const [friendsEntryTarget, setFriendsEntryTarget] =
+    useState<HTMLElement | null>(null);
   const [tutorialAccountEpoch, setTutorialAccountEpoch] = useState(0);
   const [tutorialChecked, setTutorialChecked] = useState<string | null>(null);
   const [tutorialRequested, setTutorialRequested] = useState(false);
@@ -153,7 +155,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.15.0", disconnects: diagnostics },
+    { version: "0.15.1", disconnects: diagnostics },
     null,
     2,
   );
@@ -217,7 +219,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.15.0</span>
+            <span className="eyebrow">v0.15.1</span>
           </div>
         )}
         <PwaStatus
@@ -249,7 +251,7 @@ export default function App() {
           (!state.room || state.room.phase === "WAITING") && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.15.0</span>
+                <span className="eyebrow">v0.15.1</span>
                 <h1>
                   {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
                 </h1>
@@ -269,6 +271,14 @@ export default function App() {
             key={state.session.token}
             token={state.session.token}
             room={state.room}
+            entryTarget={friendsEntryTarget}
+            entryPlacement={
+              page === "help"
+                ? "hidden"
+                : !state.room && page === "room"
+                  ? "lobby"
+                  : "default"
+            }
             disabled={
               tutorialTableActive ||
               !!state.serviceMaintenance ||
@@ -340,30 +350,6 @@ export default function App() {
             <span className="eyebrow">HOW IT WORKS</span>
             <h2>使用說明</h2>
             <GameHelp />
-            {state.session &&
-              enteredToken === state.session.token &&
-              !state.room && (
-                <TutorialHelpEntry
-                  key={`${state.session.token}:${tutorialAccountEpoch}`}
-                  token={state.session.token}
-                  enabled={
-                    tutorialAvailability?.key ===
-                    `${state.session.token}:${tutorialAccountEpoch}`
-                      ? tutorialAvailability.enabled
-                      : null
-                  }
-                  onAvailability={(enabled) =>
-                    setTutorialAvailability({
-                      key: `${state.session!.token}:${tutorialAccountEpoch}`,
-                      enabled,
-                    })
-                  }
-                  onStart={() => {
-                    setTutorialRequested(true);
-                    navigate("room");
-                  }}
-                />
-              )}
             <DataPrivacyHelp />
             <button className="primary" onClick={() => navigate("room")}>
               {state.room && state.room.phase !== "WAITING"
@@ -715,6 +701,10 @@ export default function App() {
                     setTutorialRequested(true);
                     navigate("room");
                   }}
+                />
+                <div
+                  className="lobby-friends-slot"
+                  ref={setFriendsEntryTarget}
                 />
               </div>
               <RoomTypeChoice

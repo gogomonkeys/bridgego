@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 vi.mock("./client", () => ({
@@ -29,13 +30,28 @@ describe("help page layout", () => {
       html.indexOf('class="pwa-help"'),
     );
     for (const text of [
-      "v0.15.0",
+      "v0.15.1",
       "加入主畫面",
       "保持螢幕開啟",
       "使用說明",
       "回到等候室",
     ])
       expect(html).toContain(text);
+  });
+  it("keeps tutorial actions in the lobby, not the help page", () => {
+    const source = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    const help = source.slice(
+      source.indexOf("<h2>使用說明</h2>"),
+      source.indexOf("<DataPrivacyHelp />"),
+    );
+    expect(help).not.toContain("<TutorialHelpEntry");
+    expect(source).toMatch(/page === "help"\s*\? "hidden"/);
+    expect(source.match(/<TutorialHelpEntry/g)).toHaveLength(1);
+    vi.stubGlobal("window", { location: { hash: "#help" } });
+    const html = renderToStaticMarkup(<App />);
+    expect(html).not.toContain("開始教學");
+    expect(html).not.toContain("確認教學狀態");
+    expect(html).toContain("大廳的「新手教學」");
   });
   it("preserves the existing help-page notice outside the statistics change", () => {
     vi.stubGlobal("window", { location: { hash: "#help" } });
@@ -45,7 +61,7 @@ describe("help page layout", () => {
     vi.stubGlobal("window", { location: { hash: "#statistics" } });
     const html = renderToStaticMarkup(<App />);
     expect(html).toContain('class="statistics-page"');
-    expect(html).toContain("v0.15.0");
+    expect(html).toContain("v0.15.1");
     expect(html).not.toContain("四個座位，一起相聚。");
     expect(html).not.toContain("已離開房間");
   });

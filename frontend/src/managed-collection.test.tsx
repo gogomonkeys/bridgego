@@ -123,22 +123,26 @@ describe("managed optional Google collection", () => {
     expect(html).not.toContain("核准測試者");
     expect(html).not.toContain("封閉測試");
   });
-  it("help distinguishes normal, restricted and legacy experiment scopes truthfully", () => {
+  it("help describes current managed collection without obsolete experiment instructions", () => {
     const html = renderToStaticMarkup(<DataPrivacyHelp />);
     for (const text of [
       "統計與資料保存",
-      "帳號、暱稱、信箱及教學提示偏好持續保留",
+      "季度清理保留帳號對應、暱稱、信箱、教學提示偏好、好友資料與生涯累計",
       "不含個人識別的整體季度數字可依政策保留",
       "原季度清理彙總仍隱藏",
-      "只有登入玩家可查看本季、生涯個人",
+      "只有登入玩家可查看本季、生涯個人統計",
       "不代表所有帳號刪除或季度清理已完成實機驗收",
       "Asia/Taipei",
-      "SUPPRESSED",
+      "自動季度清理尚未啟用",
       "版本歷史",
-      "單人一場限定實驗",
-      "若使用封閉測試模式",
     ])
       expect(html).toContain(text);
+    for (const text of [
+      "單人一場限定實驗",
+      "若使用封閉測試模式",
+      "僅限測試模式的補充說明",
+    ])
+      expect(html).not.toContain(text);
     expect(persistenceLabels.DISABLED).not.toContain("封閉測試");
   });
 });

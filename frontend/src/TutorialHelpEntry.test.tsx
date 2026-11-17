@@ -85,7 +85,7 @@ describe("Help tutorial readonly recovery", () => {
     const source = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
     expect(source).toContain("<TutorialHelpEntry");
     expect(source).toContain(
-      "key={`${state.session.token}:${tutorialAccountEpoch}`}",
+      "key={`${state.session!.token}:${tutorialAccountEpoch}`}",
     );
     expect(source).toContain("setTutorialAvailability");
   });

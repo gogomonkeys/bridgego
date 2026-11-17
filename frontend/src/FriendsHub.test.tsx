@@ -4,7 +4,15 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import FriendsHub from "./FriendsHub";
 import { FriendsError, type FriendsSnapshot } from "./friends";
 import { gameRoom } from "./test-fixtures";
-const mocks = vi.hoisted(() => ({ request: vi.fn(), adopt: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  request: vi.fn(),
+  adopt: vi.fn(),
+  portal: vi.fn((node: unknown) => node),
+}));
+vi.mock("react-dom", async (original) => ({
+  ...(await original<typeof import("react-dom")>()),
+  createPortal: mocks.portal,
+}));
 vi.mock("./friends", async (original) => ({
   ...(await original<typeof import("./friends")>()),
   friendsRequest: mocks.request,
@@ -50,6 +58,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   mocks.request.mockReset();
   mocks.adopt.mockReset();
+  mocks.portal.mockClear();
   mocks.request.mockResolvedValue(sample);
   vi.stubGlobal("window", new EventTarget());
   vi.stubGlobal(
@@ -77,7 +86,7 @@ describe("friends panel", () => {
     await mount();
     expect(mocks.request).toHaveBeenCalledTimes(1);
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     expect(mocks.request).toHaveBeenCalledWith(
       "test",
@@ -90,7 +99,7 @@ describe("friends panel", () => {
     await mount();
     expect(JSON.stringify(tree.toJSON())).not.toContain("Pending");
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     expect(JSON.stringify(tree.toJSON())).toContain("Pending");
     expect(tree.root.findAll((n) => n.props.role === "dialog")).toHaveLength(1);
@@ -101,7 +110,7 @@ describe("friends panel", () => {
     room.players = room.players.slice(0, 3);
     await mount(room);
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     expect(button("加入遊戲").props.disabled).toBe(true);
     await act(async () => {
@@ -116,7 +125,7 @@ describe("friends panel", () => {
   it("accepts a join snapshot without sending a second join", async () => {
     await mount();
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     const room = gameRoom("WAITING");
     mocks.request.mockImplementation((_t, p) =>
@@ -133,7 +142,7 @@ describe("friends panel", () => {
   it("locks mutations after an uncertain request, even if read succeeds", async () => {
     await mount();
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     mocks.request.mockImplementation((_t, p) =>
       p
@@ -164,7 +173,7 @@ describe("friends panel", () => {
   it("ignores a stale read that began before accepting a request", async () => {
     await mount();
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     let resolveRead!: (value: FriendsSnapshot) => void;
     mocks.request.mockImplementation((_token, path) =>
@@ -188,7 +197,7 @@ describe("friends panel", () => {
   it("suppresses double-click requests while a mutation is pending", async () => {
     await mount();
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     mocks.request.mockImplementation(() => new Promise(() => {}));
     const before = mocks.request.mock.calls.length;
@@ -202,7 +211,7 @@ describe("friends panel", () => {
   it("keeps an unknown mutation locked through focus, reread and same-token account verification", async () => {
     await mount();
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     mocks.request.mockImplementation((_token, path) =>
       path
@@ -225,7 +234,7 @@ describe("friends panel", () => {
       window.dispatchEvent(new Event("bridge-account-changed"));
     });
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     expect(button("接受").props.disabled).toBe(true);
     expect(JSON.stringify(tree.toJSON())).toContain("操作結果尚未確認");
@@ -235,7 +244,7 @@ describe("friends panel", () => {
   it("retains uncertainty when account verification interrupts an in-flight mutation", async () => {
     await mount();
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     let finish!: (value: FriendsSnapshot) => void;
     mocks.request.mockImplementation((_token, path) =>
@@ -259,7 +268,7 @@ describe("friends panel", () => {
       vi.advanceTimersByTime(20000);
     });
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     expect(button("接受").props.disabled).toBe(true);
   });
@@ -269,7 +278,7 @@ describe("friends panel", () => {
       tree.root.findAll((node) => node.props.role === "dialog"),
     ).toHaveLength(0);
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     const dialog = tree.root.find((node) => node.props.role === "dialog");
     expect(dialog.props["aria-modal"]).toBe("true");
@@ -321,7 +330,7 @@ describe("friends panel", () => {
   it("shows an unknown result rather than permanent busy after network interruption", async () => {
     await mount();
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     let finish!: (value: FriendsSnapshot) => void;
     mocks.request.mockImplementation((_token, path) =>
@@ -345,7 +354,7 @@ describe("friends panel", () => {
       finish(sample);
     });
     await act(async () => {
-      button("好友").props.onClick();
+      button("我的好友").props.onClick();
     });
     expect(button("接受").props.disabled).toBe(true);
     expect(button("重新讀取").props.disabled).toBe(false);
@@ -359,5 +368,86 @@ describe("friends panel", () => {
     expect(source).toMatch(
       /mountFriendsDialog\(\s*dialogRef.current,\s*openerRef.current \?\? triggerRef.current/,
     );
+  });
+  it("moves only the entry portal while preserving the same-token unknown write lock", async () => {
+    await mount();
+    await act(async () => {
+      button("我的好友").props.onClick();
+    });
+    mocks.request.mockImplementation((_token, path) =>
+      path
+        ? Promise.reject(new FriendsError("結果未確認", true))
+        : Promise.resolve(sample),
+    );
+    await act(async () => {
+      button("接受").props.onClick();
+    });
+    const target = {} as HTMLElement;
+    await act(async () => {
+      tree.update(
+        <FriendsHub
+          token="test"
+          room={null}
+          entryTarget={target}
+          entryPlacement="lobby"
+        />,
+      );
+    });
+    expect(mocks.portal).toHaveBeenCalledWith(expect.anything(), target);
+    expect(button("接受").props.disabled).toBe(true);
+    await act(async () => {
+      tree.update(
+        <FriendsHub
+          token="test"
+          room={gameRoom("WAITING")}
+          entryTarget={null}
+        />,
+      );
+    });
+    expect(button("接受").props.disabled).toBe(true);
+    expect(button("我的好友")).toBeDefined();
+    const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    expect(app).toContain("entryTarget={friendsEntryTarget}");
+    expect(app).toContain('className="lobby-friends-slot"');
+    expect(app).toContain("ref={setFriendsEntryTarget}");
+  });
+  it("does not flash an old-location entry while the lobby mount target is pending", async () => {
+    await act(async () => {
+      tree = create(
+        <FriendsHub
+          token="test"
+          room={null}
+          entryPlacement="lobby"
+          entryTarget={null}
+        />,
+      );
+    });
+    expect(tree.toJSON()).toBeNull();
+    const target = {} as HTMLElement;
+    await act(async () => {
+      tree.update(
+        <FriendsHub
+          token="test"
+          room={null}
+          entryPlacement="lobby"
+          entryTarget={target}
+        />,
+      );
+    });
+    expect(button("我的好友")).toBeDefined();
+    expect(mocks.portal).toHaveBeenCalledWith(expect.anything(), target);
+  });
+  it("hides the help-page entry without unmounting the social session", async () => {
+    await mount();
+    await act(async () => {
+      tree.update(
+        <FriendsHub token="test" room={null} entryPlacement="hidden" />,
+      );
+    });
+    expect(tree.toJSON()).toBeNull();
+    await act(async () => {
+      tree.update(<FriendsHub token="test" room={gameRoom("WAITING")} />);
+    });
+    expect(button("我的好友")).toBeDefined();
   });
 });

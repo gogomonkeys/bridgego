@@ -15,7 +15,35 @@
   margin-left: auto;
 }
 .forest-shell .lobby-tutorial-entry {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
   margin: 12px 0 18px;
+}
+.forest-shell .lobby-tutorial-entry > .tutorial-help-entry,
+.forest-shell .lobby-friends-slot {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+.forest-shell .lobby-friends-slot:empty {
+  display: none;
+}
+.forest-shell .lobby-friends-slot .friends-entry-row {
+  justify-content: flex-start;
+  margin: 0;
+}
+.forest-shell .lobby-tutorial-entry button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .forest-shell .lobby-tutorial-entry {
+    gap: 8px;
+  }
+  .forest-shell .lobby-tutorial-entry button {
+    font-size: 0.85rem;
+  }
 }
 .forest-shell .lobby-entry-retry {
   display: flex;

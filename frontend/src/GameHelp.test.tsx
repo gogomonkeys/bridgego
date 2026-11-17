@@ -6,6 +6,8 @@ describe("concise game guide", () => {
   it("retains the current scoring and essential round rules", () => {
     const html = renderToStaticMarkup(<GameHelp />);
     for (const text of [
+      "先選 Google 登入或訪客，再輸入暱稱",
+      "Google 帳號已有暱稱就直接進大廳",
       "1、3 或 5 局",
       "房主開局",
       "本局耗時從首次發牌到最後一墩計分",
@@ -37,5 +39,20 @@ describe("concise game guide", () => {
       "伺服器重啟會清除訪客與房間資料",
     ])
       expect(html).toContain(text);
+  });
+  it("keeps friend operation guidance short and accurate", () => {
+    const html = renderToStaticMarkup(<GameHelp />);
+    for (const text of [
+      "我的好友",
+      "對方在清單接受才成為好友",
+      "不會跳出申請視窗",
+      "登入後依近期連線判斷",
+      "房邀 60 秒有效",
+      "不保留座位",
+      "不提供離線推播",
+      "不會自動離開你目前的房間",
+    ])
+      expect(html).toContain(text);
+    expect(html).not.toContain("登入後可啟用好友");
   });
 });

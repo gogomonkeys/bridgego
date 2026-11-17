@@ -21,8 +21,16 @@ interface Props {
   token: string;
   room: Room | null;
   disabled?: boolean;
+  entryTarget?: HTMLElement | null;
+  entryPlacement?: "lobby" | "default" | "hidden";
 }
-export default function FriendsHub({ token, room, disabled = false }: Props) {
+export default function FriendsHub({
+  token,
+  room,
+  disabled = false,
+  entryTarget = null,
+  entryPlacement = "default",
+}: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -466,7 +474,7 @@ export default function FriendsHub({ token, room, disabled = false }: Props) {
     drawerContent && typeof document !== "undefined" && document.body
       ? createPortal(drawerContent, document.body)
       : drawerContent;
-  return (
+  const entry = (
     <section className="friends-hub" aria-label="好友">
       <div className="friends-entry-row">
         <button
@@ -482,7 +490,7 @@ export default function FriendsHub({ token, room, disabled = false }: Props) {
             else void act("/initialize");
           }}
         >
-          好友
+          我的好友
           {data.pendingCount > 0 && (
             <span
               className="friends-count"
@@ -511,7 +519,18 @@ export default function FriendsHub({ token, room, disabled = false }: Props) {
           {error || notice}
         </p>
       )}
-      {drawer}
     </section>
+  );
+  return (
+    <>
+      {entryPlacement === "hidden"
+        ? null
+        : entryPlacement === "lobby"
+          ? entryTarget
+            ? createPortal(entry, entryTarget)
+            : null
+          : entry}
+      {drawer}
+    </>
   );
 }
