@@ -14,11 +14,12 @@ final class Nickname {
     if (name.isEmpty() || name.length() > 256) throw invalid();
     var matcher = GRAPHEME.matcher(name);
     int count = 0;
-    while (matcher.find()) if (++count > 5) throw invalid();
+    while (matcher.find()) if (++count > 10) throw invalid();
     return name;
   }
 
   private static RoomService.Failure invalid() {
-    return RoomService.fail(400, "INVALID_NAME", "Display name must be 1–5 visible characters without control characters");
+    return RoomService.fail(400, "INVALID_NAME", "Display name must be 1–10 visible characters without control characters");
   }
 }
+

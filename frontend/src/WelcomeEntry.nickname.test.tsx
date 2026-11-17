@@ -143,6 +143,15 @@ beforeEach(() => {
   });
 });
 describe("mounted first Google nickname entry", () => {
+  it("shows one account nickname introduction without redundant recovery action", async () => {
+    const ui = await mount();
+    await ui.google();
+    expect(ui.text()).toContain("設定遊戲暱稱，下次登入會沿用。");
+    expect(ui.text()).not.toContain("請輸入遊戲暱稱。");
+    expect(ui.button("重新確認登入狀態")).toBeUndefined();
+    expect(ui.button("返回身分選擇")).toBeDefined();
+    await ui.close();
+  });
   it("hides the guest shortcut during nickname entry and restores it on Back", async () => {
     const ui = await mount();
     await flush(() => ui.button("以訪客身分遊玩").props.onClick());

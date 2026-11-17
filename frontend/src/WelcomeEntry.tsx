@@ -111,7 +111,7 @@ export default function WelcomeEntry({
         setMessage(
           afterSave
             ? "已收到保存回應，但尚未確認暱稱完成。請返回身分選擇重新登入讀取結果，不要重複送出。"
-            : "請設定遊戲暱稱，之後登入將直接沿用。",
+            : "",
         );
         if (afterSave) setNicknameUncertain(true);
         return;
@@ -501,7 +501,9 @@ export default function WelcomeEntry({
         <h2>歡迎來到 BridgeGo</h2>
         <p>
           {nicknameStep
-            ? "請輸入遊戲暱稱。"
+            ? nicknameStep === "account"
+              ? "設定遊戲暱稱，下次登入會沿用。"
+              : "請輸入遊戲暱稱。"
             : "選用 Google 帳號，或直接當訪客遊玩。"}
         </p>
         {!readiness.ready && (
@@ -556,7 +558,7 @@ export default function WelcomeEntry({
             <small id="guest-name-hint" aria-live="polite">
               {composing
                 ? "正在輸入…"
-                : `${nickname.count}／5 字${name && nickname.error ? ` · ${nickname.error}` : ""}`}
+                : `${nickname.count}／10 字${name && nickname.error ? ` · ${nickname.error}` : ""}`}
             </small>
             <button
               className="primary"

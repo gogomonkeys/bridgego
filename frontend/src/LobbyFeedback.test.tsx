@@ -11,12 +11,15 @@ const mocks = vi.hoisted(() => ({
     status: "online",
   },
   join: vi.fn(),
+  create: vi.fn(),
+  forget: vi.fn(),
+  refresh: vi.fn(),
   request: vi.fn(),
   config: vi.fn(),
 }));
 vi.mock("./client", () => ({
   useClient: () => mocks.state,
-  client: { initialize: vi.fn(), join: mocks.join },
+  client: { initialize: vi.fn(), join: mocks.join, create: mocks.create, forget: mocks.forget, refresh: mocks.refresh },
   getConnectionDiagnostics: () => [],
 }));
 vi.mock("./google-login", () => ({ accountRequest: mocks.request }));
@@ -62,6 +65,10 @@ beforeEach(() => {
   });
   mocks.state.rooms = [];
   mocks.join.mockReset();
+  mocks.create.mockReset();
+  mocks.forget.mockReset();
+  mocks.refresh.mockReset();
+  mocks.state.busy = false;
   mocks.config.mockReset().mockResolvedValue({ enabled: true });
   mocks.request.mockReset().mockResolvedValue({ signedIn: false });
 });
@@ -78,6 +85,31 @@ async function enter() {
   await click("Skip");
 }
 describe("lobby feedback authorization", () => {
+  it("keeps account tools, room creation, code joining and room discovery in separate panels", async () => {
+    await enter();
+    const panel = (name: string) => tree.root.findByProps({ className: `panel ${name}` });
+    expect(panel("lobby-account-panel").findAllByProps({ id: "room-code" })).toHaveLength(0);
+    expect(panel("lobby-account-panel").findAllByProps({ className: "lobby-friends-slot" })).toHaveLength(1);
+    expect(panel("lobby-create-panel").findAllByProps({ className: "room-type-choice" })).toHaveLength(1);
+    expect(panel("lobby-create-panel").findAllByType("form")).toHaveLength(0);
+    expect(panel("lobby-join-panel").findByProps({ id: "room-code" })).toBeTruthy();
+    expect(panel("lobby-rooms-panel").findByProps({ id: "available-rooms-title" })).toBeTruthy();
+    expect(text()).not.toContain("換一個訪客身分");
+    await click("返回身分選擇");
+    expect(mocks.forget).toHaveBeenCalledTimes(1);
+  });
+  it("preserves create-room choices and code joining after separating sections", async () => {
+    await enter();
+    await act(async () => tree.root.findByProps({ type: "radio", name: "room-type", value: "FORMAL" }).props.onChange());
+    await act(async () => tree.root.findByProps({ type: "radio", name: "planned-deals", value: 5 }).props.onChange());
+    await act(async () => tree.root.findByProps({ className: "primary create-room" }).props.onClick());
+    expect(mocks.create).toHaveBeenCalledWith(5, "FORMAL");
+    await act(async () => tree.root.findByProps({ id: "room-code" }).props.onChange({ target: { value: "full-room-id" } }));
+    const preventDefault = vi.fn();
+    await act(async () => tree.root.findByProps({ className: "panel lobby-join-panel" }).findByType("form").props.onSubmit({ preventDefault }));
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(mocks.join).toHaveBeenCalledWith("full-room-id");
+  });
   it("shows host names and distinct short labels, but sends full ID when joining", async () => {
     const id = "12345678-1111-1111-1111-111111111111";
     const other = "12345678-2222-2222-2222-222222222222";

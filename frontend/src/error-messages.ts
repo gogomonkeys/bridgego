@@ -91,7 +91,7 @@ export const errorMessages: Record<string, string> = {
   CHOICE_LOCKED: "你的選擇已送出，不能更改。",
   WRONG_GAME: "這場遊戲已變更，請重新同步。",
   WRONG_DEAL: "已重新發牌，請依新手牌重新選擇。",
-  INVALID_NAME: "請輸入 1–5 個字的訪客名稱，不可包含控制字元。",
+  INVALID_NAME: "請輸入 1–10 個字的訪客名稱，不可包含控制字元。",
   ALREADY_IN_ROOM: "你已在另一個房間，請先離開。",
   UNAUTHORIZED: "訪客身分已失效，請重新建立。",
   INVALID_SESSION: "訪客身分已失效，請重新建立。",

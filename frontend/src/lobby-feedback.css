@@ -88,3 +88,42 @@
     flex: 1 1 180px;
   }
 }
+
+/* Identity/tools, creation, joining and room discovery are separate sections.
+   Controls stay in normal flow so long names and small screens cannot overlap. */
+.forest-shell .lobby-layout.forest-lobby {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "account account" "create join" "create rooms";
+  align-items: start;
+  gap: 20px;
+}
+.forest-shell .lobby-layout > .panel { min-width: 0; margin: 0; }
+.forest-shell .lobby-account-panel { grid-area: account; }
+.forest-shell .lobby-create-panel { grid-area: create; }
+.forest-shell .lobby-join-panel { grid-area: join; }
+.forest-shell .lobby-rooms-panel { grid-area: rooms; }
+.forest-shell .lobby-account-panel .lobby-tutorial-entry { margin: 16px 0 8px; }
+.forest-shell .lobby-identity-return { margin: 4px 0 0; padding-inline: 0; }
+.forest-shell .lobby-create-panel h2,
+.forest-shell .lobby-join-panel h2 { margin: 0 0 20px; }
+.forest-shell .lobby-join-panel .join-row { align-items: stretch; }
+.forest-shell .lobby-join-panel input { min-width: 0; }
+.forest-shell .lobby-join-panel button { flex: 0 0 auto; }
+.forest-shell .lobby-create-panel .create-room { width: 100%; }
+.forest-shell .lobby-rooms-panel .list-heading { flex-wrap: wrap; gap: 12px; }
+.forest-shell .lobby-rooms-panel .list-heading h2 { margin: 0; }
+.forest-shell .lobby-rooms-panel .room-list li { gap: 12px; }
+@media (max-width: 730px) {
+  .forest-shell .lobby-layout.forest-lobby {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "account" "create" "join" "rooms";
+    gap: 16px;
+  }
+  .forest-shell .lobby-create-panel h2,
+  .forest-shell .lobby-join-panel h2 { margin-bottom: 16px; }
+}
+@media (max-width: 380px) {
+  .forest-shell .lobby-join-panel .join-row { flex-direction: column; }
+  .forest-shell .lobby-join-panel .join-row button { width: 100%; }
+  .forest-shell .lobby-statistics-button { flex-direction: row; }
+}

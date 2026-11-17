@@ -2,27 +2,27 @@ import { describe, expect, it, vi } from "vitest";
 import { nicknameValidation } from "./nickname";
 import { readFileSync } from "node:fs";
 
-describe("five visible-character guest names", () => {
+describe("ten visible-character guest names", () => {
   it.each([
     "小",
-    "一二三四五",
-    "abcde",
+    "一二三四五六七八九十",
+    "abcdefghij",
     "😀😀😀😀😀",
-    "👨‍👩‍👧‍👦".repeat(5),
-    "e\u0301".repeat(5),
-    "🇹🇼".repeat(5),
+    "👨‍👩‍👧‍👦".repeat(10),
+    "e\u0301".repeat(10),
+    "🇹🇼".repeat(10),
   ])("accepts %s without splitting characters", (name) => {
     const result = nicknameValidation(name);
     expect(result.error).toBeNull();
-    expect(result.count).toBeLessThanOrEqual(5);
+    expect(result.count).toBeLessThanOrEqual(10);
   });
   it.each([
     "",
     "　  ",
-    "一二三四五六",
-    "abcdef",
-    "😀".repeat(6),
-    "👨‍👩‍👧‍👦".repeat(6),
+    "一二三四五六七八九十甲",
+    "abcdefghijk",
+    "😀".repeat(11),
+    "👨‍👩‍👧‍👦".repeat(11),
     "a\nb",
     "\t小白",
   ])("rejects %s", (name) => {
@@ -36,9 +36,9 @@ describe("five visible-character guest names", () => {
     });
   });
   it("does not truncate an over-limit pasted name", () => {
-    const result = nicknameValidation("一二三四五六");
-    expect(result.normalized).toBe("一二三四五六");
-    expect(result.count).toBe(6);
+    const result = nicknameValidation("一二三四五六七八九十甲");
+    expect(result.normalized).toBe("一二三四五六七八九十甲");
+    expect(result.count).toBe(11);
   });
   it("handles unavailable grapheme support explicitly instead of miscounting emoji", () => {
     vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });

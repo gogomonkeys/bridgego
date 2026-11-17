@@ -1,5 +1,5 @@
 /** New guest names use visible Unicode grapheme clusters, not UTF-16 units. */
-export const MAX_NICKNAME_CHARACTERS = 5;
+export const MAX_NICKNAME_CHARACTERS = 10;
 // Match Java's explicit boundary rule, including full-width spaces, NBSP and BOM.
 export function normalizeNickname(value: string): string {
   return value
@@ -25,7 +25,7 @@ export function nicknameValidation(value: string): {
     : /[\u0000-\u001F\u007F-\u009F]/u.test(value)
       ? "訪客名稱不可包含控制字元。"
       : normalized.length > 256 || count > MAX_NICKNAME_CHARACTERS
-        ? "訪客名稱最多 5 個字，請縮短後再進入。"
+        ? "訪客名稱最多 10 個字，請縮短後再進入。"
         : null;
   return { normalized, count, error };
 }

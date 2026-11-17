@@ -20,7 +20,6 @@ import { client, useClient, getConnectionDiagnostics } from "./client";
 import GamePanel from "./GamePanel";
 import TableSeats from "./TableSeats";
 import ComputerPlayers from "./ComputerPlayers";
-import AnimalAvatar from "./AnimalAvatar";
 import { PreviousMatchSummary } from "./ResultPanel";
 export default function App() {
   const state = useClient();
@@ -155,7 +154,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.15.1", disconnects: diagnostics },
+    { version: "0.15.2", disconnects: diagnostics },
     null,
     2,
   );
@@ -219,7 +218,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.15.1</span>
+            <span className="eyebrow">v0.15.2</span>
           </div>
         )}
         <PwaStatus
@@ -251,7 +250,7 @@ export default function App() {
           (!state.room || state.room.phase === "WAITING") && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.15.1</span>
+                <span className="eyebrow">v0.15.2</span>
                 <h1>
                   {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
                 </h1>
@@ -607,22 +606,10 @@ export default function App() {
           </div>
         ) : (
           <div className="lobby-layout forest-lobby">
-            <section className="forest-lobby-hero" aria-label="暮色森林大廳">
-              <div className="forest-lobby-sign">
-                <span>THE LANTERN GROVE</span>
-                <h2>燈亮了，朋友也到齊了。</h2>
-                <p>選一張桌，開始今晚的牌局。</p>
-              </div>
-              <div className="lobby-friends" aria-hidden="true">
-                {[0, 1, 2, 3].map((seat) => (
-                  <AnimalAvatar key={seat} seat={seat} large />
-                ))}
-              </div>
-            </section>
-            <section className="panel">
+            <section className="panel lobby-account-panel" aria-label="玩家與功能">
               <div className="lobby-panel-heading">
                 <div className="lobby-greeting">
-                  <span className="eyebrow">LET’S GET TOGETHER</span>
+                  <span className="eyebrow">遊戲大廳</span>
                   <h2>你好，{state.session!.displayName}</h2>
                 </div>
                 {canSeeLeaderboard && (
@@ -679,7 +666,6 @@ export default function App() {
                   </button>
                 </div>
               )}
-              <p>開一個新房間，或加入朋友的邀請。</p>
               <div className="lobby-tutorial-entry">
                 <TutorialHelpEntry
                   key={`${state.session!.token}:${tutorialAccountEpoch}`}
@@ -707,6 +693,16 @@ export default function App() {
                   ref={setFriendsEntryTarget}
                 />
               </div>
+              <button
+                className="text-button lobby-identity-return"
+                onClick={client.forget}
+                disabled={state.busy}
+              >
+                返回身分選擇
+              </button>
+            </section>
+            <section className="panel lobby-create-panel" aria-labelledby="create-room-title">
+              <h2 id="create-room-title">建立房間</h2>
               <RoomTypeChoice
                 value={roomType}
                 disabled={state.busy}
@@ -734,7 +730,9 @@ export default function App() {
               >
                 ＋ 建立{roomTypeLabel(roomType)}房間
               </button>
-              <div className="divider">或使用房間代碼</div>
+            </section>
+            <section className="panel lobby-join-panel" aria-labelledby="join-room-title">
+              <h2 id="join-room-title">加入朋友</h2>
               <form
                 onSubmit={(event) =>
                   submit(event, () => void client.join(code))
@@ -758,19 +756,11 @@ export default function App() {
                   </button>
                 </div>
               </form>
-              <button
-                className="text-button"
-                onClick={client.forget}
-                disabled={state.busy}
-              >
-                換一個訪客身分
-              </button>
             </section>
-            <section className="panel">
+            <section className="panel lobby-rooms-panel" aria-labelledby="available-rooms-title">
               <div className="list-heading">
                 <div>
-                  <span className="eyebrow">AVAILABLE TABLES</span>
-                  <h2>目前的{roomTypeLabel(roomType)}房間</h2>
+                  <h2 id="available-rooms-title">目前的{roomTypeLabel(roomType)}房間</h2>
                 </div>
                 <button
                   className="secondary"
