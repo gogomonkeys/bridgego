@@ -17,6 +17,51 @@ import {
   type FriendsSnapshot,
 } from "./friends";
 import "./friends.css";
+function FriendCodeCard({ code }: { code: string }) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "manual">("idle");
+  useEffect(() => {
+    if (copyStatus !== "copied") return;
+    const timer = setTimeout(() => setCopyStatus("idle"), 5000);
+    return () => clearTimeout(timer);
+  }, [copyStatus]);
+  const field = useRef<HTMLInputElement>(null);
+  const active = useRef(true);
+  const copying = useRef(false);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
+  const copy = async () => {
+    if (copying.current) return;
+    copying.current = true;
+    setCopyStatus("copying");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(code);
+      if (active.current) setCopyStatus("copied");
+    } catch {
+      if (!active.current) return;
+      setCopyStatus("manual");
+      field.current?.focus();
+      field.current?.select();
+    } finally {
+      copying.current = false;
+    }
+  };
+  return (
+    <section className="friend-code-card" aria-label="我的好友碼">
+      <div className="friend-code-heading">
+        <label htmlFor="my-friend-code">我的好友碼</label>
+        <button type="button" className="secondary" disabled={copyStatus === "copying"} onClick={() => void copy()}>
+          {copyStatus === "copying" ? "複製中…" : "複製"}
+        </button>
+      </div>
+      <input id="my-friend-code" className="friend-code" ref={field} value={code} readOnly onFocus={(event) => event.currentTarget.select()} />
+      {copyStatus === "copied" && <small role="status">好友碼已複製</small>}
+      {copyStatus === "manual" && <small role="status">無法自動複製，請長按或選取好友碼手動複製。</small>}
+    </section>
+  );
+}
 interface Props {
   token: string;
   room: Room | null;
@@ -27,10 +72,12 @@ interface Props {
 export default function FriendsHub({
   token,
   room,
-  disabled = false,
+  disabled: externallyDisabled = false,
   entryTarget = null,
   entryPlacement = "default",
 }: Props) {
+  const playing = !!room && !["WAITING", "MATCH_RESULT", "ABORTED"].includes(room.phase);
+  const disabled = externallyDisabled || playing;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -41,6 +88,14 @@ export default function FriendsHub({
   const [uncertain, setUncertain] = useState(false);
   const [code, setCode] = useState("");
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  useEffect(() => {
+    if (!open) setNotice("");
+  }, [open]);
   const readError = useRef(false),
     uncertainRef = useRef(false);
   const live = useRef(true),
@@ -165,7 +220,14 @@ export default function FriendsHub({
       } else {
         setData(result as FriendsSnapshot);
         if (path === "/initialize") setOpen(true);
-        else setNotice("已完成");
+        else setNotice(
+          path === "/invites" ? "邀請已送出" :
+          path === "/requests" ? "好友申請已送出" :
+          path.endsWith("/accept") ? "已加入好友" :
+          path.endsWith("/reject") ? "已拒絕好友申請" :
+          path.endsWith("/ignore") ? "已略過邀請" :
+          method === "DELETE" ? "已移除好友" : "",
+        );
       }
       setCode("");
     } catch (cause) {
@@ -264,11 +326,13 @@ export default function FriendsHub({
         tabIndex={-1}
       >
         <div className="friends-heading">
-          <div>
-            <h2 id="friends-title">好友</h2>
+          <div className="friends-title-group">
+            <img className="friends-mascot" src="/assets/forest/animal-rabbit.webp" alt="" aria-hidden="true" draggable={false} />
+            <div><h2 id="friends-title">我的好友</h2>
             {room && (
               <small className="friends-room-context">仍在目前房間</small>
             )}
+            </div>
           </div>
           <div className="friends-heading-actions">
             <button
@@ -279,17 +343,7 @@ export default function FriendsHub({
             >
               關閉
             </button>
-            <button
-              type="button"
-              className="secondary"
-              disabled={busy}
-              onClick={() => {
-                if (!uncertain) setError("");
-                void reload();
-              }}
-            >
-              重新讀取
-            </button>
+
           </div>
         </div>
         {(error || notice) && (
@@ -298,9 +352,7 @@ export default function FriendsHub({
           </p>
         )}
         {invitations}
-        <p>
-          我的好友碼 <strong className="friend-code">{data.friendCode}</strong>
-        </p>
+        {data.friendCode && <FriendCodeCard key={data.friendCode} code={data.friendCode} />}
         <form
           className="friends-code-form"
           onSubmit={(event: FormEvent) => {
@@ -309,9 +361,10 @@ export default function FriendsHub({
               void act("/requests", "POST", { friendCode: code.trim() });
           }}
         >
-          <label htmlFor="friend-code-input">好友碼</label>
+          <label htmlFor="friend-code-input">加入好友</label>
           <input
             id="friend-code-input"
+            placeholder="輸入對方的好友碼"
             autoComplete="off"
             maxLength={32}
             value={code}
@@ -370,7 +423,20 @@ export default function FriendsHub({
           </section>
         )}
         <section aria-label="好友清單">
+          <div className="friends-list-heading">
           <h3>好友清單</h3>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => {
+                if (!uncertain) setError("");
+                void reload();
+              }}
+            >
+              重新讀取
+            </button>
+          </div>
           {data.friends.length === 0 && <p>還沒有好友</p>}
           {data.friends.map((friend) => (
             <div className="friends-row" key={friend.friendCode}>
@@ -462,11 +528,7 @@ export default function FriendsHub({
             ))}
           </section>
         )}
-        <p className="friends-help">
-          <a href="#help" onClick={() => setOpen(false)}>
-            好友使用說明
-          </a>
-        </p>
+
       </div>
     </div>
   ) : null;
@@ -514,9 +576,9 @@ export default function FriendsHub({
         )}
       </div>
 
-      {!open && (error || notice) && (
+      {!open && error && (
         <p className="friends-notice" role="status">
-          {error || notice}
+          {error}
         </p>
       )}
     </section>

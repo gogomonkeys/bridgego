@@ -188,3 +188,25 @@
   .forest-shell .lobby-account-panel .lobby-statistics-actions { width: 100%; margin-left: 0; justify-content: flex-start; }
   .forest-shell .lobby-welcome-animal { width: 62px; height: 62px; }
 }
+
+/* Social notifications must not vertically shift the adjacent tutorial entry. */
+.forest-shell .lobby-tools-row { align-items: flex-start; }
+.forest-shell .lobby-account-panel .lobby-tutorial-entry { align-items: flex-start; flex: 1 1 240px; min-width: 0; }
+.forest-shell .lobby-tutorial-entry > .tutorial-help-entry { flex: 0 0 auto; }
+.forest-shell .lobby-tutorial-entry .lobby-friends-slot { flex: 1 1 140px; min-width: 0; }
+.forest-shell .lobby-friends-slot .friends-entry-row { align-items: flex-start; gap: 0 4px; }
+.forest-shell .lobby-friends-slot .friends-notice { margin: 4px 8px 8px; max-width: 100%; overflow-wrap: anywhere; }
+.forest-shell .lobby-identity-return { flex: 0 0 auto; margin-left: auto; }
+@media (max-width: 480px) {
+  .forest-shell .lobby-tools-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .forest-shell .lobby-account-panel .lobby-tutorial-entry { display: flex; flex-wrap: nowrap; width: 100%; gap: 4px; }
+  .forest-shell .lobby-tutorial-entry .lobby-friends-slot { flex: 1 1 0; }
+  .forest-shell .lobby-tools-row .lobby-identity-return { justify-self: end; margin: 0; }
+}
+
+/* Waiting-room social controls belong with room actions, never above the table. */
+.forest-shell .room-controls .room-friends-slot:empty { display: none; }
+.forest-shell .room-controls .room-friends-slot { margin: 14px 0; padding: 8px 0; border-block: 1px solid #dce0cd; min-width: 0; }
+.forest-shell .room-friends-slot .friends-entry-row { justify-content: flex-start; align-items: flex-start; gap: 8px; margin: 0; }
+.forest-shell .room-friends-slot .friends-entry-row button { padding: 10px 12px; min-height: 44px; font-size: 0.85rem; box-shadow: none; background: #eff2e5; border: 1px solid #d4ddc4; color: #435b3b; }
+.forest-shell .room-friends-slot .friends-notice { overflow-wrap: anywhere; font-size: 0.8rem; }

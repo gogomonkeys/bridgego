@@ -252,3 +252,54 @@
     height: calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 }
+/* Warm, compact drawer. Portalled styles deliberately do not depend on forest-shell. */
+.friends-backdrop .friends-panel { background: #faf8ef; border-color: #cbd1b6; }
+.friends-panel .friends-heading { background: #faf8ef; border-bottom-color: #dce0cd; }
+.friends-title-group { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.friends-mascot { width: 48px; height: 48px; object-fit: contain; flex: none; }
+.friends-title-group h2 { font-size: 1.25rem; }
+.friends-heading-actions button { box-shadow: none; }
+.friend-code-card { margin: 16px 0; padding: 10px 14px 12px; background: #eff2e5; border: 1px solid #d8dfc6; border-radius: 14px; }
+.friend-code-heading, .friends-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.friend-code-heading label { margin: 0; font-size: 0.83rem; color: #56674b; }
+.friends-panel .friend-code-heading button, .friends-panel .friends-list-heading button { min-height: 44px; padding: 8px 10px; background: transparent; border-color: transparent; box-shadow: none; font-size: 0.82rem; }
+.friends-panel .friend-code-card input { width: 100%; min-width: 0; padding: 6px 0; margin: 0; border: 0; background: transparent; color: #334e32; box-shadow: none; border-radius: 4px; font-size: 1rem; user-select: text; -webkit-user-select: text; letter-spacing: 0.06em; }
+.friend-code-card small { display: block; margin-top: 6px; color: #526944; font-size: 0.8rem; line-height: 1.5; }
+.friends-panel .friends-code-form { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 18px; }
+.friends-code-form label { grid-column: 1 / -1; font-size: 0.88rem; margin: 0; }
+.friends-panel .friends-code-form input { background: #fffdf7; border: 1px solid #cbd2bc; padding: 11px 12px; font-size: 0.9rem; border-radius: 10px; min-height: 44px; }
+.friends-list-heading { border-top: 1px solid #dce0cd; padding-top: 8px; margin-top: 8px; }
+.friends-panel .friends-list-heading h3 { margin: 0; font-size: 1rem; }
+.friends-panel .friends-row { border-bottom-color: #e0e4d4; }
+.friends-panel button.primary { background: #536f45; border-color: #536f45; box-shadow: none; font-size: 0.88rem; }
+.friends-panel button.secondary { box-shadow: none; }
+@media (max-width: 360px) {
+  .friends-mascot { width: 40px; height: 40px; }
+  .friends-title-group h2 { font-size: 1.1rem; }
+  .friends-panel .friends-code-form { grid-template-columns: minmax(0, 1fr); }
+  .friends-code-form button { width: 100%; }
+}
+/* Friend identity first, related actions on their own wrapping row. */
+.friends-panel .friends-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px; margin: 8px 0; border: 1px solid #dfe4d3; border-radius: 12px; background: #fffdf7; }
+.friends-panel .friends-row > span { font-size: 0.95rem; line-height: 1.45; }
+.friends-panel .friends-row small { font-size: 0.78rem; color: #69745d; }
+.friends-panel .friends-row .presence-online { color: #3f6b32; }
+.friends-panel .friends-row .presence-online::before { content: "● "; font-size: 0.65rem; }
+.friends-panel .friends-row .presence-in_game { color: #80652f; }
+.friends-panel .friends-row .presence-offline { color: #7d8075; }
+.friends-panel .friends-row-actions { justify-content: flex-start; gap: 8px; min-width: 0; width: 100%; }
+.friends-panel .friends-row-actions > button { flex: 0 1 auto; min-width: 0; font-size: 0.82rem; padding: 10px 12px; }
+.friends-panel .friends-row-actions details { margin-left: auto; min-width: 0; }
+.friends-panel .friends-row-actions summary { min-height: 44px; box-sizing: border-box; padding: 12px 8px; color: #65725a; font-size: 0.8rem; }
+.friends-panel .friends-row-actions details[open] { flex: 1 0 100%; margin-left: 0; border-top: 1px solid #e4e7dc; padding-top: 4px; }
+.friends-panel .friends-row-actions details[open] summary { text-align: right; }
+.friends-panel .friends-row-actions details button { width: 100%; background: #faf4ec; border-color: #e1d3c3; color: #82533d; font-size: 0.82rem; }
+.friends-panel .friends-invites { padding: 10px; background: #f0f3e6; border-color: #d6dfc1; margin: 12px 0; }
+.friends-panel .friends-invites .friends-row { margin: 0 0 8px; }
+.friends-panel .friends-invites .friends-row:last-child { margin-bottom: 0; border: 1px solid #dfe4d3; }
+.friends-panel section > h3 { font-size: 1rem; }
+@media (max-width: 360px) {
+  .friends-panel .friends-row-actions { gap: 6px; }
+  .friends-panel .friends-row-actions > button { flex: 1 1 90px; }
+  .friends-panel .friends-row-actions details { flex: 1 0 100%; text-align: right; }
+}
