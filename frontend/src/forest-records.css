@@ -15,7 +15,7 @@
 }
 .statistics-panel .forest-records-welcome {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-columns: minmax(0, 1fr) 88px;
   justify-content: start;
   min-height: 0;
   margin: 0 0 14px;
@@ -24,8 +24,8 @@
 }
 .statistics-panel .forest-records-heading { min-width: 0; text-align: left; }
 .statistics-panel .forest-records-welcome img {
-  width: 44px;
-  height: 44px;
+  width: 88px;
+  height: 88px;
   object-fit: contain;
   flex: 0 0 auto;
 }
@@ -72,11 +72,21 @@
 .statistics-panel .leaderboard-score strong { color: #294a37; }
 @media (max-width: 500px) {
   .panel.statistics-panel { padding: 18px 14px; border-radius: 20px; }
-  .statistics-panel .forest-records-welcome { gap: 10px; grid-template-columns: minmax(0, 1fr) 36px; }
-  .statistics-panel .forest-records-welcome img { width: 36px; height: 36px; }
+  .statistics-panel .forest-records-welcome { gap: 10px; grid-template-columns: minmax(0, 1fr) 72px; }
+  .statistics-panel .forest-records-welcome img { width: 72px; height: 72px; }
   .statistics-panel .forest-records-welcome p { font-size: 12px; }
   .statistics-panel .forest-records-title { gap: 8px; }
   .statistics-panel .forest-records-title img { width: 36px; height: 36px; }
   .statistics-panel .statistics-audience button { font-size: 14px; padding-inline: 4px; }
   .statistics-panel .statistics-actions button { flex-basis: 120px; font-size: 14px; padding: 12px 8px; }
+}
+
+/* Keep the ranking title and context together; the larger companion stays right. */
+.statistics-panel .forest-leaderboard-heading { display: grid; grid-template-columns: minmax(0, 1fr) 72px; gap: 12px; align-items: center; }
+.statistics-panel .forest-leaderboard-copy { min-width: 0; text-align: left; }
+.statistics-panel .forest-leaderboard-copy h3 { margin: 0 0 8px; }
+.statistics-panel .forest-leaderboard-heading > img { width: 72px; height: 72px; object-fit: contain; }
+@media (max-width: 500px) {
+  .statistics-panel .forest-leaderboard-heading { grid-template-columns: minmax(0, 1fr) 64px; gap: 10px; }
+  .statistics-panel .forest-leaderboard-heading > img { width: 64px; height: 64px; }
 }

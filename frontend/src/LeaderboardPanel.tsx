@@ -158,12 +158,12 @@ export default function LeaderboardPanel({
         aria-live="polite"
         aria-busy={!current}
       >
-        <div className="statistics-results-heading">
-          <div className="forest-records-title">
-            <img src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true" draggable={false} />
+        <div className="statistics-results-heading forest-leaderboard-heading">
+          <div className="forest-leaderboard-copy">
             <h3>{period === "SEASON" ? "本季" : "生涯"}排行榜</h3>
+            <span className="statistics-category-label">正式場</span>
           </div>
-          <span className="statistics-category-label">正式場</span>
+          <img src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true" draggable={false} />
         </div>
         {!current ? (
           <p role="status">正在讀取排行榜…</p>

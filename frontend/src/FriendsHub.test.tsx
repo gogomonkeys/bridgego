@@ -72,6 +72,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("friends panel", () => {
+  it("does not ask same-room invitees to leave or send a join request", async () => {
+    const room = { ...gameRoom(), phase: "WAITING" as const };
+    mocks.request.mockResolvedValue({ ...sample, invites: [{ inviteId: "same", inviterNickname: "Friend", roomName: "Table", roomId: room.roomId, expiresAt: "2099-01-01T00:00:00Z" }] });
+    await mount(room);
+    await act(async () => button("我的好友").props.onClick());
+    expect(JSON.stringify(tree.toJSON())).toContain("你已在此房間，無需重新加入");
+    expect(JSON.stringify(tree.toJSON())).not.toContain("請先離開目前房間");
+    expect(button("已在房間").props.disabled).toBe(true);
+    expect(mocks.adopt).not.toHaveBeenCalled();
+    expect(mocks.request.mock.calls.every(call => call.length === 1)).toBe(true);
+  });
+  it("keeps the leave-first restriction for a different room", async () => {
+    mocks.request.mockResolvedValue({ ...sample, invites: [{ inviteId: "other", inviterNickname: "Friend", roomName: "Table", roomId: "different", expiresAt: "2099-01-01T00:00:00Z" }] });
+    await mount({ ...gameRoom(), phase: "WAITING" });
+    await act(async () => button("我的好友").props.onClick());
+    expect(JSON.stringify(tree.toJSON())).toContain("請先離開目前房間");
+    expect(button("加入").props.disabled).toBe(true);
+  });
+  it("disables sending another invitation to a friend already in the room", async () => {
+    mocks.request.mockResolvedValue({ ...sample, friends: [{ ...sample.friends[0], sameRoom: true }] });
+    const room = { ...gameRoom(), phase: "WAITING" as const, players: gameRoom().players.slice(0, 2) };
+    await mount(room);
+    await act(async () => button("我的好友").props.onClick());
+    expect(button("已在房間").props.disabled).toBe(true);
+    expect(button("邀入房間")).toBeUndefined();
+  });
   it("places reload with the list, removes only the drawer help link, and exposes selectable code", async () => {
     await mount();
     await act(async () => button("我的好友").props.onClick());

@@ -54,6 +54,37 @@ class FriendsServiceTest {
     assertEquals(2,joined.players().size());assertEquals(2,friends.join(bob,inv.inviteId(),action).players().size());
     assertTrue(friends.read(bob).invites().isEmpty());
   }
+  @Test void sameRoomFriendCannotBeInvitedAgain() {
+    var room=rooms.create(alice);rooms.join(room.roomId(),bob);friends.read(bob);
+    assertTrue(friends.read(alice).friends().get(0).sameRoom());
+    assertEquals("FRIENDS_SAME_ROOM",assertThrows(RoomService.Failure.class,
+        ()->friends.invite(alice,"BBBBBBBBBBBBBBBB",room.roomId(),action())).code);
+    assertTrue(friends.read(bob).invites().isEmpty());
+  }
+  @Test void earlierInvitationKeepsExistingSeatEvenWhenRoomIsNowFull() {
+    var room=rooms.create(alice);friends.read(bob);
+    friends.invite(alice,"BBBBBBBBBBBBBBBB",room.roomId(),action());
+    var invitation=friends.read(bob).invites().get(0);
+    assertEquals(room.roomId(),invitation.roomId());
+    rooms.join(room.roomId(),bob);
+    rooms.join(room.roomId(),rooms.createSession("Guest1"));
+    rooms.join(room.roomId(),rooms.createSession("Guest2"));
+    var before=rooms.get(room.roomId(),bob);String id=action();
+    var after=friends.join(bob,invitation.inviteId(),id);
+    assertEquals(before.players(),after.players());
+    assertEquals(4,after.players().size());
+    assertEquals(4,friends.join(bob,invitation.inviteId(),id).players().size());
+    assertTrue(friends.read(bob).invites().isEmpty());
+  }
+  @Test void inviteCannotAbandonDifferentRoom() {
+    var room=rooms.create(alice);friends.read(bob);
+    friends.invite(alice,"BBBBBBBBBBBBBBBB",room.roomId(),action());
+    var invitation=friends.read(bob).invites().get(0);
+    var other=rooms.create(bob);
+    assertEquals("FRIENDS_ALREADY_IN_ROOM",assertThrows(RoomService.Failure.class,
+        ()->friends.join(bob,invitation.inviteId(),action())).code);
+    assertEquals(other.roomId(),rooms.me(bob).roomId());
+  }
   @Test void inviteExpiresWithoutJoining(){
     var room=rooms.create(alice);friends.read(bob);
     friends.invite(alice,"BBBBBBBBBBBBBBBB",room.roomId(),action());

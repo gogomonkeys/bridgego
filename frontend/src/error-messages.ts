@@ -14,6 +14,7 @@ export const errorMessages: Record<string, string> = {
   FRIENDS_ROOM_UNAVAILABLE: "好友目前沒有可加入的等待房。",
   FRIENDS_UNAVAILABLE: "好友服務暫時無法使用。",
   INVALID_FRIEND_TARGET: "這位玩家目前無法接受好友申請。",
+  FRIENDS_SAME_ROOM: "對方已在同一間房間，不需再次邀請。",
   FRIENDS_ALREADY_IN_ROOM: "你已在房間內，請先自行離開再加入。",
   FRIENDS_TARGET_UNAVAILABLE: "這位玩家目前無法接受好友申請。",
   FRIENDS_WAITING_REQUIRED: "請在尚未開始的等待房邀請好友。",

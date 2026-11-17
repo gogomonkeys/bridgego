@@ -274,7 +274,7 @@ export default function FriendsHub({
         <div className="friends-row" key={invite.inviteId}>
           <span>
             <b>{invite.inviterNickname}</b> 邀你加入「{invite.roomName}」
-            {room && <small>請先離開目前房間</small>}
+            {room && <small>{invite.roomId === room.roomId ? "你已在此房間，無需重新加入" : "請先離開目前房間"}</small>}
           </span>
           <div className="friends-row-actions">
             <button
@@ -290,7 +290,7 @@ export default function FriendsHub({
                 )
               }
             >
-              加入
+              {room && invite.roomId === room.roomId ? "已在房間" : "加入"}
             </button>
             <button
               type="button"
@@ -468,7 +468,7 @@ export default function FriendsHub({
                 {waiting && (
                   <button
                     className="primary"
-                    disabled={locked || friend.presence !== "ONLINE"}
+                    disabled={locked || friend.presence !== "ONLINE" || friend.sameRoom}
                     onClick={() =>
                       void act("/invites", "POST", {
                         friendCode: friend.friendCode,
@@ -476,7 +476,7 @@ export default function FriendsHub({
                       })
                     }
                   >
-                    邀入房間
+                    {friend.sameRoom ? "已在房間" : "邀入房間"}
                   </button>
                 )}
                 <details>

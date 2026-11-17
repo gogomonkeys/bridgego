@@ -6,6 +6,7 @@ export interface Friend {
   nickname: string;
   presence: Presence;
   joinable: boolean;
+  sameRoom?: boolean;
 }
 export interface FriendRequest {
   requestId: string;
@@ -16,6 +17,7 @@ export interface FriendRequest {
 export interface RoomInvite {
   inviteId: string;
   inviterNickname: string;
+  roomId?: string;
   roomName: string;
   expiresAt: string;
 }

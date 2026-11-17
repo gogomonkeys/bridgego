@@ -8,9 +8,9 @@ import org.springframework.stereotype.Service;
 /** Single-instance social coordination. Heartbeats and short-lived invitations never write Sheets. */
 @Service
 public class FriendsService {
-  public record Friend(String friendCode,String nickname,String presence,boolean joinable) {}
+  public record Friend(String friendCode,String nickname,String presence,boolean joinable,boolean sameRoom) {}
   public record Request(String requestId,String friendCode,String nickname,String direction) {}
-  public record Invitation(String inviteId,String inviterNickname,String roomName,String expiresAt) {}
+  public record Invitation(String inviteId,String inviterNickname,String roomName,String expiresAt,String roomId) {}
   public record Peer(String playerId,String nickname,boolean eligible,String relation) {}
   public record View(boolean enabled,String friendCode,List<Friend> friends,List<Request> requests,
       List<Invitation> invites,int pendingCount,List<Peer> tablePlayers) {}
@@ -77,13 +77,13 @@ public class FriendsService {
     if(seen.size()<1024||seen.containsKey(who.token()))
       seen.put(who.token(),new Seen(account,who.token(),clock.millis()));
     var s=store.snapshot(account);
-    var friends=s.friends().stream().map(p->new Friend(p.code(),p.nickname(),presence(p.accountId()),!presence(p.accountId()).equals("OFFLINE") && rooms.socialJoinableRoom(p.accountId())!=null)).toList();
+    var friends=s.friends().stream().map(p->new Friend(p.code(),p.nickname(),presence(p.accountId()),!presence(p.accountId()).equals("OFFLINE") && rooms.socialJoinableRoom(p.accountId())!=null,rooms.socialPeers(who).stream().anyMatch(peer->p.accountId().equals(peer.accountId())))).toList();
     var requests=new ArrayList<Request>();
     s.incoming().forEach(r->requests.add(new Request(r.requestId(),r.code(),r.nickname(),"INCOMING")));
     s.outgoing().forEach(r->requests.add(new Request(r.requestId(),r.code(),r.nickname(),"OUTGOING")));
     var notifications=invites.values().stream().filter(i->i.target().equals(account))
         .filter(i->s.friends().stream().anyMatch(p->p.accountId().equals(i.actor())))
-        .map(i->new Invitation(i.id(),i.nickname(),i.roomName(),Instant.ofEpochMilli(i.expires()).toString())).toList();
+        .map(i->new Invitation(i.id(),i.nickname(),i.roomName(),Instant.ofEpochMilli(i.expires()).toString(),i.roomId())).toList();
     var peers=rooms.socialPeers(who).stream().map(p->{
       boolean eligible=p.accountId()!=null&&!p.accountId().equals(account);
       String relation=s.friends().stream().anyMatch(f->f.accountId().equals(p.accountId()))?"FRIEND":
@@ -115,6 +115,8 @@ public class FriendsService {
     var s=store.snapshot(a);
     var target=s.friends().stream().filter(p->p.code().equals(code)).findFirst()
         .orElseThrow(()->RoomService.fail(403,"FRIENDS_NOT_FRIENDS","Friend required"));
+    if(rooms.socialPeers(who).stream().anyMatch(p->target.accountId().equals(p.accountId())))
+      throw RoomService.fail(409,"FRIENDS_SAME_ROOM","Friend is already in your room");
     String roomName=rooms.socialWaitingRoom(who,roomId);
     if(presence(target.accountId()).equals("OFFLINE"))
       throw RoomService.fail(409,"FRIENDS_OFFLINE","Friend is offline");
@@ -133,6 +135,12 @@ public class FriendsService {
     if(i==null||!i.target().equals(a))throw RoomService.fail(404,"FRIENDS_INVITE_EXPIRED","Invitation expired");
     if(store.snapshot(a).friends().stream().noneMatch(p->p.accountId().equals(i.actor())))
       throw RoomService.fail(403,"FRIENDS_NOT_FRIENDS","Friend required");
+    // An invitation may arrive before the recipient joins through another route.
+    // Keep their existing seat and readiness instead of requesting leave/rejoin.
+    if(i.roomId().equals(rooms.me(who).roomId())) {
+      var current=rooms.get(i.roomId(),who);
+      invites.remove(inviteId);receipt(key,signature,current.roomId());return current;
+    }
     RoomService.Identity inviter=rooms.authenticate(i.actorToken());
     rooms.socialWaitingRoom(inviter,i.roomId());
     var room=rooms.socialJoin(i.roomId(),who,i.actor());
