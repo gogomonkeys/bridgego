@@ -1,3 +1,4 @@
+import WaitingVoicePanel from "./WaitingVoicePanel";
 import FriendsHub from "./FriendsHub";
 import { friendsEntryPlacement } from "./friends-entry-placement";
 import LeaderboardPanel from "./LeaderboardPanel";
@@ -155,7 +156,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.15.7", disconnects: diagnostics },
+    { version: "0.16.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -219,7 +220,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.15.7</span>
+            <span className="eyebrow">v0.16.0</span>
           </div>
         )}
         <PwaStatus
@@ -251,7 +252,7 @@ export default function App() {
           (!state.session || state.room?.phase === "WAITING") && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.15.7</span>
+                <span className="eyebrow">v0.16.0</span>
                 <h1>
                   {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
                 </h1>
@@ -535,6 +536,12 @@ export default function App() {
                 </p>
               )}
               <div className="room-friends-slot" ref={setFriendsEntryTarget} />
+              <WaitingVoicePanel
+                roomId={state.room.roomId}
+                online={
+                  state.status === "online" && state.networkAvailable !== false
+                }
+              />
               <ComputerPlayers
                 room={state.room}
                 playerId={state.session!.playerId}
@@ -602,12 +609,21 @@ export default function App() {
           </div>
         ) : (
           <div className="lobby-layout forest-lobby">
-            <section className="panel lobby-account-panel" aria-label="玩家與功能">
+            <section
+              className="panel lobby-account-panel"
+              aria-label="玩家與功能"
+            >
               <div className="lobby-panel-heading">
                 <div className="lobby-greeting">
-                  <img className="lobby-welcome-animal" src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true" draggable={false} />
+                  <img
+                    className="lobby-welcome-animal"
+                    src="/assets/forest/animal-fox.webp"
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                  />
                   <div>
-                    <span className="eyebrow">森林牌桌 · v0.15.7</span>
+                    <span className="eyebrow">森林牌桌 · v0.16.0</span>
                     <h2>你好，{state.session!.displayName}</h2>
                     <p>找個座位，一起玩一場。</p>
                   </div>
@@ -667,43 +683,46 @@ export default function App() {
                 </div>
               )}
               <div className="lobby-tools-row">
-              <div className="lobby-tutorial-entry">
-                <TutorialHelpEntry
-                  key={`${state.session!.token}:${tutorialAccountEpoch}`}
-                  token={state.session!.token}
-                  direct
-                  enabled={
-                    tutorialAvailability?.key ===
-                    `${state.session!.token}:${tutorialAccountEpoch}`
-                      ? tutorialAvailability.enabled
-                      : null
-                  }
-                  onAvailability={(enabled) =>
-                    setTutorialAvailability({
-                      key: `${state.session!.token}:${tutorialAccountEpoch}`,
-                      enabled,
-                    })
-                  }
-                  onStart={() => {
-                    setTutorialRequested(true);
-                    navigate("room");
-                  }}
-                />
-                <div
-                  className="lobby-friends-slot"
-                  ref={setFriendsEntryTarget}
-                />
-              </div>
-              <button
-                className="text-button lobby-identity-return"
-                onClick={client.forget}
-                disabled={state.busy}
-              >
-                返回身分選擇
-              </button>
+                <div className="lobby-tutorial-entry">
+                  <TutorialHelpEntry
+                    key={`${state.session!.token}:${tutorialAccountEpoch}`}
+                    token={state.session!.token}
+                    direct
+                    enabled={
+                      tutorialAvailability?.key ===
+                      `${state.session!.token}:${tutorialAccountEpoch}`
+                        ? tutorialAvailability.enabled
+                        : null
+                    }
+                    onAvailability={(enabled) =>
+                      setTutorialAvailability({
+                        key: `${state.session!.token}:${tutorialAccountEpoch}`,
+                        enabled,
+                      })
+                    }
+                    onStart={() => {
+                      setTutorialRequested(true);
+                      navigate("room");
+                    }}
+                  />
+                  <div
+                    className="lobby-friends-slot"
+                    ref={setFriendsEntryTarget}
+                  />
+                </div>
+                <button
+                  className="text-button lobby-identity-return"
+                  onClick={client.forget}
+                  disabled={state.busy}
+                >
+                  返回身分選擇
+                </button>
               </div>
             </section>
-            <section className="panel lobby-create-panel" aria-labelledby="create-room-title">
+            <section
+              className="panel lobby-create-panel"
+              aria-labelledby="create-room-title"
+            >
               <h2 id="create-room-title">建立房間</h2>
               <RoomTypeChoice
                 value={roomType}
@@ -733,7 +752,10 @@ export default function App() {
                 ＋ 建立{roomTypeLabel(roomType)}房間
               </button>
             </section>
-            <section className="panel lobby-join-panel" aria-labelledby="join-room-title">
+            <section
+              className="panel lobby-join-panel"
+              aria-labelledby="join-room-title"
+            >
               <h2 id="join-room-title">加入朋友</h2>
               <form
                 onSubmit={(event) =>
@@ -759,10 +781,15 @@ export default function App() {
                 </div>
               </form>
             </section>
-            <section className="panel lobby-rooms-panel" aria-labelledby="available-rooms-title">
+            <section
+              className="panel lobby-rooms-panel"
+              aria-labelledby="available-rooms-title"
+            >
               <div className="list-heading">
                 <div>
-                  <h2 id="available-rooms-title">目前的{roomTypeLabel(roomType)}房間</h2>
+                  <h2 id="available-rooms-title">
+                    目前的{roomTypeLabel(roomType)}房間
+                  </h2>
                 </div>
                 <button
                   className="secondary"

@@ -1,0 +1,30 @@
+{
+  "baseCommit": "687d84fd4293d9d04c14ca46fe0958a07097197e",
+  "candidate": "waiting-room-text-voice-20261118",
+  "published": false,
+  "backendTests": 1238,
+  "frontendTests": 851,
+  "changedFiles": [
+    "backend/src/main/java/com/bridge/room/RoomSocket.java",
+    "backend/src/test/java/com/bridge/room/RoomChatTest.java",
+    "backend/src/test/java/com/bridge/room/RoomVoiceTest.java",
+    "docs/api/errors.json",
+    "frontend/src/App.tsx",
+    "frontend/src/GameHelp.test.tsx",
+    "frontend/src/GameHelp.tsx",
+    "frontend/src/WaitingVoicePanel.test.tsx",
+    "frontend/src/WaitingVoicePanel.tsx",
+    "frontend/src/client.ts",
+    "frontend/src/error-messages.ts",
+    "frontend/src/voice-wire.ts",
+    "frontend/src/voice.test.ts",
+    "frontend/src/voice.ts",
+    "frontend/src/waiting-voice.css",
+    "qa/WAITING_ROOM_VOICE.md"
+  ],
+  "reviewCorrections": [
+    "Rate-limit-independent idempotent voice leave",
+    "Accurate malformed/oversized transport close semantics",
+    "Concise chat panel and help copy"
+  ]
+}

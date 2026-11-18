@@ -1,3 +1,8 @@
+import {
+  bindVoiceTransport,
+  endVoiceTransport,
+  receiveVoiceFrame,
+} from "./voice-wire";
 import { errorMessages as messages } from "./error-messages";
 import { useSyncExternalStore } from "react";
 import { nicknameValidation } from "./nickname";
@@ -249,6 +254,7 @@ function clearPending() {
 }
 // Invalidate old socket callbacks before closing, so intentional leave cannot reconnect.
 function stop() {
+  endVoiceTransport();
   generation++;
   clearPending();
   roomId = null;
@@ -262,6 +268,7 @@ function stop() {
 function apply(room: Room, newConnection = false) {
   const accepted = acceptSnapshot(state.room, room, roomId);
   if (accepted && accepted !== state.room) {
+    if (accepted.phase !== "WAITING") endVoiceTransport("GAME_STARTED");
     const snapshotReceivedAt = timerDisplayAnchor(
       state.room,
       state.snapshotReceivedAt,
@@ -308,6 +315,13 @@ function connect() {
     if (mine !== generation || socket !== ws) return;
     try {
       const data = JSON.parse(event.data);
+      if (
+        typeof data.type === "string" &&
+        (data.type.startsWith("voice-") || data.type.startsWith("room-chat"))
+      ) {
+        receiveVoiceFrame(data);
+        return;
+      }
       if (data.type === "maintenance") {
         if (
           !observeEpoch(
@@ -323,6 +337,22 @@ function connect() {
           retryCount = 0;
           emit({ status: "online", notice: null });
           firstSnapshot = false;
+          if (state.room?.phase === "WAITING")
+            bindVoiceTransport((frame) => {
+              if (
+                socket !== ws ||
+                ws.readyState !== WebSocket.OPEN ||
+                state.status !== "online" ||
+                state.room?.phase !== "WAITING"
+              )
+                return false;
+              try {
+                ws.send(JSON.stringify(frame));
+                return true;
+              } catch {
+                return false;
+              }
+            });
         }
       }
       if (data.type === "error") {
@@ -339,6 +369,7 @@ function connect() {
   };
   ws.onclose = (event) => {
     if (mine !== generation || socket !== ws) return;
+    endVoiceTransport();
     if (event.code === 1012) {
       maintenance();
       return;

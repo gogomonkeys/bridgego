@@ -48,6 +48,11 @@ public class RoomSocket extends TextWebSocketHandler {
     boolean pauseReprobeUsed;
     volatile long schedulerGapNanos;
     volatile String roomId;
+    String voicePeerId, voiceRequestId;
+    long voiceWindowStarted;
+    int voiceWindowCount;
+    long chatWindowStarted;
+    int chatWindowCount;
     volatile RoomService.Identity identity;
     volatile boolean closed;
 
@@ -134,7 +139,7 @@ public class RoomSocket extends TextWebSocketHandler {
 
   @Override
   public void afterConnectionEstablished(WebSocketSession session) {
-    session.setTextMessageSizeLimit(4096);
+    session.setTextMessageSizeLimit(20000);
     session.setBinaryMessageSizeLimit(4096);
     synchronized (clients) {
       if (service.stopping() || clients.size() >= service.limits().maxSockets()) {
@@ -151,6 +156,24 @@ public class RoomSocket extends TextWebSocketHandler {
   protected void handleTextMessage(WebSocketSession socket, TextMessage message) {
     Client c = clients.get(socket.getId());
     if (c == null) return;
+    // Voice has a separate bounded signaling budget; ICE bursts must not consume game ping budget.
+    try {
+      if (message.getPayloadLength() > 20000) throw new IllegalArgumentException();
+      JsonNode voice = json.readTree(message.getPayload());
+      if (voice != null && voice.isObject() && voice.path("type").asText().equals("room-chat")) {
+        handleChat(c, voice); return;
+      }
+      if (voice != null && voice.isObject() && voice.path("type").asText().startsWith("voice-")) {
+        handleVoice(c, voice);
+        return;
+      }
+    } catch (Exception invalid) {
+      reject(c, "INVALID_MESSAGE", "Malformed or oversized message");
+      return;
+    }
+    if (message.getPayloadLength() > 4096) {
+      reject(c, "INVALID_MESSAGE", "Oversized command"); return;
+    }
     boolean rateLimited;
     synchronized (c) {
       long now = nanoTime.getAsLong();
@@ -199,6 +222,132 @@ public class RoomSocket extends TextWebSocketHandler {
     }
   }
 
+  // Ephemeral room chat: no replay buffer, database writes, or message-body logging.
+  private void handleChat(Client c, JsonNode node) {
+    synchronized (service) {
+      try {
+        long now = nanoTime.getAsLong();
+        if (now - c.chatWindowStarted >= 10_000_000_000L) {
+          c.chatWindowStarted = now; c.chatWindowCount = 0;
+        }
+        if (++c.chatWindowCount > 5)
+          throw RoomService.fail(429, "CHAT_RATE_LIMITED", "Please wait before sending another message");
+        if (c.closed || c.identity == null || !service.hasConnection(c.roomId, c.identity.playerId(), c.socket.getId())
+            || !Objects.equals(c.roomId, node.path("roomId").asText()))
+          throw RoomService.fail(403, "CHAT_NOT_MEMBER", "Chat is only available in your current room");
+        RoomService.Snapshot snapshot = service.viewFor(c.roomId, c.identity);
+        if (!snapshot.phase().equals("WAITING") || service.stopping())
+          throw RoomService.fail(409, "CHAT_NOT_WAITING", "Chat is only available before the game");
+        if (!node.path("text").isTextual())
+          throw RoomService.fail(400, "CHAT_INVALID_TEXT", "Enter 1 to 200 characters");
+        String text = node.path("text").asText().strip();
+        if (text.isBlank() || text.codePointCount(0, text.length()) > 200
+            || text.codePoints().anyMatch(cp -> Character.isISOControl(cp) && cp != '\n' && cp != '\t'))
+          throw RoomService.fail(400, "CHAT_INVALID_TEXT", "Enter 1 to 200 characters");
+        String name = snapshot.players().stream().filter(p -> p.playerId().equals(c.identity.playerId()))
+            .map(RoomService.PlayerView::displayName).findFirst().orElse("玩家");
+        Map<String,String> event = Map.of("type", "room-chat", "roomId", c.roomId,
+            "messageId", UUID.randomUUID().toString(), "playerId", c.identity.playerId(), "name", name, "text", text);
+        for (Client recipient : clients.values()) {
+          if (!recipient.closed && recipient.identity != null && c.roomId.equals(recipient.roomId)
+              && service.hasConnection(c.roomId, recipient.identity.playerId(), recipient.socket.getId()))
+            send(recipient, event);
+        }
+      } catch (RoomService.Failure failure) {
+        send(c, Map.of("type", "room-chat-error", "code", failure.code, "message", failure.getMessage()));
+      }
+    }
+  }
+
+  // All voice membership and signaling transitions share the domain lock. No SDP/ICE is persisted or logged.
+  private void handleVoice(Client c, JsonNode node) {
+    synchronized (service) {
+      try {
+        String type = node.path("type").asText();
+        // Withdrawal is idempotent and must never be blocked by the signaling budget.
+        // It can only release this transport's own voice session; a stale peer ID cannot
+        // remove a newer join. Repeated leave has no roster/broadcast cost once removed.
+        if (type.equals("voice-leave")) {
+          if (!node.has("peerId") || node.path("peerId").asText().equals(c.voicePeerId)) leaveVoice(c);
+          return;
+        }
+        long now = nanoTime.getAsLong();
+        if (now - c.voiceWindowStarted >= 10_000_000_000L) {
+          c.voiceWindowStarted = now; c.voiceWindowCount = 0;
+        }
+        if (++c.voiceWindowCount > 120)
+          throw RoomService.fail(429, "VOICE_RATE_LIMITED", "Voice signaling is busy");
+        if (c.closed || c.identity == null || !service.hasConnection(c.roomId, c.identity.playerId(), c.socket.getId()))
+          throw RoomService.fail(403, "VOICE_NOT_MEMBER", "Join the room first");
+        if (!service.viewFor(c.roomId, c.identity).phase().equals("WAITING") || service.stopping())
+          throw RoomService.fail(409, "VOICE_NOT_WAITING", "Voice is only available before the game");
+        if (type.equals("voice-join")) {
+          String requestId = node.path("requestId").asText();
+          if (requestId.isBlank() || requestId.length() > 80)
+            throw RoomService.fail(400, "VOICE_INVALID_REQUEST", "Missing voice request ID");
+          // A single voice session per player; another tab must leave rather than silently seize a microphone.
+          if (clients.values().stream().anyMatch(other -> other != c && other.voicePeerId != null
+              && c.roomId.equals(other.roomId) && c.identity.playerId().equals(other.identity.playerId())))
+            throw RoomService.fail(409, "VOICE_ALREADY_JOINED", "Voice is already active in another tab");
+          if (c.voicePeerId == null || !requestId.equals(c.voiceRequestId)) {
+            c.voicePeerId = UUID.randomUUID().toString(); c.voiceRequestId = requestId;
+          }
+          voiceRoster(c.roomId); return;
+        }
+        if (!type.equals("voice-signal") || c.voicePeerId == null
+            || !c.voicePeerId.equals(node.path("from").asText()))
+          throw RoomService.fail(400, "VOICE_STALE_SESSION", "Voice session ended");
+        Client target = clients.values().stream().filter(other -> other != c && !other.closed
+            && c.roomId.equals(other.roomId) && node.path("to").asText().equals(other.voicePeerId))
+            .findFirst().orElse(null);
+        if (target == null || !service.hasConnection(target.roomId, target.identity.playerId(), target.socket.getId()))
+          throw RoomService.fail(400, "VOICE_PEER_GONE", "Voice peer left");
+        JsonNode signal = node.path("signal");
+        String kind = signal.path("type").asText();
+        Map<String,Object> safe = new HashMap<>(); safe.put("type", kind);
+        if (kind.equals("offer") || kind.equals("answer")) {
+          if (!signal.path("sdp").isTextual() || signal.path("sdp").asText().isBlank()
+              || signal.path("sdp").asText().length() > 16000
+              || signal.path("sdp").asText().lines().anyMatch(line -> line.startsWith("m=") && !line.startsWith("m=audio ")))
+            throw RoomService.fail(400, "VOICE_INVALID_SIGNAL", "Invalid session description");
+          safe.put("sdp", signal.path("sdp").asText());
+        } else if (kind.equals("candidate")) {
+          if (!signal.path("candidate").isTextual() || signal.path("candidate").asText().length() > 2048
+              || (!signal.path("sdpMid").isNull() && (!signal.path("sdpMid").isTextual() || signal.path("sdpMid").asText().length() > 64))
+              || (!signal.path("sdpMLineIndex").isNull() && (!signal.path("sdpMLineIndex").isIntegralNumber()
+                  || signal.path("sdpMLineIndex").asInt(-1) < 0 || signal.path("sdpMLineIndex").asInt() > 32)))
+            throw RoomService.fail(400, "VOICE_INVALID_SIGNAL", "Invalid ICE candidate");
+          safe.put("candidate", signal.path("candidate").asText());
+          safe.put("sdpMid", signal.path("sdpMid").isNull() ? null : signal.path("sdpMid").asText());
+          safe.put("sdpMLineIndex", signal.path("sdpMLineIndex").isNull() ? null : signal.path("sdpMLineIndex").asInt());
+        } else throw RoomService.fail(400, "VOICE_INVALID_SIGNAL", "Unsupported voice signal");
+        send(target, Map.of("type", "voice-signal", "from", c.voicePeerId, "to", target.voicePeerId, "signal", safe));
+      } catch (RoomService.Failure failure) {
+        send(c, Map.of("type", "voice-error", "code", failure.code, "message", failure.getMessage()));
+      }
+    }
+  }
+
+  private void leaveVoice(Client c) {
+    if (c.voicePeerId == null) return;
+    c.voicePeerId = null; c.voiceRequestId = null;
+    voiceRoster(c.roomId);
+  }
+
+  private void voiceRoster(String roomId) {
+    List<Client> peers = clients.values().stream().filter(c -> !c.closed && c.voicePeerId != null
+        && roomId.equals(c.roomId) && c.identity != null
+        && service.hasConnection(roomId, c.identity.playerId(), c.socket.getId())).toList();
+    for (Client c : peers) {
+      var players = service.viewFor(roomId, c.identity).players();
+      List<Map<String,String>> roster = peers.stream().filter(other -> other != c).map(other -> Map.of(
+          "peerId", other.voicePeerId, "playerId", other.identity.playerId(), "name",
+          players.stream().filter(p -> p.playerId().equals(other.identity.playerId()))
+              .map(RoomService.PlayerView::displayName).findFirst().orElse("玩家"))).toList();
+      send(c, Map.of("type", "voice-state", "selfId", c.voicePeerId, "requestId", c.voiceRequestId, "peers", roster));
+    }
+  }
+
   private void reject(Client c, String code, String message) {
     // Queue the bounded protocol error before closing; never log token or request content.
     write(
@@ -240,6 +389,14 @@ public class RoomSocket extends TextWebSocketHandler {
       }
     }
     for (Client c : revoked) close(c, new CloseStatus(4003, "MEMBERSHIP_ENDED"));
+    if (!snapshot.phase().equals("WAITING")) {
+      for (Client c : clients.values()) {
+        if (snapshot.roomId().equals(c.roomId) && c.voicePeerId != null) {
+          c.voicePeerId = null; c.voiceRequestId = null;
+          send(c, Map.of("type", "voice-ended", "reason", "GAME_STARTED"));
+        }
+      }
+    }
     for (Delivery delivery : deliveries) sendSnapshot(delivery.client(), delivery.room());
   }
 
@@ -389,6 +546,7 @@ public class RoomSocket extends TextWebSocketHandler {
     }
     diagnostics(c, reason);
     synchronized (service) {
+      leaveVoice(c);
       if (c.identity != null) service.disconnect(c.roomId, c.identity.playerId(), c.socket.getId());
     }
     Runnable closeSocket =
@@ -420,6 +578,7 @@ public class RoomSocket extends TextWebSocketHandler {
     c.transportClosed.complete(null);
     diagnostics(c, new CloseStatus(status.getCode(), "PEER_CLOSED"));
     synchronized (service) {
+      leaveVoice(c);
       if (c.identity != null) service.disconnect(c.roomId, c.identity.playerId(), socket.getId());
     }
   }

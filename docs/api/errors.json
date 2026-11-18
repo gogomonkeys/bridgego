@@ -1453,6 +1453,188 @@
       "meaning": "目前階段不允許此操作",
       "handling": "同步後顯示該階段可用控制",
       "automaticMutationRetry": false
+    },
+    {
+      "code": "FRIENDS_SAME_ROOM",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/FriendsService.java"
+      ],
+      "exampleMessage": "Friend is already in your room",
+      "category": "friends",
+      "meaning": "對方已在同一間房間，不需再次邀請。",
+      "handling": "重新確認目前狀態，不自動重送修改。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "VOICE_RATE_LIMITED",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        429
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Voice signaling is busy",
+      "category": "voice",
+      "meaning": "語音訊息過於頻繁",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "VOICE_NOT_MEMBER",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Join the room first",
+      "category": "voice",
+      "meaning": "不是目前房間的有效成員",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "VOICE_NOT_WAITING",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Voice is only available before the game",
+      "category": "voice",
+      "meaning": "語音僅在等待階段開放",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "VOICE_INVALID_REQUEST",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Missing voice request ID",
+      "category": "voice",
+      "meaning": "缺少語音請求識別碼",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "VOICE_ALREADY_JOINED",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Voice is already active in another tab",
+      "category": "voice",
+      "meaning": "同一玩家已在另一分頁加入語音",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "VOICE_STALE_SESSION",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Voice session ended",
+      "category": "voice",
+      "meaning": "語音世代已失效",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "VOICE_PEER_GONE",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Voice peer left",
+      "category": "voice",
+      "meaning": "對方已離開語音",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "VOICE_INVALID_SIGNAL",
+      "automaticMutationRetry": false,
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Invalid session description / ICE candidate",
+      "category": "voice",
+      "meaning": "語音信令格式不符或超出限制",
+      "handling": "語音錯誤不影響遊戲；不自動重送。離開或確認連線後再由玩家主動加入。"
+    },
+    {
+      "code": "CHAT_RATE_LIMITED",
+      "httpStatuses": [
+        429
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Too many chat messages",
+      "category": "chat",
+      "meaning": "文字訊息過於頻繁",
+      "handling": "文字聊天錯誤不影響遊戲；不自動重送。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "CHAT_NOT_MEMBER",
+      "httpStatuses": [
+        403
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Join the room first",
+      "category": "chat",
+      "meaning": "不是目前房間的有效成員",
+      "handling": "文字聊天錯誤不影響遊戲；不自動重送。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "CHAT_NOT_WAITING",
+      "httpStatuses": [
+        409
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Chat is only available before the game",
+      "category": "chat",
+      "meaning": "聊天僅在等待階段開放",
+      "handling": "文字聊天錯誤不影響遊戲；不自動重送。",
+      "automaticMutationRetry": false
+    },
+    {
+      "code": "CHAT_INVALID_TEXT",
+      "httpStatuses": [
+        400
+      ],
+      "sources": [
+        "backend/src/main/java/com/bridge/room/RoomSocket.java"
+      ],
+      "exampleMessage": "Invalid chat text",
+      "category": "chat",
+      "meaning": "文字空白、超長或含不支援控制字元",
+      "handling": "文字聊天錯誤不影響遊戲；不自動重送。",
+      "automaticMutationRetry": false
     }
   ],
   "websocketCloseCodes": [

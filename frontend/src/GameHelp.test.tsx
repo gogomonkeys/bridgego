@@ -56,3 +56,20 @@ describe("concise game guide", () => {
     expect(html).not.toContain("登入後可啟用好友");
   });
 });
+
+it("keeps chat help concise while retaining lifecycle and privacy essentials", () => {
+  const html = renderToStaticMarkup(<GameHelp />);
+  const chat = html
+    .split("<h3>房間聊天</h3>")[1]
+    .split("<h3>每局怎麼玩</h3>")[0];
+  expect(chat.replace(/<[^>]+>/g, "").length).toBeLessThan(220);
+  for (const text of [
+    "僅等待房",
+    "不保存歷史",
+    "收起仍保持語音",
+    "不自動重連",
+    "公開 IP",
+    "無法防止他人錄音",
+  ])
+    expect(chat).toContain(text);
+});

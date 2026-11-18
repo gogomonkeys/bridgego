@@ -1,5 +1,17 @@
 // Stable wire codes are shared with backend failure responses. Legacy aliases remain compatible.
 export const errorMessages: Record<string, string> = {
+  CHAT_RATE_LIMITED: "訊息送得太快，請稍後再說。",
+  CHAT_NOT_MEMBER: "請先加入房間。",
+  CHAT_NOT_WAITING: "聊天僅限遊戲開始前使用。",
+  CHAT_INVALID_TEXT: "請輸入 1 到 200 字的文字訊息。",
+  VOICE_RATE_LIMITED: "語音訊息過於頻繁，請稍後再試。",
+  VOICE_NOT_MEMBER: "請先加入房間。",
+  VOICE_NOT_WAITING: "語音僅限遊戲開始前使用。",
+  VOICE_INVALID_REQUEST: "語音請求無法確認，請重新加入語音。",
+  VOICE_ALREADY_JOINED: "此帳號已在另一個分頁加入語音。",
+  VOICE_STALE_SESSION: "語音連線已結束，請重新加入。",
+  VOICE_PEER_GONE: "對方已離開語音。",
+  VOICE_INVALID_SIGNAL: "語音連線資料無法確認。",
   FRIENDS_NOT_INITIALIZED: "請先開啟好友功能。",
   FRIENDS_NOT_SAME_ROOM: "只能對同桌玩家送出申請。",
   FRIENDS_INVALID_REQUEST: "好友操作無法完成，請確認好友碼或重新讀取清單。",
