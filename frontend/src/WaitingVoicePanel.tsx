@@ -9,7 +9,13 @@ import {
 } from "react";
 import { roomChatViewportStyle } from "./room-chat-viewport";
 import { WaitingVoice, type VoiceView } from "./voice";
-import { sendVoice, subscribeVoice } from "./voice-wire";
+import {
+  sendVoice,
+  subscribeVoice,
+  getRoomChat,
+  rememberRoomChat,
+  clearRoomChat,
+} from "./voice-wire";
 import "./waiting-voice.css";
 interface ChatMessage {
   messageId: string;
@@ -58,7 +64,7 @@ export default function WaitingVoicePanel({
       setChatError("");
       setUnread(0);
     };
-    clear();
+    setChat(getRoomChat(roomId));
     close();
     const voice = new WaitingVoice({
       media: () =>
@@ -89,6 +95,7 @@ export default function WaitingVoicePanel({
           name: frame.name,
           text: frame.text,
         };
+        rememberRoomChat(roomId, incoming);
         setChat((current) =>
           current.some((m) => m.messageId === incoming.messageId)
             ? current
@@ -102,22 +109,26 @@ export default function WaitingVoicePanel({
             : "訊息未送出，請確認房間連線。",
         );
       } else if (frame.type === "voice-ended") {
-        clear();
+        if (frame.reason !== "DISCONNECTED") clear();
         close();
         voice.receive(frame);
       } else voice.receive(frame);
     });
     const leave = () => {
       voice.leave();
-      clear();
       close();
     };
     window.addEventListener("pagehide", leave);
-    window.addEventListener("bridge-account-changing", leave);
+    const changeAccount = () => {
+      clearRoomChat();
+      clear();
+      leave();
+    };
+    window.addEventListener("bridge-account-changing", changeAccount);
     return () => {
       unsubscribe();
       window.removeEventListener("pagehide", leave);
-      window.removeEventListener("bridge-account-changing", leave);
+      window.removeEventListener("bridge-account-changing", changeAccount);
       voice.leave();
       engine.current = null;
     };
@@ -125,10 +136,11 @@ export default function WaitingVoicePanel({
   useEffect(() => {
     if (!online) {
       engine.current?.leave("房間連線中斷，麥克風已關閉。", false);
-      setChat([]);
       setDraft("");
-      setUnread(0);
       close();
+    } else {
+      // Clear the prior disconnect hint without re-enabling capture.
+      engine.current?.leave("", false);
     }
   }, [online, close]);
   useEffect(() => {
@@ -327,10 +339,15 @@ export default function WaitingVoicePanel({
     </div>
   ) : null;
   return (
-    <div className="room-chat-entry">
+    <div
+      className="room-chat-entry"
+      data-voice={
+        active ? (view.muted ? "muted" : "live") : pending ? "pending" : "off"
+      }
+    >
       <button
         ref={trigger}
-        className="secondary"
+        className="room-chat-open"
         onClick={() => {
           openRef.current = true;
           setOpen(true);
@@ -340,6 +357,12 @@ export default function WaitingVoicePanel({
         aria-expanded={open}
       >
         房間聊天{unread > 0 ? ` · ${unread}` : ""}
+        {(active || pending) && (
+          <span className="room-chat-entry-status" role="status">
+            <span className="room-chat-status-dot" aria-hidden="true" />
+            {pending ? "正在加入語音…" : microphone}
+          </span>
+        )}
       </button>
       {active && (
         <button
@@ -351,14 +374,20 @@ export default function WaitingVoicePanel({
           title={view.muted ? "開啟麥克風" : "靜音"}
           onClick={() => engine.current?.mute()}
         >
-          <span aria-hidden="true">{view.muted ? "◌" : "●"}</span>
-          <span role="status">{microphone}</span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8" />
+            {view.muted && <path d="m3 3 18 18" />}
+          </svg>
+          <span>{view.muted ? "開麥" : "靜音"}</span>
         </button>
-      )}
-      {pending && (
-        <span className="room-chat-mic" role="status">
-          正在加入語音…
-        </span>
       )}
       {typeof document !== "undefined" && document.body
         ? createPortal(panel, document.body)

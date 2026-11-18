@@ -74,25 +74,58 @@ afterEach(() => {
 describe("friends panel", () => {
   it("does not ask same-room invitees to leave or send a join request", async () => {
     const room = { ...gameRoom(), phase: "WAITING" as const };
-    mocks.request.mockResolvedValue({ ...sample, invites: [{ inviteId: "same", inviterNickname: "Friend", roomName: "Table", roomId: room.roomId, expiresAt: "2099-01-01T00:00:00Z" }] });
+    mocks.request.mockResolvedValue({
+      ...sample,
+      invites: [
+        {
+          inviteId: "same",
+          inviterNickname: "Friend",
+          roomName: "Table",
+          roomId: room.roomId,
+          expiresAt: "2099-01-01T00:00:00Z",
+        },
+      ],
+    });
     await mount(room);
     await act(async () => button("我的好友").props.onClick());
-    expect(JSON.stringify(tree.toJSON())).toContain("你已在此房間，無需重新加入");
+    expect(JSON.stringify(tree.toJSON())).toContain(
+      "你已在此房間，無需重新加入",
+    );
     expect(JSON.stringify(tree.toJSON())).not.toContain("請先離開目前房間");
     expect(button("已在房間").props.disabled).toBe(true);
     expect(mocks.adopt).not.toHaveBeenCalled();
-    expect(mocks.request.mock.calls.every(call => call.length === 1)).toBe(true);
+    expect(mocks.request.mock.calls.every((call) => call.length === 1)).toBe(
+      true,
+    );
   });
   it("keeps the leave-first restriction for a different room", async () => {
-    mocks.request.mockResolvedValue({ ...sample, invites: [{ inviteId: "other", inviterNickname: "Friend", roomName: "Table", roomId: "different", expiresAt: "2099-01-01T00:00:00Z" }] });
+    mocks.request.mockResolvedValue({
+      ...sample,
+      invites: [
+        {
+          inviteId: "other",
+          inviterNickname: "Friend",
+          roomName: "Table",
+          roomId: "different",
+          expiresAt: "2099-01-01T00:00:00Z",
+        },
+      ],
+    });
     await mount({ ...gameRoom(), phase: "WAITING" });
     await act(async () => button("我的好友").props.onClick());
     expect(JSON.stringify(tree.toJSON())).toContain("請先離開目前房間");
     expect(button("加入").props.disabled).toBe(true);
   });
   it("disables sending another invitation to a friend already in the room", async () => {
-    mocks.request.mockResolvedValue({ ...sample, friends: [{ ...sample.friends[0], sameRoom: true }] });
-    const room = { ...gameRoom(), phase: "WAITING" as const, players: gameRoom().players.slice(0, 2) };
+    mocks.request.mockResolvedValue({
+      ...sample,
+      friends: [{ ...sample.friends[0], sameRoom: true }],
+    });
+    const room = {
+      ...gameRoom(),
+      phase: "WAITING" as const,
+      players: gameRoom().players.slice(0, 2),
+    };
     await mount(room);
     await act(async () => button("我的好友").props.onClick());
     expect(button("已在房間").props.disabled).toBe(true);
@@ -101,7 +134,11 @@ describe("friends panel", () => {
   it("places reload with the list, removes only the drawer help link, and exposes selectable code", async () => {
     await mount();
     await act(async () => button("我的好友").props.onClick());
-    expect(tree.root.findByProps({ className: "friends-list-heading" }).findAllByType("button")[0].children).toContain("重新讀取");
+    expect(
+      tree.root
+        .findByProps({ className: "friends-list-heading" })
+        .findAllByType("button")[0].children,
+    ).toContain("重新讀取");
     expect(JSON.stringify(tree.toJSON())).not.toContain("好友使用說明");
     const code = tree.root.findByProps({ id: "my-friend-code" });
     expect(code.props.readOnly).toBe(true);
@@ -118,20 +155,47 @@ describe("friends panel", () => {
     const count = mocks.request.mock.calls.length;
     await act(async () => button("複製").props.onClick());
     expect(writeText).toHaveBeenCalledWith("ME");
-    expect(tree.root.findAllByProps({ role: "status" }).some(n => n.children.includes("好友碼已複製"))).toBe(true);
+    expect(
+      tree.root
+        .findAllByProps({ role: "status" })
+        .some((n) => n.children.includes("好友碼已複製")),
+    ).toBe(true);
     expect(mocks.request).toHaveBeenCalledTimes(count);
   });
-  it.each(["unavailable", "denied"])("offers manual copy when clipboard is %s", async (mode) => {
-    vi.stubGlobal("navigator", mode === "unavailable" ? {} : { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("denied")) } });
-    await mount();
-    await act(async () => button("我的好友").props.onClick());
-    await act(async () => button("複製").props.onClick());
-    expect(JSON.stringify(tree.toJSON())).toContain("無法自動複製，請長按或選取好友碼手動複製。");
-    expect(tree.root.findByProps({ id: "my-friend-code" }).props.value).toBe("ME");
-  });
+  it.each(["unavailable", "denied"])(
+    "offers manual copy when clipboard is %s",
+    async (mode) => {
+      vi.stubGlobal(
+        "navigator",
+        mode === "unavailable"
+          ? {}
+          : {
+              clipboard: {
+                writeText: vi.fn().mockRejectedValue(new Error("denied")),
+              },
+            },
+      );
+      await mount();
+      await act(async () => button("我的好友").props.onClick());
+      await act(async () => button("複製").props.onClick());
+      expect(JSON.stringify(tree.toJSON())).toContain(
+        "無法自動複製，請長按或選取好友碼手動複製。",
+      );
+      expect(tree.root.findByProps({ id: "my-friend-code" }).props.value).toBe(
+        "ME",
+      );
+    },
+  );
   it("does not apply a late copy result after closing and reopening", async () => {
     let finish!: () => void;
-    vi.stubGlobal("navigator", { clipboard: { writeText: () => new Promise<void>(r => { finish = r; }) } });
+    vi.stubGlobal("navigator", {
+      clipboard: {
+        writeText: () =>
+          new Promise<void>((r) => {
+            finish = r;
+          }),
+      },
+    });
     await mount();
     await act(async () => button("我的好友").props.onClick());
     await act(async () => button("複製").props.onClick());
@@ -142,32 +206,68 @@ describe("friends panel", () => {
     expect(button("複製").props.disabled).toBe(false);
   });
   it("shows specific brief success feedback without clearing uncertain warnings", async () => {
-    const room = { ...gameRoom(), phase: "WAITING" as const, capacity: 4 as const, players: [] };
+    const room = {
+      ...gameRoom(),
+      phase: "WAITING" as const,
+      capacity: 4 as const,
+      players: [],
+    };
     await mount(room);
     await act(async () => button("我的好友").props.onClick());
     await act(async () => button("邀入房間").props.onClick());
     expect(JSON.stringify(tree.toJSON())).toContain("邀請已送出");
     expect(JSON.stringify(tree.toJSON())).not.toContain("已完成");
-    await act(async () => { vi.advanceTimersByTime(5001); });
+    await act(async () => {
+      vi.advanceTimersByTime(5001);
+    });
     expect(JSON.stringify(tree.toJSON())).not.toContain("邀請已送出");
-    mocks.request.mockRejectedValueOnce(new FriendsError("結果未確認，請勿重送", true));
+    mocks.request.mockRejectedValueOnce(
+      new FriendsError("結果未確認，請勿重送", true),
+    );
     await act(async () => button("邀入房間").props.onClick());
-    await act(async () => { vi.advanceTimersByTime(5001); });
+    await act(async () => {
+      vi.advanceTimersByTime(5001);
+    });
     expect(JSON.stringify(tree.toJSON())).toContain("結果未確認，請勿重送");
     expect(button("邀入房間").props.disabled).toBe(true);
   });
   it("keeps room invites actionable in the closed entry without success notices", async () => {
-    mocks.request.mockResolvedValue({ ...sample, invites: [{ inviteId: "in", inviterNickname: "Friend", roomName: "Table", roomId: "r", expiresAt: "later" }] });
+    mocks.request.mockResolvedValue({
+      ...sample,
+      invites: [
+        {
+          inviteId: "in",
+          inviterNickname: "Friend",
+          roomName: "Table",
+          roomId: "r",
+          expiresAt: "later",
+        },
+      ],
+    });
     await mount();
     expect(button("我的好友")).toBeTruthy();
-    const invite = tree.root.findByProps({ className: "secondary friends-invite-entry" });
+    const invite = tree.root.findByProps({
+      className: "secondary friends-invite-entry",
+    });
     await act(async () => invite.props.onClick());
     expect(tree.root.findByProps({ role: "dialog" })).toBeTruthy();
     await act(async () => button("關閉").props.onClick());
     expect(tree.root.findAllByProps({ role: "dialog" })).toHaveLength(0);
-    expect(tree.root.findAllByProps({ className: "friends-notice" })).toHaveLength(0);
+    expect(
+      tree.root.findAllByProps({ className: "friends-notice" }),
+    ).toHaveLength(0);
   });
-  it.each(["REDEAL_DECISION", "PRIVILEGE_DECISION", "BIDDING", "DEAL_RESULT", "PLAYING", "TRICK_RESULT", "FORFEIT_PENDING", "MATCH_RESULT", "ABORTED"] as const)("hides all social entries during %s", async (phase) => {
+  it.each([
+    "REDEAL_DECISION",
+    "PRIVILEGE_DECISION",
+    "BIDDING",
+    "DEAL_RESULT",
+    "PLAYING",
+    "TRICK_RESULT",
+    "FORFEIT_PENDING",
+    "MATCH_RESULT",
+    "ABORTED",
+  ] as const)("hides all social entries during %s", async (phase) => {
     await mount(gameRoom(phase));
     expect(tree.toJSON()).toBeNull();
   });
@@ -175,17 +275,28 @@ describe("friends panel", () => {
     await mount(gameRoom("WAITING"));
     await act(async () => button("我的好友").props.onClick());
     expect(tree.root.findAllByProps({ role: "dialog" })).toHaveLength(1);
-    await act(async () => { tree.update(<FriendsHub token="test" room={gameRoom("BIDDING")} />); });
+    await act(async () => {
+      tree.update(<FriendsHub token="test" room={gameRoom("BIDDING")} />);
+    });
     expect(tree.toJSON()).toBeNull();
-    await act(async () => { tree.update(<FriendsHub token="test" room={gameRoom("WAITING")} />); });
+    await act(async () => {
+      tree.update(<FriendsHub token="test" room={gameRoom("WAITING")} />);
+    });
     expect(button("我的好友")).toBeTruthy();
     expect(tree.root.findAllByProps({ role: "dialog" })).toHaveLength(0);
   });
   it("anchors waiting-room social controls inside room controls instead of above the table", () => {
     const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
-    const controls = app.slice(app.indexOf('<aside className="panel room-controls">'));
-    expect(controls).toContain('<div className="room-friends-slot" ref={setFriendsEntryTarget} />');
-    expect(app).toContain("entryPlacement={friendsEntryPlacement(page, state.room)}");
+    const controls = app.slice(
+      app.indexOf('<aside className="panel room-controls">'),
+    );
+    expect(controls.replace(/\s+/g, " ")).toContain(
+      '<div className="room-friends-slot" ref={setFriendsEntryTarget} />',
+    );
+    expect(controls).toContain('className="room-social-tools"');
+    expect(app).toContain(
+      "entryPlacement={friendsEntryPlacement(page, state.room)}",
+    );
   });
   it("hides guests and stops polling", async () => {
     mocks.request.mockResolvedValue({ ...sample, enabled: false });
@@ -498,7 +609,9 @@ describe("friends panel", () => {
       button("接受").props.onClick();
     });
     await act(async () => {
-      tree.update(<FriendsHub token="test" room={null} entryPlacement="hidden" />);
+      tree.update(
+        <FriendsHub token="test" room={null} entryPlacement="hidden" />,
+      );
     });
     expect(tree.toJSON()).toBeNull();
     const target = {} as HTMLElement;
@@ -561,7 +674,11 @@ describe("friends panel", () => {
     await mount();
     await act(async () => button("我的好友").props.onClick());
     expect(tree.root.findAllByProps({ role: "dialog" })).toHaveLength(1);
-    await act(async () => tree.update(<FriendsHub token="test" room={null} entryPlacement="hidden" />));
+    await act(async () =>
+      tree.update(
+        <FriendsHub token="test" room={null} entryPlacement="hidden" />,
+      ),
+    );
     expect(tree.toJSON()).toBeNull();
     await act(async () => tree.update(<FriendsHub token="test" room={null} />));
     expect(button("我的好友")).toBeDefined();

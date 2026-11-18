@@ -156,7 +156,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.16.1", disconnects: diagnostics },
+    { version: "0.16.2", disconnects: diagnostics },
     null,
     2,
   );
@@ -220,7 +220,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.16.1</span>
+            <span className="eyebrow">v0.16.2</span>
           </div>
         )}
         <PwaStatus
@@ -252,7 +252,7 @@ export default function App() {
           (!state.session || state.room?.phase === "WAITING") && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.16.1</span>
+                <span className="eyebrow">v0.16.2</span>
                 <h1>
                   {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
                 </h1>
@@ -535,13 +535,23 @@ export default function App() {
                   秒，依規則判負；雙方皆失敗可能不計勝負。
                 </p>
               )}
-              <div className="room-friends-slot" ref={setFriendsEntryTarget} />
-              <WaitingVoicePanel
-                roomId={state.room.roomId}
-                online={
-                  state.status === "online" && state.networkAvailable !== false
-                }
-              />
+              <div
+                className="room-social-tools"
+                role="group"
+                aria-label="房間交流"
+              >
+                <div
+                  className="room-friends-slot"
+                  ref={setFriendsEntryTarget}
+                />
+                <WaitingVoicePanel
+                  roomId={state.room.roomId}
+                  online={
+                    state.status === "online" &&
+                    state.networkAvailable !== false
+                  }
+                />
+              </div>
               <ComputerPlayers
                 room={state.room}
                 playerId={state.session!.playerId}
@@ -623,7 +633,7 @@ export default function App() {
                     draggable={false}
                   />
                   <div>
-                    <span className="eyebrow">森林牌桌 · v0.16.1</span>
+                    <span className="eyebrow">森林牌桌 · v0.16.2</span>
                     <h2>你好，{state.session!.displayName}</h2>
                     <p>找個座位，一起玩一場。</p>
                   </div>

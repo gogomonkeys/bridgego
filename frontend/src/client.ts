@@ -1,5 +1,6 @@
 import {
   bindVoiceTransport,
+  setRoomChatScope,
   endVoiceTransport,
   receiveVoiceFrame,
 } from "./voice-wire";
@@ -254,7 +255,7 @@ function clearPending() {
 }
 // Invalidate old socket callbacks before closing, so intentional leave cannot reconnect.
 function stop() {
-  endVoiceTransport();
+  endVoiceTransport("SESSION_ENDED");
   generation++;
   clearPending();
   roomId = null;
@@ -269,6 +270,8 @@ function apply(room: Room, newConnection = false) {
   const accepted = acceptSnapshot(state.room, room, roomId);
   if (accepted && accepted !== state.room) {
     if (accepted.phase !== "WAITING") endVoiceTransport("GAME_STARTED");
+    else if (state.session)
+      setRoomChatScope(state.session.token, accepted.roomId);
     const snapshotReceivedAt = timerDisplayAnchor(
       state.room,
       state.snapshotReceivedAt,

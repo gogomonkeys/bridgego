@@ -66,45 +66,88 @@
 .waiting-voice-peers small {
   flex-shrink: 0;
 }
-/* One compact entry group, so the live microphone state never floats on its own. */
+/* One forest chat control: status belongs to the entry, the mic is a clear action. */
 .room-chat-entry {
   display: inline-flex;
-  flex-wrap: wrap;
   align-items: stretch;
   gap: 0;
   max-width: 100%;
   margin: 0.75rem 0;
-  padding: 0.2rem;
-  border: 1px solid #bdcfad;
-  border-radius: 0.9rem;
-  background: #eef4e5;
+  border: 1px solid #b6c8a8;
+  border-radius: 1rem;
+  background: #f3f6e9;
+  overflow: hidden;
 }
 .room-chat-entry > button {
   width: auto;
   margin: 0;
-  min-height: 44px;
-  border-radius: 0.65rem;
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
   box-shadow: none;
+  font: inherit;
+}
+.room-chat-entry .room-chat-open {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.65rem 1rem;
+  background: transparent;
+  color: #294b35;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 0;
+}
+.room-chat-entry-status {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #52674e;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.room-chat-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: #71806a;
+}
+.room-chat-entry[data-voice="live"] .room-chat-status-dot {
+  background: #28663f;
+  box-shadow: 0 0 0 3px #d8e8ca;
 }
 .room-chat-entry .room-chat-mic-toggle {
-  display: inline-flex;
+  display: flex;
+  flex: 0 0 58px;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  padding: 0.55rem 0.7rem;
-  background: transparent;
-  color: #315b38;
-  font-size: 0.78rem;
-  border: 0;
-}
-.room-chat-entry .room-chat-mic-toggle[aria-pressed="true"] {
-  background: #dcead2;
-}
-.room-chat-mic {
-  align-self: center;
+  gap: 0.2rem;
   padding: 0.5rem;
-  font-size: 0.8rem;
-  color: #315b38;
+  background: #e5edd9;
+  color: #2e5538;
+  font-size: 0.7rem;
+  border-left: 1px solid #c5d3b8;
+}
+.room-chat-mic-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+.room-chat-entry[data-voice="live"] .room-chat-mic-toggle {
+  background: #315e40;
+  color: #fffdf3;
+}
+.room-chat-entry > button:focus-visible {
+  outline: 2px solid #9c642f;
+  outline-offset: -4px;
+}
+.room-chat-entry .room-chat-open:hover {
+  background: #e8efdb;
 }
 /* Non-modal portal follows the visible viewport, including iOS keyboard panning. */
 .room-chat-backdrop {
@@ -250,8 +293,62 @@
   .room-chat-heading h2 {
     font-size: 1rem;
   }
-  .room-chat-entry .room-chat-mic-toggle {
-    font-size: 0.75rem;
-    padding-inline: 0.55rem;
-  }
+}
+
+/* Friends and room chat share one compact toolbar, including guests with no friends entry. */
+.forest-shell .room-controls .room-social-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin: 0.8rem 0 1rem;
+  min-width: 0;
+}
+.forest-shell .room-controls .room-social-tools .room-friends-slot {
+  display: flex;
+  align-items: stretch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.forest-shell .room-controls .room-social-tools .room-friends-slot:empty {
+  display: none;
+}
+.forest-shell .room-social-tools .friends-entry-row {
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.forest-shell .room-social-tools .friends-entry-row button {
+  margin: 0;
+  min-height: 48px;
+  border-radius: 1rem;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.85rem;
+}
+.room-social-tools .room-chat-entry {
+  margin: 0;
+}
+.room-social-tools .room-chat-open {
+  padding: 0.6rem 0.7rem;
+  font-size: 0.85rem;
+}
+.room-social-tools .room-chat-mic-toggle {
+  flex-basis: 48px;
+}
+.room-social-tools .room-chat-open {
+  position: relative;
+  padding-left: 1.65rem;
+}
+.room-social-tools .room-chat-open::before {
+  content: "";
+  position: absolute;
+  top: 0.85rem;
+  left: 0.55rem;
+  width: 10px;
+  height: 14px;
+  border-radius: 10px 0 10px 0;
+  background: linear-gradient(135deg, #87a56b, #3e7048);
+  transform: rotate(18deg);
+  pointer-events: none;
 }

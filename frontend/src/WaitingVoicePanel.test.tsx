@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import WaitingVoicePanel from "./WaitingVoicePanel";
 import {
   bindVoiceTransport,
+  setRoomChatScope,
+  clearRoomChat,
   endVoiceTransport,
   receiveVoiceFrame,
 } from "./voice-wire";
@@ -34,6 +36,8 @@ beforeEach(() => {
   );
   vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: media } });
   vi.stubGlobal("RTCPeerConnection", class {});
+  clearRoomChat();
+  setRoomChatScope("test-session", "r1");
   bindVoiceTransport(send);
 });
 afterEach(() => {
@@ -120,7 +124,9 @@ it("actual app mounts voice only in waiting controls and wire handles stop/start
   expect(client).toContain(
     'if (accepted.phase !== "WAITING") endVoiceTransport("GAME_STARTED")',
   );
-  expect(client).toContain("function stop() {\n  endVoiceTransport();");
+  expect(client).toContain(
+    'function stop() {\n  endVoiceTransport("SESSION_ENDED");',
+  );
   expect(client).toContain("socket !== ws) return;\n    endVoiceTransport();");
 });
 it("closing floating panel keeps opted-in voice and the active microphone indicator", async () => {
@@ -143,13 +149,29 @@ it("closing floating panel keeps opted-in voice and the active microphone indica
   expect(JSON.stringify(tree!.toJSON())).toContain("麥克風開啟");
   const mic = tree!.root.findByProps({ "aria-label": "麥克風開啟，點按靜音" });
   expect(mic).toBeTruthy();
+  expect(
+    tree!.root.findByProps({ className: "room-chat-entry" }).props[
+      "data-voice"
+    ],
+  ).toBe("live");
+  expect(
+    tree!.root
+      .findByProps({ className: "room-chat-open" })
+      .findByProps({ role: "status" }).children,
+  ).toContain("麥克風開啟");
+  expect(mic.findByType("svg").props["aria-hidden"]).toBe("true");
   act(() => mic.props.onClick());
   expect(track.enabled).toBe(false);
+  expect(
+    tree!.root.findByProps({ className: "room-chat-entry" }).props[
+      "data-voice"
+    ],
+  ).toBe("muted");
   act(() => button("房間聊天").props.onClick());
   expect(media).toHaveBeenCalledTimes(1);
   expect(button("離開語音")).toBeTruthy();
 });
-it("chat is plain text, room-scoped, bounded and erased after transport ends", async () => {
+it("chat is plain text, room-scoped, bounded and erased after explicit session end", async () => {
   await act(async () => {
     tree = create(<WaitingVoicePanel roomId="r1" online />);
   });
@@ -190,7 +212,7 @@ it("chat is plain text, room-scoped, bounded and erased after transport ends", a
   const log = tree!.root.findByProps({ role: "log" });
   expect(log.findAllByType("p")).toHaveLength(50);
   expect(JSON.stringify(tree!.toJSON())).not.toContain("onerror=alert");
-  act(() => endVoiceTransport());
+  act(() => endVoiceTransport("SESSION_ENDED"));
   act(() => button("房間聊天").props.onClick());
   expect(
     tree!.root.findByProps({ role: "log" }).findAllByType("strong"),
@@ -315,4 +337,69 @@ it("header and composer are outside the single shrinking scroll track", () => {
     /\.room-chat-scroll\s*\{[^}]*min-height: 0;[^}]*overflow-y: auto/,
   );
   expect(css).toContain("--room-chat-visible-height");
+});
+
+it("preserves received chat over pagehide, offline and temporary remount without restoring microphone", async () => {
+  await act(async () => {
+    tree = create(<WaitingVoicePanel roomId="r1" online />);
+  });
+  act(() =>
+    receiveVoiceFrame({
+      type: "room-chat",
+      roomId: "r1",
+      messageId: "sleep",
+      name: "Friend",
+      text: "Before sleep",
+    }),
+  );
+  act(() => {
+    window.dispatchEvent(new Event("pagehide"));
+  });
+  act(() => endVoiceTransport());
+  await act(async () =>
+    tree!.update(<WaitingVoicePanel roomId="r1" online={false} />),
+  );
+  act(() => tree!.unmount());
+  await act(async () => {
+    tree = create(<WaitingVoicePanel roomId="r1" online />);
+  });
+  act(() => button("房間聊天").props.onClick());
+  expect(JSON.stringify(tree!.toJSON())).toContain("Before sleep");
+  expect(JSON.stringify(tree!.toJSON())).not.toContain("房間連線中斷");
+  expect(media).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+});
+it("clears disconnected hint when connection returns in same panel", async () => {
+  await act(async () => {
+    tree = create(<WaitingVoicePanel roomId="r1" online={false} />);
+  });
+  act(() => button("房間聊天").props.onClick());
+  expect(JSON.stringify(tree!.toJSON())).toContain("房間連線中斷");
+  await act(async () => tree!.update(<WaitingVoicePanel roomId="r1" online />));
+  expect(JSON.stringify(tree!.toJSON())).not.toContain("房間連線中斷");
+  expect(media).not.toHaveBeenCalled();
+});
+
+it("server terminal voice event erases memory before snapshot and cannot resurrect on remount", async () => {
+  await act(async () => {
+    tree = create(<WaitingVoicePanel roomId="r1" online />);
+  });
+  act(() =>
+    receiveVoiceFrame({
+      type: "room-chat",
+      roomId: "r1",
+      messageId: "old",
+      name: "Friend",
+      text: "Earlier waiting chat",
+    }),
+  );
+  act(() => tree!.unmount());
+  // No mounted listener and no subsequent room snapshot: wire owns terminal clearing.
+  act(() => receiveVoiceFrame({ type: "voice-ended", reason: "GAME_STARTED" }));
+  setRoomChatScope("test-session", "r1");
+  await act(async () => {
+    tree = create(<WaitingVoicePanel roomId="r1" online />);
+  });
+  act(() => button("房間聊天").props.onClick());
+  expect(JSON.stringify(tree!.toJSON())).not.toContain("Earlier waiting chat");
 });
