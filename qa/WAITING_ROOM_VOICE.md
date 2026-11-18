@@ -65,3 +65,6 @@ Base: v0.15.7, commit 687d84fd4293d9d04c14ca46fe0958a07097197e.
 - Removed the panel subtitle and repeated operation/network explanations; only the concise public-IP disclosure remains before joining voice. Active microphone status and controls remain visible.
 - Help retains waiting-only access, ephemeral text, collapsed-panel voice behavior, cleanup, STUN and recording/IP limitations in three short paragraphs.
 - Frontend full regression now 851 tests/73 files, typecheck, lint and build passed. Backend unchanged since 1238-test passing review.
+
+## Publication record (2026-11-18)
+Historical candidate-only statements above describe development gates, not the current release status. v0.16.0 was published as commit fa68176557a0617bd1c75c6e1fdcedacd2b836d9; Render deploy dep-dbun4vcipgvc739ed6rg became live at 09:43:28 UTC. Readiness returned ready and the served JavaScript matched the local build (SHA256 f360d75df57f702336bd0bb4fabf7d3767504b4a87c90d7bee735bbad2e028e7). No environment, data or quarterly-cleanup configuration was changed. Real-device voice acceptance remains separate.

@@ -5,7 +5,9 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type CSSProperties,
 } from "react";
+import { roomChatViewportStyle } from "./room-chat-viewport";
 import { WaitingVoice, type VoiceView } from "./voice";
 import { sendVoice, subscribeVoice } from "./voice-wire";
 import "./waiting-voice.css";
@@ -27,6 +29,7 @@ export default function WaitingVoicePanel({
   const dialog = useRef<HTMLDivElement>(null);
   const messageLog = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [viewportStyle, setViewportStyle] = useState<CSSProperties>({});
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [chatError, setChatError] = useState("");
@@ -141,7 +144,21 @@ export default function WaitingVoicePanel({
     return () => window.removeEventListener("keydown", keydown);
   }, [open, close]);
   useEffect(() => {
-    if (open && messageLog.current)
+    if (!open) return;
+    const viewport = window.visualViewport;
+    const update = () => setViewportStyle(roomChatViewportStyle(window));
+    update();
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+  useEffect(() => {
+    if (open && chat.length > 0 && messageLog.current)
       messageLog.current.scrollTop = messageLog.current.scrollHeight;
   }, [chat, open]);
   const active = view.status === "joined";
@@ -163,6 +180,7 @@ export default function WaitingVoicePanel({
   const panel = open ? (
     <div
       className="room-chat-backdrop"
+      style={viewportStyle}
       onClick={(event) => {
         if (event.target === event.currentTarget) close();
       }}
@@ -188,120 +206,123 @@ export default function WaitingVoicePanel({
             收起
           </button>
         </header>
-        <section className="waiting-voice" aria-label="房間語音">
-          <div className="waiting-voice-heading">
-            <h3>語音</h3>
-            <span>{microphone}</span>
-          </div>
-          <div className="waiting-voice-actions">
-            {!active && !pending && (
-              <button
-                className="secondary"
-                disabled={!supported || !online}
-                onClick={() => void engine.current?.join()}
-              >
-                加入語音
-              </button>
-            )}
-            {pending && (
-              <button
-                className="secondary"
-                onClick={() => engine.current?.leave()}
-              >
-                取消加入
-              </button>
-            )}
-            {active && (
-              <>
+        <div className="room-chat-scroll" ref={messageLog}>
+          <section className="waiting-voice" aria-label="房間語音">
+            <div className="waiting-voice-heading">
+              <h3>語音</h3>
+              <span>{microphone}</span>
+            </div>
+            <div className="waiting-voice-actions">
+              {!active && !pending && (
                 <button
                   className="secondary"
-                  onClick={() => engine.current?.mute()}
+                  disabled={!supported || !online}
+                  onClick={() => void engine.current?.join()}
                 >
-                  {view.muted ? "開啟麥克風" : "靜音"}
+                  加入語音
                 </button>
+              )}
+              {pending && (
                 <button
                   className="secondary"
                   onClick={() => engine.current?.leave()}
                 >
-                  離開語音
+                  取消加入
                 </button>
-              </>
-            )}
-            {view.playbackBlocked && (
-              <button
-                className="secondary"
-                onClick={() => engine.current?.resumePlayback()}
-              >
-                點一下播放聲音
-              </button>
-            )}
-          </div>
-          {active && (
-            <ul className="waiting-voice-peers">
-              {view.peers.length ? (
-                view.peers.map((p) => (
-                  <li key={p.peerId}>
-                    <span>{p.name}</span>
-                    <small>{p.status}</small>
-                  </li>
-                ))
-              ) : (
-                <li>等候其他玩家加入語音</li>
               )}
-            </ul>
-          )}
-          {!supported && <small>此瀏覽器無法使用語音，仍可正常遊玩。</small>}
-          <div role="status" aria-live="polite">
-            {view.message}
+              {active && (
+                <>
+                  <button
+                    className="secondary"
+                    onClick={() => engine.current?.mute()}
+                  >
+                    {view.muted ? "開啟麥克風" : "靜音"}
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => engine.current?.leave()}
+                  >
+                    離開語音
+                  </button>
+                </>
+              )}
+              {view.playbackBlocked && (
+                <button
+                  className="secondary"
+                  onClick={() => engine.current?.resumePlayback()}
+                >
+                  點一下播放聲音
+                </button>
+              )}
+            </div>
+            {active && (
+              <ul className="waiting-voice-peers">
+                {view.peers.length ? (
+                  view.peers.map((p) => (
+                    <li key={p.peerId}>
+                      <span>{p.name}</span>
+                      <small>{p.status}</small>
+                    </li>
+                  ))
+                ) : (
+                  <li>等候其他玩家加入語音</li>
+                )}
+              </ul>
+            )}
+            {!supported && <small>此瀏覽器無法使用語音，仍可正常遊玩。</small>}
+            <div role="status" aria-live="polite">
+              {view.message}
+            </div>
+            {!active && <small>語音直連可能讓同房玩家得知你的公開 IP。</small>}
+          </section>
+          <div
+            className="room-chat-log"
+            role="log"
+            aria-label="房間訊息"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
+            {chat.length ? (
+              chat.map((m) => (
+                <p key={m.messageId}>
+                  <strong>{m.name}</strong>
+                  <span>{m.text}</span>
+                </p>
+              ))
+            ) : (
+              <p className="room-chat-empty">和同桌朋友打聲招呼吧！</p>
+            )}
           </div>
-          {!active && <small>語音直連可能讓同房玩家得知你的公開 IP。</small>}
-        </section>
-        <div
-          className="room-chat-log"
-          ref={messageLog}
-          role="log"
-          aria-label="房間訊息"
-          aria-live="polite"
-          aria-relevant="additions"
-        >
-          {chat.length ? (
-            chat.map((m) => (
-              <p key={m.messageId}>
-                <strong>{m.name}</strong>
-                <span>{m.text}</span>
-              </p>
-            ))
-          ) : (
-            <p className="room-chat-empty">和同桌朋友打聲招呼吧！</p>
+        </div>
+        <div className="room-chat-composer">
+          <form className="room-chat-form" onSubmit={send}>
+            <label className="sr-only" htmlFor="room-chat-input">
+              傳送房間訊息
+            </label>
+            <input
+              id="room-chat-input"
+              value={draft}
+              onChange={(e) =>
+                setDraft([...e.target.value].slice(0, 200).join(""))
+              }
+              placeholder="說點什麼…"
+              autoComplete="off"
+              disabled={!online}
+            />
+            <button
+              className="primary"
+              disabled={!online || !draft.trim()}
+              type="submit"
+            >
+              傳送
+            </button>
+          </form>
+          {chatError && (
+            <small role="status" className="room-chat-error">
+              {chatError}
+            </small>
           )}
         </div>
-        <form className="room-chat-form" onSubmit={send}>
-          <label className="sr-only" htmlFor="room-chat-input">
-            傳送房間訊息
-          </label>
-          <input
-            id="room-chat-input"
-            value={draft}
-            onChange={(e) =>
-              setDraft([...e.target.value].slice(0, 200).join(""))
-            }
-            placeholder="說點什麼…"
-            autoComplete="off"
-            disabled={!online}
-          />
-          <button
-            className="primary"
-            disabled={!online || !draft.trim()}
-            type="submit"
-          >
-            傳送
-          </button>
-        </form>
-        {chatError && (
-          <small role="status" className="room-chat-error">
-            {chatError}
-          </small>
-        )}
       </div>
     </div>
   ) : null;
@@ -321,17 +342,18 @@ export default function WaitingVoicePanel({
         房間聊天{unread > 0 ? ` · ${unread}` : ""}
       </button>
       {active && (
-        <>
-          <span className="room-chat-mic" role="status">
-            {microphone}
-          </span>
-          <button
-            className="secondary room-chat-quick-mute"
-            onClick={() => engine.current?.mute()}
-          >
-            {view.muted ? "開麥" : "靜音"}
-          </button>
-        </>
+        <button
+          className="room-chat-mic-toggle"
+          aria-pressed={!view.muted}
+          aria-label={
+            view.muted ? "已靜音，開啟麥克風" : "麥克風開啟，點按靜音"
+          }
+          title={view.muted ? "開啟麥克風" : "靜音"}
+          onClick={() => engine.current?.mute()}
+        >
+          <span aria-hidden="true">{view.muted ? "◌" : "●"}</span>
+          <span role="status">{microphone}</span>
+        </button>
       )}
       {pending && (
         <span className="room-chat-mic" role="status">

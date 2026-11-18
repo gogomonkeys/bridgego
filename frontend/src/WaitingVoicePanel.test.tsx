@@ -26,7 +26,11 @@ beforeEach(() => {
   });
   vi.stubGlobal(
     "window",
-    Object.assign(new EventTarget(), { isSecureContext: true }),
+    Object.assign(new EventTarget(), {
+      isSecureContext: true,
+      innerWidth: 393,
+      innerHeight: 852,
+    }),
   );
   vi.stubGlobal("navigator", { mediaDevices: { getUserMedia: media } });
   vi.stubGlobal("RTCPeerConnection", class {});
@@ -137,8 +141,9 @@ it("closing floating panel keeps opted-in voice and the active microphone indica
   expect(track.stop).not.toHaveBeenCalled();
   expect(tree!.root.findAllByProps({ role: "dialog" })).toHaveLength(0);
   expect(JSON.stringify(tree!.toJSON())).toContain("麥克風開啟");
-  expect(button("靜音")).toBeTruthy();
-  act(() => button("靜音").props.onClick());
+  const mic = tree!.root.findByProps({ "aria-label": "麥克風開啟，點按靜音" });
+  expect(mic).toBeTruthy();
+  act(() => mic.props.onClick());
   expect(track.enabled).toBe(false);
   act(() => button("房間聊天").props.onClick());
   expect(media).toHaveBeenCalledTimes(1);
@@ -253,4 +258,61 @@ it("keeps only concise pre-join privacy copy in the chat panel", async () => {
   expect(JSON.stringify(tree!.toJSON())).not.toContain("語音直連可能");
   expect(JSON.stringify(tree!.toJSON())).toContain("麥克風開啟");
   expect(button("離開語音")).toBeTruthy();
+});
+it("keyboard resize and pan keep composer inside the visible viewport without restarting voice", async () => {
+  const viewport = Object.assign(new EventTarget(), {
+    width: 393,
+    height: 852,
+    offsetTop: 0,
+    offsetLeft: 0,
+  });
+  Object.assign(window, { visualViewport: viewport });
+  const remove = vi.spyOn(viewport, "removeEventListener");
+  await act(async () => {
+    tree = create(<WaitingVoicePanel roomId="r1" online />);
+  });
+  act(() => button("房間聊天").props.onClick());
+  await act(async () => button("加入語音").props.onClick());
+  act(() =>
+    receiveVoiceFrame({
+      type: "voice-state",
+      requestId: send.mock.calls[0][0].requestId,
+      selfId: "a",
+      peers: [],
+    }),
+  );
+  act(() => {
+    Object.assign(viewport, { height: 280, offsetTop: 120 });
+    viewport.dispatchEvent(new Event("resize"));
+    viewport.dispatchEvent(new Event("scroll"));
+  });
+  const style = tree!.root.findByProps({ className: "room-chat-backdrop" })
+    .props.style;
+  expect(style["--room-chat-visible-height"]).toBe("280px");
+  expect(style["--room-chat-visible-top"]).toBe("120px");
+  expect(media).toHaveBeenCalledTimes(1);
+  expect(track.stop).not.toHaveBeenCalled();
+  expect(
+    tree!.root
+      .findByProps({ className: "room-chat-composer" })
+      .findByType("input"),
+  ).toBeTruthy();
+  act(() => button("收起").props.onClick());
+  expect(remove).toHaveBeenCalledWith("resize", expect.any(Function));
+  expect(remove).toHaveBeenCalledWith("scroll", expect.any(Function));
+  expect(track.stop).not.toHaveBeenCalled();
+});
+it("header and composer are outside the single shrinking scroll track", () => {
+  const css = readFileSync(
+    new URL("./waiting-voice.css", import.meta.url),
+    "utf8",
+  );
+  expect(css).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
+  expect(css).toMatch(
+    /\.room-chat-dialog \.room-chat-heading\s*\{[^}]*min-height: 44px/,
+  );
+  expect(css).toMatch(
+    /\.room-chat-scroll\s*\{[^}]*min-height: 0;[^}]*overflow-y: auto/,
+  );
+  expect(css).toContain("--room-chat-visible-height");
 });
