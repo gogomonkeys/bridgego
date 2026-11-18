@@ -352,3 +352,84 @@
   transform: rotate(18deg);
   pointer-events: none;
 }
+
+/* Equal, stable entrance dimensions, also while mic status is shown. */
+.forest-shell .room-controls .room-social-tools {
+  --room-entry-width: 148px;
+  --room-entry-height: 64px;
+  --room-entry-surface: #f3f6e9;
+  --room-entry-border: #b6c8a8;
+  --room-entry-ink: #294b35;
+}
+.forest-shell .room-social-tools .friends-entry-row > button:first-child {
+  box-sizing: border-box;
+  position: relative;
+  width: var(--room-entry-width);
+  min-width: var(--room-entry-width);
+  height: var(--room-entry-height);
+  min-height: var(--room-entry-height);
+  padding: 0.5rem 0.6rem 0.5rem 1.65rem;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1.4;
+  border: 1px solid var(--room-entry-border);
+  border-radius: 1rem;
+  background: var(--room-entry-surface);
+  color: var(--room-entry-ink);
+  box-shadow: none;
+}
+.room-social-tools .room-chat-entry .room-chat-open {
+  box-sizing: border-box;
+  width: calc(var(--room-entry-width) - 2px);
+  min-width: calc(var(--room-entry-width) - 2px);
+  height: calc(var(--room-entry-height) - 2px);
+  min-height: calc(var(--room-entry-height) - 2px);
+  padding: 0.5rem 0.6rem 0.5rem 1.65rem;
+  font-size: 0.85rem;
+}
+.forest-shell .room-social-tools .friends-entry-row > button:first-child::before {
+  content: "";
+  position: absolute;
+  left: 0.55rem;
+  top: calc(50% - 7px);
+  width: 10px;
+  height: 14px;
+  border-radius: 10px 0 10px 0;
+  background: linear-gradient(135deg, #87a56b, #3e7048);
+  transform: rotate(18deg);
+  pointer-events: none;
+}
+.room-social-tools .room-chat-open::before {
+  top: calc(50% - 7px);
+}
+.waiting-voice > .voice-privacy-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+.voice-privacy-warning {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 0.12em;
+}
+
+/* Same forest tile surface and interaction language, not a secondary pill. */
+.room-social-tools .room-chat-entry {
+  border-color: var(--room-entry-border);
+  background: var(--room-entry-surface);
+  flex-shrink: 0;
+}
+.forest-shell .room-social-tools .friends-entry-row > button:first-child:hover {
+  background: #e8efdb;
+}
+.forest-shell .room-social-tools .friends-entry-row > button:first-child:focus-visible {
+  outline: 2px solid #9c642f;
+  outline-offset: -4px;
+}
+.room-social-tools .room-chat-entry .room-chat-open {
+  color: var(--room-entry-ink);
+  line-height: 1.4;
+}

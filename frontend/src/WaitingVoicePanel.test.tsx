@@ -403,3 +403,31 @@ it("server terminal voice event erases memory before snapshot and cannot resurre
   act(() => button("房間聊天").props.onClick());
   expect(JSON.stringify(tree!.toJSON())).not.toContain("Earlier waiting chat");
 });
+
+it("shows a decorative yellow warning before the unchanged public IP notice", async () => {
+  await act(async () => { tree = create(<WaitingVoicePanel roomId="r1" online />); });
+  act(() => button("房間聊天").props.onClick());
+  const notice = tree!.root.findByProps({ className: "voice-privacy-notice" });
+  const icon = notice.findByType("svg");
+  expect(icon.props["aria-hidden"]).toBe("true");
+  expect(icon.findAllByType("path")[0].props.fill).toBe("#f5c84c");
+  expect(notice.findByType("span").children).toEqual(["語音直連可能讓同房玩家得知你的公開 IP。"]);
+  expect(media).not.toHaveBeenCalled();
+});
+it("shares equal entrance dimensions and leaf motif without showing an empty guest slot", () => {
+  const css = readFileSync(new URL("./waiting-voice.css", import.meta.url), "utf8");
+  expect(css).toContain("--room-entry-width: 148px");
+  expect(css).toContain("--room-entry-height: 64px");
+  expect(css).toContain(".friends-entry-row > button:first-child::before");
+  expect(css).toContain("width: calc(var(--room-entry-width) - 2px)");
+  expect(css).toMatch(/\.room-friends-slot:empty\s*\{\s*display: none/);
+});
+
+it("uses the chat forest surface, border and focus treatment for the friend entrance", () => {
+  const css = readFileSync(new URL("./waiting-voice.css", import.meta.url), "utf8");
+  expect(css).toContain("--room-entry-surface: #f3f6e9");
+  expect(css).toContain("--room-entry-border: #b6c8a8");
+  expect(css.match(/background: var\(--room-entry-surface\)/g)).toHaveLength(2);
+  expect(css).toContain(".friends-entry-row > button:first-child:focus-visible");
+  expect(css).toContain("outline-offset: -4px");
+});

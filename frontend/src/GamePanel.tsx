@@ -621,7 +621,7 @@ export default function GamePanel({
           >
             <summary>更多</summary>
             <div className="match-more-panel">
-              <small>v0.16.2 · 狀態版本 {room.revision}</small>
+              <small>v0.16.3 · 狀態版本 {room.revision}</small>
               <button
                 className="secondary"
                 disabled={busy}

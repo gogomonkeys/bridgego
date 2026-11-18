@@ -285,7 +285,16 @@ export default function WaitingVoicePanel({
             <div role="status" aria-live="polite">
               {view.message}
             </div>
-            {!active && <small>語音直連可能讓同房玩家得知你的公開 IP。</small>}
+            {!active && (
+              <small className="voice-privacy-notice">
+                <svg className="voice-privacy-warning" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M12 3 1.5 21h21L12 3Z" fill="#f5c84c" stroke="#8a6418" strokeWidth="1.5" strokeLinejoin="round" />
+                  <path d="M12 9v5" stroke="#594515" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="12" cy="17.5" r="1" fill="#594515" />
+                </svg>
+                <span>語音直連可能讓同房玩家得知你的公開 IP。</span>
+              </small>
+            )}
           </section>
           <div
             className="room-chat-log"
