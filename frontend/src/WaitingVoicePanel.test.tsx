@@ -416,7 +416,7 @@ it("shows a decorative yellow warning before the unchanged public IP notice", as
 });
 it("shares equal entrance dimensions and leaf motif without showing an empty guest slot", () => {
   const css = readFileSync(new URL("./waiting-voice.css", import.meta.url), "utf8");
-  expect(css).toContain("--room-entry-width: 148px");
+  expect(css).toContain("--room-entry-width: 112px");
   expect(css).toContain("--room-entry-height: 64px");
   expect(css).toContain(".friends-entry-row > button:first-child::before");
   expect(css).toContain("width: calc(var(--room-entry-width) - 2px)");
@@ -430,4 +430,14 @@ it("uses the chat forest surface, border and focus treatment for the friend entr
   expect(css.match(/background: var\(--room-entry-surface\)/g)).toHaveLength(2);
   expect(css).toContain(".friends-entry-row > button:first-child:focus-visible");
   expect(css).toContain("outline-offset: -4px");
+});
+
+
+it("keeps compact entrances plus a 48px microphone within a 280px room toolbar", () => {
+  const css = readFileSync(new URL("./waiting-voice.css", import.meta.url), "utf8");
+  const width = Number(css.match(/--room-entry-width: (\d+)px/)![1]);
+  expect(width * 2 + 48 + 8).toBeLessThanOrEqual(280);
+  expect(css).toContain("flex: 0 0 48px");
+  expect(css).toContain("min-width: 48px");
+  expect(css).toMatch(/room-social-tools\s*\{[^}]*flex-wrap: wrap/s);
 });

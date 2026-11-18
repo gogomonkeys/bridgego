@@ -355,7 +355,7 @@
 
 /* Equal, stable entrance dimensions, also while mic status is shown. */
 .forest-shell .room-controls .room-social-tools {
-  --room-entry-width: 148px;
+  --room-entry-width: 112px;
   --room-entry-height: 64px;
   --room-entry-surface: #f3f6e9;
   --room-entry-border: #b6c8a8;
@@ -368,7 +368,7 @@
   min-width: var(--room-entry-width);
   height: var(--room-entry-height);
   min-height: var(--room-entry-height);
-  padding: 0.5rem 0.6rem 0.5rem 1.65rem;
+  padding: 0.5rem 0.4rem 0.5rem 1.35rem;
   text-align: left;
   font-size: 0.85rem;
   font-weight: 600;
@@ -386,7 +386,7 @@
   min-width: calc(var(--room-entry-width) - 2px);
   height: calc(var(--room-entry-height) - 2px);
   min-height: calc(var(--room-entry-height) - 2px);
-  padding: 0.5rem 0.6rem 0.5rem 1.65rem;
+  padding: 0.5rem 0.4rem 0.5rem 1.35rem;
   font-size: 0.85rem;
 }
 .forest-shell .room-social-tools .friends-entry-row > button:first-child::before {
@@ -432,4 +432,22 @@
 .room-social-tools .room-chat-entry .room-chat-open {
   color: var(--room-entry-ink);
   line-height: 1.4;
+}
+
+
+/* Compact entrances fit beside the voice action in a phone-sized room card.
+   The microphone remains a separate 48px touch target; very narrow cards wrap. */
+.room-social-tools .room-chat-entry .room-chat-mic-toggle {
+  box-sizing: border-box;
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+}
+.forest-shell .room-social-tools .friends-entry-row > button:first-child::before,
+.room-social-tools .room-chat-open::before {
+  left: 0.35rem;
+}
+.room-social-tools .room-chat-entry-status {
+  gap: 0.25rem;
+  white-space: nowrap;
 }
