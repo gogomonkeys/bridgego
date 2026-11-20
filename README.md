@@ -24,6 +24,10 @@
 
 遊戲需要網路，加入手機主畫面也不能離線打牌。若服務正在喚醒，請稍等；服務重啟可能中斷進行中的牌局，不等於清除已保存的帳號或戰績。
 
+## 貢獻者
+
+- **Alan**｜BridgeGo 原始 Java 版開發
+
 ## 開發與回報
 
 - 最近核對的程式版本：[v0.16.4（`788082d`）](https://github.com/gogomonkeys/bridgego/tree/788082d21b421a6b1382a6451c64fd6ef5ff4e99)。`master` 是預設瀏覽分支；目前程式更新在 [`pwa-beta-v0.7.0`](https://github.com/gogomonkeys/bridgego/tree/pwa-beta-v0.7.0)。分支名稱是歷史名稱，不代表實際版本。網站以遊戲畫面版號為準。
