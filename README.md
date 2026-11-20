@@ -28,6 +28,7 @@
 
 - **Alan**｜BridgeGo 原始 Java 版開發
 - **Jyun-Fu、Mia-Hsiao**｜美術設計
+- **小白（OpenAI AI 助理）**｜主要完成 BridgeGo 網頁版的後續開發
 
 ## 開發與回報
 
