@@ -27,6 +27,7 @@
 ## 貢獻者
 
 - **Alan**｜BridgeGo 原始 Java 版開發
+- **Jyun-Fu、Mia-Hsiao**｜美術設計
 
 ## 開發與回報
 
