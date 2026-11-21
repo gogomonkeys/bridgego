@@ -2,7 +2,7 @@
 
 在森林裡和朋友湊一桌。BridgeGo 是採自訂規則與計分的四人橋牌遊戲，手機與電腦都能用瀏覽器玩。
 
-**[開始玩 BridgeGo](https://bridgego.onrender.com)** · **[看宣傳短片〈林間那一桌〉](media/BridgeGo-Forest-Teaser-v6.mp4)** · [近期版本紀錄](CHANGELOG.md)
+**[開始玩 BridgeGo](https://bridgego.onrender.com)** · **[下載宣傳短片〈林間那一桌〉留白版](media/BridgeGo-Forest-Teaser-v7.mp4)** · [近期版本紀錄](CHANGELOG.md)
 
 ## 怎麼開始
 
