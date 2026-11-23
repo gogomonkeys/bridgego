@@ -528,6 +528,9 @@ export default function WelcomeEntry({
           src="/assets/forest/welcome-grass.webp"
           alt=""
           loading="eager"
+          onError={({ currentTarget }) => {
+            currentTarget.hidden = true;
+          }}
           draggable={false}
         />
       </div>

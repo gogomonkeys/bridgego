@@ -53,6 +53,11 @@
   color: #315142;
   background: #d8e2ce;
 }
+/* Leave the microphone status pill visually separate from the tap targets. */
+.room-chat-dialog--woodland .waiting-voice-actions {
+  margin-block-start: 12px;
+  gap: 8px 10px;
+}
 .room-chat-dialog--woodland .waiting-voice-actions > button {
   color: var(--chat-ink);
   background: var(--chat-linen);

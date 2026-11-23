@@ -518,7 +518,7 @@ async function performRecovery(
   } catch (error) {
     // A leave, identity switch or newer room transition makes this async work obsolete.
     if (generation !== recoveryGeneration) return;
-    recoveryError = error instanceof Error ? error.message : "無法恢復連線。";
+    recoveryError = connectionErrorMessage(error, "無法恢復連線。");
     emit({ error: recoveryError });
     const permanent =
       (error instanceof ApiError || error instanceof HttpResponseError) &&
@@ -526,6 +526,17 @@ async function performRecovery(
     if (shouldRetry() && state.session && !permanent)
       scheduleRecovery(recoveryGeneration);
   }
+}
+
+function connectionErrorMessage(error: unknown, fallback: string): string {
+  if (
+    error instanceof Error &&
+    (error.name === "TimeoutError" ||
+      /^signal timed out\.?$/i.test(error.message.trim()))
+  ) {
+    return "連線逾時，請稍候再試。";
+  }
+  return error instanceof Error ? error.message : fallback;
 }
 
 async function run(task: () => Promise<void>) {
@@ -538,9 +549,7 @@ async function run(task: () => Promise<void>) {
       error:
         error instanceof TypeError
           ? "暫時無法連線至服務，請確認網路或稍後再試；尚無法確認服務是否重新啟動。"
-          : error instanceof Error
-            ? error.message
-            : "連線失敗，請稍後重試。",
+          : connectionErrorMessage(error, "連線失敗，請稍後重試。"),
     });
   } finally {
     emit({ busy: false });

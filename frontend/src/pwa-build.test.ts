@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { runInNewContext } from "node:vm";
-import { serviceWorkerSource } from "../pwa-build";
+import { publicPwaAssets, serviceWorkerSource } from "../pwa-build";
 
-function worker() {
+const hero = "/assets/forest/welcome-grass.webp";
+function worker(paths = ["/index.html"]) {
   const handlers: Record<string, (event: unknown) => void> = {};
   const stored = new Map<string, Response>();
   const cache = {
@@ -28,7 +29,7 @@ function worker() {
     skipWaiting: vi.fn(),
     clients: { claim: vi.fn() },
   };
-  runInNewContext(serviceWorkerSource("new", ["/index.html"]), {
+  runInNewContext(serviceWorkerSource("new", paths), {
     self,
     caches,
     fetch,
@@ -60,6 +61,55 @@ describe("production static-only service worker", () => {
     expect(w.caches.delete).not.toHaveBeenCalledWith("other-app");
     expect(w.self.clients.claim).not.toHaveBeenCalled();
   });
+  it("precaches the hero on successful install and serves it during offline navigation", async () => {
+    expect(publicPwaAssets).toContain(hero.slice(1));
+    const w = worker(["/index.html", hero]);
+    w.fetch.mockImplementation(async (path) =>
+      path === hero
+        ? new Response("hero image", {
+            headers: { "Content-Type": "image/webp" },
+          })
+        : new Response("<html/>", { headers: { "Content-Type": "text/html" } }),
+    );
+    let work!: Promise<void>;
+    w.handlers.install({
+      waitUntil: (p: Promise<void>) => {
+        work = p;
+      },
+    });
+    await work;
+    w.fetch.mockRejectedValue(new TypeError("offline"));
+    let response!: Promise<Response>;
+    w.handlers.fetch({
+      request: { url: "https://bridge.test" + hero, method: "GET" },
+      respondWith: (p: Promise<Response>) => {
+        response = p;
+      },
+    });
+    expect(await (await response).text()).toBe("hero image");
+    expect(w.fetch).toHaveBeenCalledTimes(2);
+  });
+  it.each([200, 503])(
+    "never stores wake-up HTML (%s) as the hero after a cache miss",
+    async (status) => {
+      const w = worker([hero]);
+      w.fetch.mockResolvedValue(
+        new Response("wake", {
+          status,
+          headers: { "Content-Type": "text/html" },
+        }),
+      );
+      let response!: Promise<Response>;
+      w.handlers.fetch({
+        request: { url: "https://bridge.test" + hero, method: "GET" },
+        respondWith: (p: Promise<Response>) => {
+          response = p;
+        },
+      });
+      expect((await response).status).toBe(status);
+      expect(w.cache.put).not.toHaveBeenCalled();
+    },
+  );
   it("rejects error pages during install", async () => {
     const w = worker();
     w.fetch.mockResolvedValue(new Response("error", { status: 503 }));

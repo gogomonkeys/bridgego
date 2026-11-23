@@ -10,6 +10,7 @@ export const publicPwaAssets = [
   "icons/apple-touch-icon.png",
   ...[
     "backdrop",
+    "welcome-grass",
     "animal-bear",
     "animal-panda",
     "animal-rabbit",

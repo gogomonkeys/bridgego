@@ -1014,6 +1014,20 @@ describe("v0.6.6 interrupted HTTP response recovery", () => {
 });
 
 describe("v0.6.6 recovery boundaries", () => {
+  it.each([
+    new Error("signal timed out"),
+    new DOMException("fetch exceeded the budget", "TimeoutError"),
+  ])(
+    "localizes a transport timeout while recovering, without losing the identity",
+    async (error) => {
+      values.set("bridgego.phase1.guest", JSON.stringify(identity));
+      fetchMock.mockRejectedValue(error);
+      const { client, getClientState } = await import("./client");
+      await client.initialize();
+      expect(getClientState().error).toBe("連線逾時，請稍候再試。");
+      expect(getClientState().session).toEqual(identity);
+    },
+  );
   it.each([401, 403, 404])(
     "does not loop on empty permanent HTTP %s",
     async (status) => {

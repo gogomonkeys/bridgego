@@ -155,7 +155,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.17.1", disconnects: diagnostics },
+    { version: "0.17.2", disconnects: diagnostics },
     null,
     2,
   );
@@ -245,7 +245,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.17.1</span>
+            <span className="eyebrow">v0.17.2</span>
           </div>
         )}
         <PwaStatus
@@ -278,7 +278,7 @@ export default function App() {
           !state.room && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.17.1</span>
+                <span className="eyebrow">v0.17.2</span>
                 <h1>四個座位，一起相聚。</h1>
               </div>
             </div>
@@ -475,7 +475,7 @@ export default function App() {
             <section className="panel table-panel waiting-main">
               <div className="room-heading waiting-room-banner">
                 <div>
-                  <span className="eyebrow">森林等候室 · v0.17.1</span>
+                  <span className="eyebrow">森林等候室 · v0.17.2</span>
                   <h1>
                     <span className="room-display-title">
                       {roomTitle(

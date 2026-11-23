@@ -13,12 +13,21 @@
   overflow: hidden;
   border-radius: 20px;
   aspect-ratio: 1.82;
+  /* The cached stylesheet can paint this even when the hero request fails. */
+  background:
+    radial-gradient(ellipse at 14% 120%, #7c8c60 0 34%, transparent 35%),
+    radial-gradient(ellipse at 78% 140%, #99a375 0 54%, transparent 55%),
+    radial-gradient(circle at 74% 35%, #fff3cb 0 7%, transparent 8%),
+    linear-gradient(158deg, #e7a894, #f4e6bd 65%, #aaa593);
 }
 .woodland-entry .woodland-entry-hero img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.woodland-entry .woodland-entry-hero img[hidden] {
+  display: none;
 }
 .forest-shell .woodland-entry .welcome.entry-choice {
   width: 100%;
