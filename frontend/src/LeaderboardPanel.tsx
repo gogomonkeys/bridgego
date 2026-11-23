@@ -34,35 +34,50 @@ export function LeaderboardContent({ data }: { data: LeaderboardReport }) {
       {data.entries.length === 0 ? (
         <p role="status">目前尚無可排名的已保存戰績。</p>
       ) : (
-        <ol className="leaderboard-list" aria-label="積分排名">
-          {data.entries.map((entry, index) => (
-            <li
-              key={`${entry.rank}-${index}`}
-              className={
-                entry.mine ? "leaderboard-row is-me" : "leaderboard-row"
-              }
-            >
-              <span
-                className="leaderboard-rank"
-                data-podium={entry.rank <= 3 ? entry.rank : undefined}
-                aria-label={`第 ${entry.rank} 名`}
+        <div className="leaderboard-ledger">
+          <div className="leaderboard-columns" aria-hidden="true">
+            <span>名次</span>
+            <span>玩家</span>
+            <span>勝率</span>
+            <span>場數</span>
+            <span>積分</span>
+          </div>
+          <ol className="leaderboard-list" aria-label="積分排名">
+            {data.entries.map((entry, index) => (
+              <li
+                key={`${entry.rank}-${index}`}
+                data-first-rank={entry.rank === 1 || undefined}
+                className={
+                  entry.mine ? "leaderboard-row is-me" : "leaderboard-row"
+                }
               >
-                {entry.rank}
-              </span>
-              <div className="leaderboard-player">
-                <strong>{entry.nickname}</strong>
-                {entry.mine && <span className="leaderboard-me">你</span>}
-                <span className="leaderboard-detail">
-                  {entry.matches} 場 · 勝率 {personalWinRate(entry)}
+                <span
+                  className="leaderboard-rank"
+                  data-podium={entry.rank <= 3 ? entry.rank : undefined}
+                  aria-label={`第 ${entry.rank} 名`}
+                >
+                  {entry.rank}
                 </span>
-              </div>
-              <div className="leaderboard-score">
-                <strong>{entry.totalScore}</strong>
-                <span>積分</span>
-              </div>
-            </li>
-          ))}
-        </ol>
+                <div className="leaderboard-player">
+                  <strong>{entry.nickname}</strong>
+                  {entry.mine && <span className="leaderboard-me">你</span>}
+                </div>
+                <span className="leaderboard-detail">
+                  <span className="record-visually-hidden">勝率 </span>
+                  {personalWinRate(entry)}
+                </span>
+                <span className="leaderboard-detail">
+                  {entry.matches}
+                  <span className="record-visually-hidden"> 場</span>
+                </span>
+                <div className="leaderboard-score">
+                  <strong>{entry.totalScore}</strong>
+                  <span className="leaderboard-score-label">積分</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
       <p className="fine">
         顯示暱稱與正式場戰績。詳細見<a href="#help">使用說明</a>
@@ -126,6 +141,18 @@ export default function LeaderboardPanel({
   const locked = !current || remaining > 0;
   return (
     <div className="leaderboard-panel">
+      <div className="statistics-results-heading forest-leaderboard-heading">
+        <div className="forest-leaderboard-copy">
+          <h3>{period === "SEASON" ? "本季" : "生涯"}排行榜</h3>
+          <span className="statistics-category-label">正式場</span>
+        </div>
+        <img
+          src="/assets/forest/animal-bear.webp"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
+      </div>
       <div className="statistics-filters">
         <div className="statistics-filter">
           <span
@@ -158,13 +185,6 @@ export default function LeaderboardPanel({
         aria-live="polite"
         aria-busy={!current}
       >
-        <div className="statistics-results-heading forest-leaderboard-heading">
-          <div className="forest-leaderboard-copy">
-            <h3>{period === "SEASON" ? "本季" : "生涯"}排行榜</h3>
-            <span className="statistics-category-label">正式場</span>
-          </div>
-          <img src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true" draggable={false} />
-        </div>
         {!current ? (
           <p role="status">正在讀取排行榜…</p>
         ) : current.error ? (

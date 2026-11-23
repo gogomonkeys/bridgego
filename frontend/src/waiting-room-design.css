@@ -1,0 +1,251 @@
+/* The illustrated table is only for waiting rooms, not the match or tutorial. */
+.forest-shell .room-layout.waiting-room {
+  --room-ink: #233d30;
+  --room-muted: #4d6255;
+  --room-border: #d7cfb8;
+  --room-sheet: #f5f0e2;
+  --room-paper: #faf6e8;
+  --room-green: #2e503c;
+  align-items: start;
+  gap: 20px;
+  color: var(--room-ink);
+}
+.forest-shell .waiting-room .waiting-main,
+.forest-shell .waiting-room .room-controls {
+  min-width: 0;
+  margin: 0;
+  background: var(--room-sheet);
+  border: 1px solid var(--room-border);
+  box-shadow: none;
+  color: var(--room-ink);
+}
+.forest-shell .waiting-room .waiting-room-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid #e6dec6;
+  border-radius: 16px;
+  background: #ede8d6;
+}
+.waiting-room-banner > div { min-width: 0; }
+.waiting-room-banner .waiting-banner-animal {
+  width: clamp(56px, 17vw, 92px);
+  height: auto;
+  object-fit: contain;
+}
+.forest-shell .waiting-room-banner h1 {
+  margin: 2px 0 8px;
+  color: var(--room-ink);
+  font-size: clamp(1.4rem, 5vw, 1.85rem);
+  line-height: 1.2;
+}
+.forest-shell .waiting-room-banner h1 .room-display-title {
+  font-family: inherit;
+  letter-spacing: normal;
+}
+.forest-shell .waiting-room-banner .eyebrow,
+.waiting-room-meta,
+.waiting-seat-help,
+.waiting-seats-heading p { color: var(--room-muted); }
+.waiting-room-meta,
+.waiting-code-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: .83rem;
+}
+.waiting-code-row { margin-top: 5px; font-weight: 700; }
+.waiting-code-row small { font: inherit; color: var(--room-ink); overflow-wrap: anywhere; }
+.forest-shell .waiting-room .waiting-code-row button {
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 4px 6px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--room-green);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.waiting-seats-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  margin: 0 0 8px;
+}
+.waiting-seats-heading h3,
+.waiting-seats-heading p { margin: 0; }
+.waiting-seats-heading p { font-size: .82rem; }
+.forest-shell .waiting-room .play-surface.waiting-round-table {
+  --waiting-card-width: clamp(68px, 21vw, 126px);
+  --waiting-avatar-size: clamp(35px, 11vw, 56px);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: var(--waiting-card-width) minmax(0, 1fr) var(--waiting-card-width);
+  grid-template-rows: auto minmax(92px, auto) auto;
+  grid-template-areas: ". top ." "left center right" ". bottom .";
+  align-items: center;
+  justify-items: center;
+  gap: 2px 3px;
+  width: 100%;
+  min-height: 0;
+  max-width: none;
+  padding: 10px 6px;
+  margin: 0;
+  border: 1px solid #e5dbc2;
+  border-radius: 18px;
+  background: #efebdb;
+  box-shadow: none;
+  color: var(--room-ink);
+  overflow: visible;
+}
+.forest-shell .waiting-room .waiting-round-table::before,
+.forest-shell .waiting-room .waiting-round-table::after { content: none; }
+.forest-shell .waiting-round-table .table-player {
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: var(--waiting-card-width);
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 86px;
+  margin: 0;
+  padding: 4px 1px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--room-ink);
+  box-shadow: none;
+  align-items: center;
+}
+.forest-shell .waiting-round-table .table-player.position-top,
+.forest-shell .waiting-round-table .table-player.position-bottom {
+  grid-column: 1 / -1;
+}
+.forest-shell .waiting-round-table .table-player .animal-avatar {
+  background: #e0e4d0;
+  border-color: #c3ccb2;
+}
+.forest-shell .waiting-round-table .table-player.position-bottom .animal-avatar {
+  border-color: #50715b;
+}
+.forest-shell .waiting-round-table .table-player .player-direction,
+.forest-shell .waiting-round-table .table-player .seat-team,
+.forest-shell .waiting-round-table .table-player .seat-presence {
+  color: var(--room-muted);
+  font-size: clamp(.64rem, 2.6vw, .78rem);
+  line-height: 1.25;
+  white-space: normal;
+}
+.forest-shell .waiting-round-table .table-player .player-name {
+  color: var(--room-ink);
+  font-size: clamp(.76rem, 3.4vw, 1rem);
+}
+.forest-shell .waiting-round-table .table-player .seat-presence.is-offline { color: #83362e; }
+.waiting-oval {
+  position: relative;
+  grid-area: center;
+  box-sizing: border-box;
+  width: min(98%, 235px);
+  aspect-ratio: 2.05;
+  padding: clamp(3px, 1.45vw, 7px);
+  border: 1px solid #976841;
+  border-radius: 50%;
+  background: #c79b65;
+  box-shadow: inset 0 0 0 2px #e9c894, 0 5px 0 #a87750, 0 10px 0 #ded3bb;
+  pointer-events: none;
+}
+.waiting-oval-felt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 1px solid #8eaa85;
+  border-radius: 50%;
+  background: #4b6b54;
+  box-shadow: inset 0 0 0 2px #4b6b54, inset 0 0 0 3px #809b7d;
+}
+.waiting-oval-felt span {
+  display: grid;
+  place-items: center;
+  width: clamp(17px, 5.3vw, 29px);
+  aspect-ratio: .74;
+  border: 1px solid #cfc2a1;
+  border-radius: 3px;
+  background: #fbf0d5;
+  color: #2f543f;
+  transform: rotate(-14deg);
+}
+.waiting-oval-felt span + span {
+  margin-left: -4px;
+  color: #8e4b33;
+  transform: rotate(13deg);
+}
+.waiting-seat-help { margin: 12px 0 4px; font-size: .82rem; }
+.forest-shell .waiting-room .table-bottom {
+  padding-inline: 0;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+}
+.forest-shell .waiting-room .room-controls h2 { margin-top: 4px; color: var(--room-ink); }
+.forest-shell .waiting-room .room-social-tools { gap: 8px; }
+.forest-shell .waiting-room .room-social-tools .friends-entry-row > button:first-child,
+.forest-shell .waiting-room .room-social-tools .room-chat-entry {
+  border-color: #9eab91;
+  background: var(--room-paper);
+  color: var(--room-ink);
+}
+.forest-shell .waiting-room .room-social-tools .room-chat-entry {
+  background: #e6ecda;
+}
+.forest-shell .waiting-room .computer-controls {
+  max-width: 100%;
+  background: #f2eddd;
+  border: 1px solid var(--room-border);
+  color: var(--room-ink);
+}
+.forest-shell .waiting-room .room-controls > button.primary {
+  min-height: 48px;
+  background: var(--room-green);
+  border-color: #244635;
+  color: #fff6dc;
+}
+.forest-shell .waiting-room .room-controls > button.primary:disabled {
+  background: #e1e4d6;
+  border-color: #d7dcce;
+  color: #4b5d50;
+  opacity: 1;
+  box-shadow: none;
+}
+
+/* Existing portalled overlays keep their own state/interaction and only share color. */
+.room-chat-backdrop .room-chat-dialog,
+.friends-backdrop .friends-panel {
+  background: #f7f3e5;
+  border-color: #cfc8af;
+  color: #233d30;
+}
+.room-chat-dialog .waiting-voice { background: #eaf0e1; }
+.room-chat-dialog .room-chat-composer {
+  background: #f7f3e5;
+  border-color: #d7cfb8;
+}
+.friends-backdrop .friends-invites {
+  background: #eaf0e1;
+  border-color: #aebda6;
+}
+@media (max-width: 730px) {
+  .forest-shell .room-layout.waiting-room { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .forest-shell .waiting-room .waiting-main,
+  .forest-shell .waiting-room .room-controls { padding: 12px; }
+  .forest-shell .waiting-room .waiting-room-banner { margin-bottom: 14px; padding: 12px; }
+}

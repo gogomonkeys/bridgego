@@ -1,0 +1,280 @@
+/* Only entry and lobby: preserve authentication and room state behavior. */
+.forest-shell .welcome-grid.woodland-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  max-width: 640px;
+  margin: 20px auto 40px;
+  color: #243e32;
+}
+.woodland-entry .woodland-entry-hero {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 20px;
+  aspect-ratio: 1.82;
+}
+.woodland-entry .woodland-entry-hero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.forest-shell .woodland-entry .welcome.entry-choice {
+  width: 100%;
+  max-width: none;
+  padding: 24px 0 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  text-align: center;
+}
+.woodland-entry .welcome.entry-choice > .eyebrow {
+  display: none;
+}
+.forest-shell .woodland-entry .welcome h2 {
+  font-family: Georgia, "Noto Serif TC", serif;
+  color: #243e32;
+  font-size: clamp(25px, 4vw, 36px);
+  line-height: 1.4;
+  margin: 0 0 14px;
+}
+.forest-shell .woodland-entry .welcome > p {
+  color: #526457;
+}
+.forest-shell .woodland-entry .welcome .primary,
+.forest-shell .woodland-entry .welcome .entry-continue {
+  min-height: 49px;
+  width: 100%;
+  border-radius: 10px;
+  font-size: 16px;
+  padding: 12px 18px;
+}
+.forest-shell .woodland-entry .welcome .primary {
+  color: #243e32;
+  background: #fffdf5;
+  border: 1px solid #819078;
+  box-shadow: 0 2px 0 #b4b89c;
+}
+.forest-shell .woodland-entry .welcome .entry-continue {
+  color: #243e32;
+  background: #e7edd9;
+  border: 1px solid #98a58e;
+  margin-top: 16px;
+}
+.forest-shell .woodland-entry .welcome .primary:disabled,
+.forest-shell .woodland-entry .welcome .entry-continue:disabled {
+  opacity: 0.55;
+}
+.woodland-entry .welcome form {
+  text-align: left;
+}
+.woodland-entry .welcome .entry-consent {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 16px 0;
+  text-align: left;
+}
+.woodland-entry .welcome details {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.forest-shell .lobby-layout.forest-lobby.woodland-lobby {
+  max-width: 980px;
+  margin-inline: auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "hero hero" "create join" "rooms rooms" "account account";
+  gap: 22px;
+}
+.woodland-lobby .woodland-lobby-hero {
+  grid-area: hero;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 18px;
+  min-height: 150px;
+  padding: 24px;
+  background: #f2e7cf;
+}
+.woodland-lobby-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, #f2e7cf 18%, #f2e7cfdd 43%, #f2e7cf30 80%),
+    url("/assets/forest/backdrop.webp") center 48% / cover;
+}
+.woodland-lobby .woodland-lobby-hero h2 {
+  margin: 0 0 18px;
+  font:
+    bold clamp(24px, 4vw, 36px)/1.3 Georgia,
+    "Noto Serif TC",
+    serif;
+  color: #243e32;
+}
+.woodland-lobby .woodland-lobby-hero p {
+  margin: 0;
+  color: #425a47;
+}
+.woodland-lobby-hero img {
+  position: absolute;
+  bottom: 8px;
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.woodland-lobby-hero .woodland-lobby-rabbit {
+  right: 8px;
+  width: 80px;
+  height: 80px;
+}
+.woodland-lobby-hero .woodland-lobby-fox {
+  right: 60px;
+}
+.forest-shell .woodland-lobby > .panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+.forest-shell .woodland-lobby .lobby-create-panel,
+.forest-shell .woodland-lobby .lobby-join-panel {
+  padding: 0 0 18px;
+}
+.forest-shell .woodland-lobby .lobby-create-panel .create-room {
+  min-height: 50px;
+  color: #fff5df;
+  background: #2e543c;
+  border: 1px solid #274831;
+  box-shadow: 0 3px 0 #a8aa85;
+  font-size: 17px;
+}
+.forest-shell .woodland-lobby .lobby-join-panel input {
+  background: #fffaf0;
+  color: #243e32;
+  border-color: #80917a;
+}
+.forest-shell .woodland-lobby .lobby-join-panel .secondary {
+  background: #fffaf0;
+  color: #243e32;
+  border-color: #80917a;
+  min-height: 48px;
+}
+.forest-shell .woodland-lobby .lobby-rooms-panel {
+  padding-top: 20px;
+  border-top: 1px solid #d8d7c5;
+}
+.forest-shell .woodland-lobby .room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.forest-shell .woodland-lobby .room-list .woodland-cabin-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #eeebdb;
+  box-shadow: none;
+}
+.woodland-cabin-row .woodland-cabin-icon {
+  width: 36px;
+  height: 36px;
+  padding: 7px;
+  border-radius: 50%;
+  background: #e0e6d3;
+  color: #315841;
+}
+.forest-shell .woodland-cabin-row .room-display-title {
+  font-size: 16px;
+  font-weight: 650;
+  color: #243e32;
+  overflow-wrap: anywhere;
+}
+.forest-shell .woodland-cabin-row small {
+  color: #526457;
+}
+.forest-shell .woodland-lobby .woodland-cabin-row .secondary {
+  background: transparent;
+  color: #243e32;
+  border: 0;
+  box-shadow: none;
+  padding: 10px 2px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.forest-shell .woodland-lobby .lobby-account-panel {
+  border-top: 1px solid #d8d7c5;
+  padding-top: 18px;
+}
+.forest-shell .woodland-lobby .lobby-welcome-animal,
+.forest-shell .woodland-lobby .lobby-greeting .eyebrow,
+.forest-shell .woodland-lobby .lobby-greeting p {
+  display: none;
+}
+.forest-shell .woodland-lobby .lobby-greeting h2 {
+  font-size: 15px;
+}
+.forest-shell .woodland-lobby button:focus-visible,
+.forest-shell .woodland-entry button:focus-visible {
+  outline: 3px solid #53724f;
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .forest-shell .welcome-grid.woodland-entry {
+    margin-top: 14px;
+  }
+  .forest-shell .lobby-layout.forest-lobby.woodland-lobby {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "hero" "create" "join" "rooms" "account";
+    gap: 18px;
+  }
+  .woodland-lobby .woodland-lobby-hero {
+    min-height: 142px;
+    padding: 20px 15px;
+  }
+  .woodland-lobby .woodland-lobby-hero h2 {
+    font-size: 26px;
+    max-width: 78%;
+  }
+  .woodland-lobby .woodland-lobby-hero p {
+    font-size: 13px;
+    max-width: 58%;
+  }
+  .woodland-lobby-hero .woodland-lobby-fox {
+    width: 82px;
+    height: 82px;
+    right: 46px;
+  }
+  .woodland-lobby-hero .woodland-lobby-rabbit {
+    width: 66px;
+    height: 66px;
+    right: 0;
+  }
+  .forest-shell .woodland-lobby .lobby-join-panel .join-row {
+    flex-direction: row;
+    gap: 8px;
+  }
+  .forest-shell .woodland-lobby .lobby-join-panel .join-row input {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .forest-shell .woodland-lobby .lobby-join-panel .join-row button {
+    width: auto;
+    padding-inline: 12px;
+  }
+  .forest-shell .woodland-lobby .room-list .woodland-cabin-row {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+  .woodland-cabin-row .woodland-cabin-icon {
+    width: 32px;
+    height: 32px;
+  }
+}

@@ -110,12 +110,22 @@ export function sameSpotlightLayout(a: Layout | null, b: Layout): boolean {
   );
 }
 /** Navigation is local; caller owns all legal game actions. */
+const chapterTitles = {
+  1: "認識自己與隊友",
+  2: "先認識特權",
+  3: "試一次叫牌",
+  4: "讀懂得標資訊",
+  5: "練習跟牌與切王",
+  6: "看清誰贏這一墩",
+} as const;
+
 export default function TutorialSpotlight({
   target,
   title,
   children,
   stepLabel,
   progress,
+  chapter,
   stepKey,
   busy = false,
   onPrevious,
@@ -136,6 +146,7 @@ export default function TutorialSpotlight({
   children: ReactNode;
   stepLabel?: string;
   progress?: string;
+  chapter?: keyof typeof chapterTitles;
   stepKey?: string | number;
   busy?: boolean;
   allowInteraction?: boolean;
@@ -404,15 +415,21 @@ export default function TutorialSpotlight({
           <div className="tutorial-popup-heading">
             <TutorialCompanion />
             <div className="tutorial-speaker">
-              <span className="tutorial-speaker-label">小狐狸帶你學</span>
+              <span className="tutorial-speaker-label">
+                {chapter ? chapterTitles[chapter] : "小狐狸帶你學"}
+              </span>
               <strong>{title}</strong>
             </div>
             {stepLabel && (
               <small
                 className="tutorial-step-count"
-                aria-label={`教學進度 ${stepLabel}`}
+                aria-label={
+                  chapter
+                    ? `教學第 ${chapter} 段，共 6 段；練習步驟 ${stepLabel}`
+                    : `教學進度 ${stepLabel}`
+                }
               >
-                {stepLabel}
+                {chapter ? `${chapter} / 6` : stepLabel}
               </small>
             )}
           </div>

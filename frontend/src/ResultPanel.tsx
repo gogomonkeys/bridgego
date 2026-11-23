@@ -255,21 +255,40 @@ export function MatchSummary({
       aria-label="整場結果"
       role="status"
     >
-      <header className="forest-result-heading">
-        <img
-          src="/assets/forest/animal-bear.webp"
-          alt=""
-          aria-hidden="true"
-          width="88"
-          height="88"
-        />
-        <div>
-          <span className="eyebrow">森林牌桌 · 整場結果</span>
-          <h3>{resultHeadline(result, ownTeam)}</h3>
-          <p className="forest-result-welcome">謝謝一起玩，休息一下再出發。</p>
+      <div className="forest-result-hero">
+        <div className="forest-result-heading">
+          <div>
+            <span className="eyebrow">森林牌桌 · 整場結果</span>
+            <h3>{resultHeadline(result, ownTeam)}</h3>
+            <RoomTypeBadge type={game.roomType} />
+          </div>
+          <img
+            src="/assets/forest/animal-fox.webp"
+            alt=""
+            aria-hidden="true"
+            width="88"
+            height="88"
+          />
         </div>
-        <RoomTypeBadge type={game.roomType} />
-      </header>
+        <div className="forest-result-scores" aria-label="整場已記錄積分">
+          {teams.map((team) => (
+            <div
+              className={`forest-result-score${team === ownTeam ? " is-own" : ""}`}
+              key={team}
+              aria-label={`${resultTeamLabel(team, ownTeam)} ${game.teamTotals[team]} 分`}
+            >
+              <span>{resultTeamLabel(team, ownTeam)}</span>
+              <strong>
+                {game.teamTotals[team]} <small>分</small>
+              </strong>
+            </div>
+          ))}
+        </div>
+        <p className="forest-result-progress">
+          已完成 {game.completedDeals} / {game.plannedDeals} 局
+        </p>
+      </div>
+      <p className="forest-result-welcome">謝謝一起玩，休息一下再出發。</p>
       <p>
         {reason}。
         {result.outcome === "FORFEIT" &&
@@ -283,23 +302,31 @@ export function MatchSummary({
             .join("、")}
         </p>
       )}
-      <div className="forest-result-scores" aria-label="整場已記錄積分">
-        {teams.map((team) => (
-          <div
-            className={`forest-result-score${team === ownTeam ? " is-own" : ""}`}
-            key={team}
-            aria-label={`${resultTeamLabel(team, ownTeam)} ${game.teamTotals[team]} 分`}
-          >
-            <span>{resultTeamLabel(team, ownTeam)}</span>
-            <strong>
-              {game.teamTotals[team]} <small>分</small>
-            </strong>
-          </div>
-        ))}
-      </div>
-      <p className="forest-result-progress">
-        已完成 {game.completedDeals} / {game.plannedDeals} 局
-      </p>
+      {game.completedDealResults.length > 0 && (
+        <table className="forest-result-deal-scores">
+          <caption>各局分數</caption>
+          <thead>
+            <tr>
+              <th scope="col">局別</th>
+              {teams.map((team) => (
+                <th key={team} scope="col">
+                  {resultTeamLabel(team, ownTeam)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {game.completedDealResults.map((deal) => (
+              <tr key={deal.dealId}>
+                <th scope="row">第 {deal.dealIndex} 局</th>
+                {teams.map((team) => (
+                  <td key={team}>{deal.scores[team].total}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <DealTimings deals={game.completedDealResults} />
       <p>已完成的分數保留；未完成的局不計分。之後離開或斷線不改變此結果。</p>
     </section>

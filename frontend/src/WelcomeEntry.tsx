@@ -1,11 +1,15 @@
-import { createRedirectAttempt, hasRedirectAttempt, isIOSWebApp } from "./google-redirect";
+import {
+  createRedirectAttempt,
+  hasRedirectAttempt,
+  isIOSWebApp,
+} from "./google-redirect";
 import { useEntryReadiness } from "./use-entry-readiness";
 import { acceptStatistics } from "./statistics";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { client, getClientState } from "./client";
 import type { Session } from "./model";
 import { nicknameValidation } from "./nickname";
-import AnimalAvatar from "./AnimalAvatar";
+import "./welcome-lobby-theme.css";
 import { useExperimentClock } from "./use-experiment-clock";
 import { canCompleteEntry, prepareEntryChoice } from "./entry-flow";
 import {
@@ -216,15 +220,35 @@ export default function WelcomeEntry({
       },
     };
     const popup = createLoginAttempt(dependencies);
-    const redirect = createRedirectAttempt({token, eligible, load: loadGoogleIdentity, update: dependencies.update});
+    const redirect = createRedirectAttempt({
+      token,
+      eligible,
+      load: loadGoogleIdentity,
+      update: dependencies.update,
+    });
     let redirectSelected = hasRedirectAttempt();
     const attempt = {
-      start: (clientId: string, element: HTMLElement, purpose: LoginPurpose = "link") => {
-        redirectSelected = isIOSWebApp() && purpose === "link" && isManagedCollection(configRef.current);
-        return redirectSelected ? redirect.start(clientId, element, purpose) : popup.start(clientId, element, purpose);
+      start: (
+        clientId: string,
+        element: HTMLElement,
+        purpose: LoginPurpose = "link",
+      ) => {
+        redirectSelected =
+          isIOSWebApp() &&
+          purpose === "link" &&
+          isManagedCollection(configRef.current);
+        return redirectSelected
+          ? redirect.start(clientId, element, purpose)
+          : popup.start(clientId, element, purpose);
       },
-      cancel: () => { if (redirectSelected) redirect.cancel(); else popup.cancel(); },
-      dispose: () => { popup.dispose(); redirect.dispose(); },
+      cancel: () => {
+        if (redirectSelected) redirect.cancel();
+        else popup.cancel();
+      },
+      dispose: () => {
+        popup.dispose();
+        redirect.dispose();
+      },
     };
     controller.current = attempt;
     resumeRedirect.current = () => {
@@ -243,8 +267,14 @@ export default function WelcomeEntry({
   }, [token]);
   useEffect(() => {
     if (token && config && readiness.ready) resumeRedirect.current?.();
-    if (typeof location !== "undefined" && new URLSearchParams(location.search).has("google_return") && !hasRedirectAttempt()) {
-      setMessage("Google 驗證已返回。若這不是原本的主畫面 App，請關閉此視窗並返回原 App 確認登入；不會自動建立另一個帳號連結。");
+    if (
+      typeof location !== "undefined" &&
+      new URLSearchParams(location.search).has("google_return") &&
+      !hasRedirectAttempt()
+    ) {
+      setMessage(
+        "Google 驗證已返回。若這不是原本的主畫面 App，請關閉此視窗並返回原 App 確認登入；不會自動建立另一個帳號連結。",
+      );
     }
   }, [token, config, readiness.ready]);
   useEffect(() => {
@@ -492,7 +522,15 @@ export default function WelcomeEntry({
     preparing ||
     nicknameProgress !== "idle";
   return (
-    <div className="welcome-grid">
+    <div className="welcome-grid woodland-entry">
+      <div className="woodland-entry-hero" aria-hidden="true">
+        <img
+          src="/assets/forest/welcome-grass.webp"
+          alt=""
+          loading="eager"
+          draggable={false}
+        />
+      </div>
       <section
         className="panel welcome entry-choice"
         aria-label="進入大廳前的選擇"
@@ -504,7 +542,7 @@ export default function WelcomeEntry({
             ? nicknameStep === "account"
               ? "設定遊戲暱稱，下次登入會沿用。"
               : "請輸入遊戲暱稱。"
-            : "選用 Google 帳號，或直接當訪客遊玩。"}
+            : "林間留了位子，來打一局吧。"}
         </p>
         {!readiness.ready && (
           <p role="status" aria-live="polite">
@@ -741,17 +779,6 @@ export default function WelcomeEntry({
           </details>
         )}
       </section>
-      <div className="welcome-art forest-welcome" aria-hidden="true">
-        <div className="forest-sign">
-          <span>THE LANTERN GROVE</span>
-          <strong>森林裡，留一個位子給你。</strong>
-        </div>
-        <div className="welcome-friends">
-          {[0, 1, 2, 3].map((seat) => (
-            <AnimalAvatar key={seat} seat={seat} large />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

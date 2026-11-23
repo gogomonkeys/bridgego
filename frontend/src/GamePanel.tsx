@@ -1,3 +1,4 @@
+import "./forest-game-theme.css";
 import MatchPersistence from "./MatchPersistence";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { client } from "./client";
@@ -621,7 +622,7 @@ export default function GamePanel({
           >
             <summary>更多</summary>
             <div className="match-more-panel">
-              <small>v0.16.4 · 狀態版本 {room.revision}</small>
+              <small>v0.17.0 · 狀態版本 {room.revision}</small>
               <button
                 className="secondary"
                 disabled={busy}

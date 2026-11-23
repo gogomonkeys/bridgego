@@ -4,6 +4,7 @@ import { friendsEntryPlacement } from "./friends-entry-placement";
 import LeaderboardPanel from "./LeaderboardPanel";
 import { roomTitle, shortRoomId } from "./room-display";
 import "./lobby-feedback.css";
+import "./waiting-room-design.css";
 import TutorialHelpEntry from "./TutorialHelpEntry";
 import TutorialFlow from "./TutorialFlow";
 import RoomTypeChoice, { RoomTypeBadge, roomTypeLabel } from "./RoomTypeChoice";
@@ -156,7 +157,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.16.4", disconnects: diagnostics },
+    { version: "0.17.0", disconnects: diagnostics },
     null,
     2,
   );
@@ -220,7 +221,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.16.4</span>
+            <span className="eyebrow">v0.17.0</span>
           </div>
         )}
         <PwaStatus
@@ -249,13 +250,12 @@ export default function App() {
         )}
         {!tutorialTableActive &&
           page === "room" &&
-          (!state.session || state.room?.phase === "WAITING") && (
+          !state.session &&
+          !state.room && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.16.4</span>
-                <h1>
-                  {state.room ? "你的牌友，正在這裡。" : "四個座位，一起相聚。"}
-                </h1>
+                <span className="eyebrow">v0.17.0</span>
+                <h1>四個座位，一起相聚。</h1>
               </div>
             </div>
           )}
@@ -448,12 +448,12 @@ export default function App() {
             onHelp={() => navigate("help")}
           />
         ) : state.room ? (
-          <div className="room-layout">
-            <section className="panel table-panel">
-              <div className="room-heading">
+          <div className="room-layout waiting-room">
+            <section className="panel table-panel waiting-main">
+              <div className="room-heading waiting-room-banner">
                 <div>
-                  <span className="eyebrow">PRIVATE WAITING ROOM</span>
-                  <h2>
+                  <span className="eyebrow">森林等候室 · v0.17.0</span>
+                  <h1>
                     <span className="room-display-title">
                       {roomTitle(
                         state.room.players.find(
@@ -462,6 +462,13 @@ export default function App() {
                         )?.displayName,
                       )}
                     </span>
+                  </h1>
+                  <div className="waiting-room-meta">
+                    <RoomTypeBadge type={state.room.roomType} />
+                    <span>本場 {state.room.plannedDeals ?? 3} 局 · 尚未開局</span>
+                  </div>
+                  <div className="waiting-code-row">
+                    <span>房間代碼</span>
                     <small data-testid="room-code" title={state.room.roomId}>
                       #
                       {shortRoomId(
@@ -469,35 +476,48 @@ export default function App() {
                         state.rooms.map((room) => room.roomId),
                       )}
                     </small>
-                    <RoomTypeBadge type={state.room.roomType} />
-                  </h2>
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        void navigator.clipboard
+                          .writeText(state.room!.roomId)
+                          .then(() => setCopied(true))
+                          .catch(() => setCopied(false));
+                      }}
+                    >
+                      {copied ? "已複製" : "複製代碼"}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    void navigator.clipboard
-                      .writeText(state.room!.roomId)
-                      .then(() => setCopied(true))
-                      .catch(() => setCopied(false));
-                  }}
-                >
-                  {copied ? "已複製" : "複製代碼"}
-                </button>
+                <img
+                  className="waiting-banner-animal"
+                  src="/assets/forest/animal-fox.webp"
+                  alt=""
+                  draggable={false}
+                />
               </div>
-              <div className="play-surface waiting-surface">
+              <div className="waiting-seats-heading">
+                <h3>玩家座位</h3>
+                <p>
+                  {state.room.players.length} / 4 人 ·{" "}
+                  {state.room.players.filter((p) => p.ready).length} 人已準備
+                </p>
+              </div>
+              <div className="play-surface waiting-surface waiting-round-table">
                 <TableSeats room={state.room} turnSeat={null} />
-                <div className="table-focus">
-                  <span className="eyebrow">WAITING ROOM</span>
-                  <h3>{state.room.players.length} / 4 位玩家</h3>
-                  <p>你在下方，隊友在對面。</p>
-                  <p>本場 {state.room.plannedDeals ?? 3} 局 · 尚未開局</p>
-                  <p>
-                    {state.room.roomType === "FORMAL"
-                      ? "四位真人準備後，由房主開局。"
-                      : "全部準備後，由房主手動開局。"}
-                  </p>
+                <div className="waiting-oval" aria-hidden="true">
+                  <div className="waiting-oval-felt">
+                    <span>♣</span>
+                    <span>♥</span>
+                  </div>
                 </div>
               </div>
+              <p className="waiting-seat-help">
+                你在下方，隊友在對面。
+                {state.room.roomType === "FORMAL"
+                  ? "四位真人準備後，由房主開局。"
+                  : "全部準備後，由房主手動開局。"}
+              </p>
               <div className="table-bottom">
                 <span className={`connection ${state.status}`} role="status">
                   ●{" "}
@@ -522,7 +542,7 @@ export default function App() {
                   }
                 />
               )}
-              <span className="eyebrow">MAKE YOURSELF AT HOME</span>
+              <span className="eyebrow">房間工具</span>
               <h2>你好，{state.session!.displayName}</h2>
               <p>
                 把房間代碼分享給朋友。
@@ -618,7 +638,25 @@ export default function App() {
             </aside>
           </div>
         ) : (
-          <div className="lobby-layout forest-lobby">
+          <div className="lobby-layout forest-lobby woodland-lobby">
+            <div className="woodland-lobby-hero">
+              <div>
+                <h2>林間留了位子。</h2>
+                <p>來和朋友打一局吧。</p>
+              </div>
+              <img
+                src="/assets/forest/animal-rabbit.webp"
+                className="woodland-lobby-rabbit"
+                alt=""
+                aria-hidden="true"
+              />
+              <img
+                src="/assets/forest/animal-fox.webp"
+                className="woodland-lobby-fox"
+                alt=""
+                aria-hidden="true"
+              />
+            </div>
             <section
               className="panel lobby-account-panel"
               aria-label="玩家與功能"
@@ -633,7 +671,7 @@ export default function App() {
                     draggable={false}
                   />
                   <div>
-                    <span className="eyebrow">森林牌桌 · v0.16.4</span>
+                    <span className="eyebrow">森林牌桌 · v0.17.0</span>
                     <h2>你好，{state.session!.displayName}</h2>
                     <p>找個座位，一起玩一場。</p>
                   </div>
@@ -812,7 +850,19 @@ export default function App() {
               {visibleRooms.length ? (
                 <ul className="room-list">
                   {visibleRooms.map((room) => (
-                    <li key={room.roomId}>
+                    <li key={room.roomId} className="woodland-cabin-row">
+                      <svg
+                        className="woodland-cabin-icon"
+                        viewBox="0 0 32 32"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path d="M3 15 16 4l13 11M7 12v16h18V12M13 28V18h6v10" />
+                      </svg>
                       <div>
                         <strong className="room-display-title">
                           {roomTitle(room.hostDisplayName)}

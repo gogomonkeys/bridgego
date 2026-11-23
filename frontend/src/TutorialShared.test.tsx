@@ -158,18 +158,50 @@ describe("shared tutorial isolation", () => {
   });
 });
 
-it("final tutorial has one completion exit and keeps previous explanation navigable", () => {
+it("final tutorial replays the latest completed public trick without enabling a play", () => {
+  const lastTrick = {
+    number: 3,
+    leaderSeat: 1,
+    winnerSeat: 0,
+    cardsVisible: true,
+    plays: [1, 0, 3, 2].map((seat) => ({
+      seat,
+      card: {
+        suit: seat === 0 ? ("SPADE" as const) : ("DIAMOND" as const),
+        rank: 2 + seat,
+      },
+      source: "MANUAL" as const,
+    })),
+  };
+  const onPlay = vi.fn();
+  const snapshot: TutorialSnapshot = {
+    ...game,
+    lesson: "FREE_PLAY",
+    revision: 3,
+    completedTricks: [lastTrick],
+  };
   let tree!: ReturnType<typeof create>;
   act(() => {
     tree = create(
       <TutorialPlay
-        game={{ ...game, lesson: "FREE_PLAY" }}
+        game={snapshot}
         busy={false}
-        onPlay={vi.fn()}
+        onPlay={onPlay}
         onExit={vi.fn()}
       />,
     );
   });
+  const guide = tree.root.findByType(TutorialSpotlight);
+  const panel = tree.root.findByType(GamePanel);
+  expect(guide.props.chapter).toBe(6);
+  expect(guide.props.target).toBe(".trick-positions");
+  expect(guide.props.allowInteraction).toBe(false);
+  expect(panel.props.room.phase).toBe("TRICK_RESULT");
+  expect(panel.props.room.game.play.currentTrick).toEqual(lastTrick.plays);
+  expect(panel.props.room.game.play.nextSeat).toBeNull();
+  expect(panel.props.tutorial.actionLocked).toBe(true);
+  expect(snapshot.currentTrick).toHaveLength(0);
+  expect(onPlay).not.toHaveBeenCalled();
   const buttons = tree.root.findAllByType("button");
   expect(
     buttons.filter((b) => b.children.join("") === "完成，回大廳"),
@@ -246,7 +278,18 @@ it("separates public winner explanation from the second interactive play without
 
 it("highlights only the four cards in the trick review instead of the tall table summary", () => {
   let tree!: ReturnType<typeof create>;
-  act(() => { tree = create(<TutorialPlay game={{...game, lesson: "WIN_TRICK"}} busy={false} onPlay={vi.fn()} onExit={vi.fn()} />); });
-  expect(tree.root.findByType(TutorialSpotlight).props.target).toBe(".trick-positions");
+  act(() => {
+    tree = create(
+      <TutorialPlay
+        game={{ ...game, lesson: "WIN_TRICK" }}
+        busy={false}
+        onPlay={vi.fn()}
+        onExit={vi.fn()}
+      />,
+    );
+  });
+  expect(tree.root.findByType(TutorialSpotlight).props.target).toBe(
+    ".trick-positions",
+  );
   act(() => tree.unmount());
 });

@@ -40,15 +40,24 @@ export default function TutorialBidding({
       "認識牌桌",
       "你在下方，對面是隊友，左右是對手。這裡使用與一般遊戲相同的牌桌。",
     ],
-    ["認識叫牌", "階數加 6 是目標墩數，花色決定王牌；無王代表沒有王牌。"],
+    [
+      "先認識特權",
+      "叫牌前，每隊可以決定是否使用特權。同一隊有一人選用就成立；兩隊都決定後，才一起公開各隊結果。",
+    ],
     [
       "試著叫牌",
-      "在下方選階數、花色並確認，也可以 Pass。不計時，不會自動操作。",
+      "在下方選階數、花色並確認，也可以 Pass。階數加 6 是目標墩數；花色決定王牌，無王就沒有王牌。",
     ],
   ];
+  const room = tutorialRoom(null, call);
+  // Example public team outcomes, for this local explanation only. No votes
+  // are collected, and nothing is copied into a live or tutorial session.
+  if (step === 1 && room.game) {
+    room.game.privilege.usedByTeam = { NS: true, EW: false };
+  }
   return (
     <GamePanel
-      room={tutorialRoom(null, call)}
+      room={room}
       online
       busy={busy}
       pendingAction={null}
@@ -66,11 +75,14 @@ export default function TutorialBidding({
             target={
               step === 0
                 ? ".table-player.position-bottom"
-                : ".phase-main-controls"
+                : step === 1
+                  ? ".privilege-labelled"
+                  : ".phase-main-controls"
             }
             stepKey={`bid:${step}:${!!call}`}
             title={pages[step][0]}
             progress={`${step + 1} / 9`}
+            chapter={(step + 1) as 1 | 2 | 3}
             busy={busy}
             allowInteraction={step === 2}
             onExit={onBack}
@@ -79,6 +91,12 @@ export default function TutorialBidding({
             nextLabel={step === 2 ? "繼續出牌示範" : "下一步"}
           >
             <p>{pages[step][1]}</p>
+            {step === 1 && (
+              <small>
+                畫面只示意公開結果，這裡不實際投票。用特權的一隊本局贏加 1
+                分，輸扣 1 分。
+              </small>
+            )}
             {call && step === 2 && (
               <p role="status">
                 {call.type === "PASS"
@@ -88,7 +106,8 @@ export default function TutorialBidding({
             )}
             {step === 2 && (
               <small>
-                可自由試叫或直接繼續。下一段固定示範 1♠，與剛才的選擇無關。
+                不計時，可自由試叫或直接繼續。下一段固定示範
+                1♠，與剛才的選擇無關。
               </small>
             )}
           </TutorialSpotlight>

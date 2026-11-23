@@ -49,7 +49,25 @@ describe("shared bidding lesson", () => {
       ".table-player.position-bottom",
     );
     act(() => button("下一步").props.onClick());
+    const tutorialPanel = tree.root.findByType(GamePanel);
+    const privilegeStep = tree.root.findByType(TutorialSpotlight);
+    expect(privilegeStep.props.target).toBe(".privilege-labelled");
+    expect(privilegeStep.props.allowInteraction).toBe(false);
+    expect(privilegeStep.props.chapter).toBe(2);
+    expect(tutorialPanel.props.room.game.privilege.usedByTeam).toEqual({
+      NS: true,
+      EW: false,
+    });
+    expect(tutorialPanel.props.room.game.privilege.canChoose).toBe(false);
+    expect(JSON.stringify(tree.toJSON())).toContain("這裡不實際投票");
+    expect(tree.root.findAllByProps({ "aria-label": "使用特權" })).toHaveLength(
+      0,
+    );
+    expect(tree.root.findByType(BidControls).props.locked).toBe(true);
     act(() => button("下一步").props.onClick());
+    expect(
+      tree.root.findByType(GamePanel).props.room.game.privilege.usedByTeam,
+    ).toBeNull();
     expect(tree.root.findByType(BidControls).props.locked).toBe(false);
     act(() => button("Pass · 不叫").props.onClick());
     expect(JSON.stringify(tree.toJSON())).toContain("與剛才的選擇無關");

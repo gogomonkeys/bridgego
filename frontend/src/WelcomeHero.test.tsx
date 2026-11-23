@@ -4,18 +4,31 @@ import { readFileSync } from "node:fs";
 vi.mock("./client", () => ({
   client: { initialize: vi.fn() },
   getConnectionDiagnostics: () => ({}),
-  useClient: () => ({ initialized: true, session: null, room: null, rooms: [], busy: false, status: "offline", error: null, notice: null }),
+  useClient: () => ({
+    initialized: true,
+    session: null,
+    room: null,
+    rooms: [],
+    busy: false,
+    status: "offline",
+    error: null,
+    notice: null,
+  }),
 }));
 import App from "./App";
 
 describe("mobile forest welcome invitation", () => {
-  it("keeps the guest form first and the complete invitation with all four friends after it", () => {
+  it("places the decorative grass hero before both accessible login paths", () => {
     const html = renderToStaticMarkup(<App />);
-    expect(html.indexOf('id="guest-name"')).toBeLessThan(html.indexOf('class="welcome-art forest-welcome"'));
-    expect(html).toContain("森林裡，留一個位子給你。");
-    for (const animal of ["rabbit", "fox", "panda", "bear"]) {
-      expect(html).toContain(`/assets/forest/animal-${animal}.webp`);
-    }
+    expect(html).toContain("/assets/forest/welcome-grass.webp");
+    expect(html).toContain('alt="" loading="eager"');
+    expect(html.indexOf("woodland-entry-hero")).toBeLessThan(
+      html.indexOf("進入大廳前的選擇"),
+    );
+    expect(html).toContain("林間留了位子，來打一局吧。");
+    expect(html).toContain("訪客");
+    expect(html).toContain("Google");
+    expect(html).not.toContain('class="welcome-art forest-welcome"');
   });
   it("does not restore the legacy mobile display:none rule", () => {
     const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");

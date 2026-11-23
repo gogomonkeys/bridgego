@@ -62,9 +62,13 @@ describe("leaderboard presentation", () => {
   it("renders server ranking, score, safe nickname, own marker and consistent win rate", () => {
     const html = renderToStaticMarkup(<LeaderboardContent data={base} />);
     expect(html.match(/第 1 名/g)).toHaveLength(2);
+    expect(html.match(/data-first-rank="true"/g)).toHaveLength(2);
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
     expect(html).toContain("50.0%");
+    expect(html).toContain('class="record-visually-hidden">勝率 </span>50.0%');
+    expect(html).toContain('4<span class="record-visually-hidden"> 場</span>');
+    expect(html).toContain('class="leaderboard-columns" aria-hidden="true"');
     expect(html).toContain(">你<");
     expect(html).toContain(">-3<");
     expect(html).toContain("2027年01月01日00時");

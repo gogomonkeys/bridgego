@@ -23,7 +23,7 @@ const pages = [
   },
   {
     title: "你已掌握基本玩法",
-    text: "教學到這裡就完成了！回大廳選一般場，再慢慢體驗，不必打完這一局。",
+    text: "看看最近完成的一墩和贏家。贏家下一墩先出。教學完成，不必打完整局，也不計戰績。",
   },
 ];
 export default function TutorialPlay({
@@ -58,7 +58,7 @@ export default function TutorialPlay({
     step === -1
       ? {
           title: "王牌與目標",
-          text: "這個示範由隊友得標 1♠：黑桃是王牌，同隊目標剛好 7 墩。下方會顯示目前進度。",
+          text: "這個示範由隊友得標 1♠。牌桌上方會顯示得標者、王牌與進度：黑桃是王，我方至少要拿 7 墩。",
         }
       : pages[step];
   const go = (next: number) =>
@@ -66,15 +66,20 @@ export default function TutorialPlay({
   const room = tutorialRoom(game);
   // Read-only replay of an already confirmed public trick. It never rewinds
   // the server session/revision or re-enables a past play action.
-  const firstTrick = game.completedTricks[0];
-  if (step === 1 && firstTrick && room.game?.play) {
+  const shownTrick =
+    step === 1
+      ? game.completedTricks[0]
+      : step === 4
+        ? game.completedTricks.at(-1)
+        : undefined;
+  if (shownTrick && room.game?.play) {
     room.phase = "TRICK_RESULT";
     room.game.play = {
       ...room.game.play,
-      currentTrick: firstTrick.plays,
-      completedTricks: [firstTrick],
-      trickNumber: firstTrick.number,
-      leaderSeat: firstTrick.leaderSeat,
+      currentTrick: shownTrick.plays,
+      completedTricks: [shownTrick],
+      trickNumber: shownTrick.number,
+      leaderSeat: shownTrick.leaderSeat,
       nextSeat: null,
     };
   }
@@ -96,7 +101,9 @@ export default function TutorialPlay({
           <TutorialSpotlight
             target={
               step === 4
-                ? ""
+                ? shownTrick
+                  ? ".trick-positions"
+                  : ""
                 : step === -1
                   ? ".contract-badge"
                   : step === 1
@@ -104,14 +111,15 @@ export default function TutorialPlay({
                     : ".own-hand-panel"
             }
             includeTargetChildren={
-              step === 1
+              shownTrick
                 ? ".played-card, .public-lead-badge, .public-card-corner"
                 : undefined
             }
-            targetPadding={step === 1 ? 8 : 0}
+            targetPadding={shownTrick ? 8 : 0}
             stepKey={`${game.revision}:${step}`}
             title={content.title}
             progress={step === -1 ? "4 / 9" : `${step + 5} / 9`}
+            chapter={step === -1 ? 4 : step === 4 ? 6 : 5}
             busy={busy}
             complete={step === 4}
             allowInteraction={practicing}

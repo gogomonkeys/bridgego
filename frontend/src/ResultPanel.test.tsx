@@ -294,7 +294,7 @@ describe("forest final settlement presentation", () => {
     );
     expect(html).toContain('class="contract-result forest-match-summary"');
     expect(html).toContain(
-      'src="/assets/forest/animal-bear.webp" alt="" aria-hidden="true"',
+      'src="/assets/forest/animal-fox.webp" alt="" aria-hidden="true"',
     );
     expect(html).toContain("我方獲勝");
     expect(html).toContain('aria-label="我方 12 分"');
@@ -308,5 +308,38 @@ describe("forest final settlement presentation", () => {
     const game = gameRoom("BIDDING").game!;
     game.matchResult = null;
     expect(renderToStaticMarkup(<MatchSummary game={game} />)).toBe("");
+  });
+});
+
+describe("whole-match settlement score ledger", () => {
+  it("uses completed snapshots, viewer-side order, and saved points without recomputing", () => {
+    const game = gameRoom("MATCH_RESULT").game!;
+    game.matchResult = {
+      outcome: "FORFEIT",
+      winnerTeamId: "EW",
+      reason: "MANUAL_EXIT",
+      failedTeamIds: ["NS"],
+    };
+    const recorded = completedDeal();
+    recorded.dealIndex = 1;
+    recorded.scores.EW.total = -17;
+    recorded.scores.NS.total = 41;
+    game.completedDealResults = [recorded];
+    game.completedDeals = 1;
+    game.plannedDeals = 3;
+    const html = renderToStaticMarkup(
+      <MatchSummary game={game} ownTeam="EW" />,
+    );
+    expect(html).toContain("我方獲勝");
+    expect(html).toContain("判定失敗隊伍：對方");
+    expect(html).toContain("<caption>各局分數</caption>");
+    expect(html).toContain(
+      '<th scope="col">我方</th><th scope="col">對方</th>',
+    );
+    expect(html).toContain(
+      '<th scope="row">第 1 局</th><td>-17</td><td>41</td>',
+    );
+    expect(html).not.toContain('<th scope="row">第 2 局</th>');
+    expect(html).toContain("已完成 1 / 3 局");
   });
 });

@@ -198,8 +198,16 @@ export default function StatisticsPanel({
   return (
     <section className="panel statistics-panel" aria-label="戰績統計">
       <header className="forest-records-welcome">
-        <div className="forest-records-heading"><h2>戰績統計</h2><p>每一局，都是新的成長。</p></div>
-        <img src="/assets/forest/animal-bear.webp" alt="" aria-hidden="true" draggable={false} />
+        <div className="forest-records-heading">
+          <h2>戰績統計</h2>
+          <p>每一局，都是新的成長。</p>
+        </div>
+        <img
+          src="/assets/forest/animal-panda.webp"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
       </header>
       <StatisticsControls
         tab={tab}

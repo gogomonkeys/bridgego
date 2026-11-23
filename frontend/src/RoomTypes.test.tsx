@@ -82,6 +82,56 @@ describe("fixed room categories", () => {
       ),
     ).toBe("");
   });
+  it("keeps copy, chat, reconnect state and add/remove actions in the illustrated waiting room", () => {
+    const room = playedRoom();
+    room.roomType = "CASUAL";
+    room.roomId = "12345678-full-room-code";
+    room.phase = "WAITING";
+    room.game = null;
+    room.allReady = false;
+    room.plannedDeals = 5;
+    room.players.pop();
+    room.players[1] = { ...room.players[1], ready: false, connected: false, controlMode: "RECONNECTING" };
+    room.players[2] = { ...room.players[2], playerType: "BOT" };
+    mocks.state.room = room;
+    const html = render(<App />);
+    expect(html).toContain('class="play-surface waiting-surface waiting-round-table"');
+    expect(html).toContain('class="waiting-oval" aria-hidden="true"');
+    expect(html).toContain('title="12345678-full-room-code"');
+    expect(html).toContain("複製代碼");
+    expect(html).toContain("房間聊天");
+    expect(html).toContain("本場 5 局 · 尚未開局");
+    expect(html).toContain("北 N · ");
+    expect(html).toContain("重連中");
+    expect(html).toContain("＋ 電腦");
+    expect(html).toContain("移除電腦");
+    expect(html).toMatch(/<button class="primary start-game" disabled=""[^>]*>開始遊戲 · 房主/);
+    expect(html).toContain("連線資訊");
+    expect(html).toContain("離開房間");
+  });
+
+  it("shows the non-host their rotated seat and wait notice without start or bot management", () => {
+    const room = playedRoom();
+    room.roomType = "CASUAL";
+    room.phase = "WAITING";
+    room.game = null;
+    room.hostPlayerId = "bob";
+    room.canStart = true;
+    room.you = { ...room.you!, seat: 2 };
+    [room.players[0].seat, room.players[2].seat] = [2, 0];
+    mocks.state.room = room;
+    const html = render(<App />);
+    expect(html).toContain('position-bottom team-NS');
+    expect(html).toContain('data-seat="2" aria-label="南 S 你"');
+    expect(html).toContain('data-seat="0" aria-label="北 N 隊友"');
+    expect(html).toContain("四位玩家已就緒");
+    expect(html).toContain("不會自動開局");
+    expect(html).toContain("取消準備");
+    expect(html).toContain("房間聊天");
+    expect(html).not.toContain('class="primary start-game"');
+    expect(html).not.toContain("找電腦朋友入座");
+  });
+
   it("never promises a computer takeover while a formal game is paused", () => {
     const room = playedRoom();
     room.roomType = "FORMAL";

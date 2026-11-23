@@ -9,7 +9,7 @@ export default function PersonalStatisticsSummary({
   return (
     <>
       <dl className="statistics-counts personal-statistics-highlights">
-        <div>
+        <div className="statistics-win-rate">
           <dt>勝率</dt>
           <dd>{personalWinRate(counts)}</dd>
         </div>

@@ -1,119 +1,130 @@
-/* Final settlement only: keep authoritative results and live table styling intact. */
+/* Whole-match settlement only. Saved match/deal results are authoritative. */
 .outcome-screen.forest-match-outcome {
-  background: linear-gradient(155deg, #fffdf5 40%, #edf4e5);
-  border: 1px solid #b9c9a8;
-  border-radius: 24px;
-  box-shadow: 0 10px 28px #294a3712;
-  color: #294a37;
+  --result-paper: #f7f3e8;
+  --result-ink: #213d31;
+  --result-muted: #495e50;
+  --result-rule: #d6d8c6;
+  --result-accent: #2d543e;
+  background: var(--result-paper);
+  border: 1px solid var(--result-rule);
+  border-radius: 20px;
+  box-shadow: none;
+  color: var(--result-ink);
+}
+.forest-match-summary .forest-result-hero {
+  color: #213d31;
+  background: #e7ead7;
+  border-radius: 16px;
+  padding: clamp(14px, 4vw, 24px);
 }
 .forest-match-summary .forest-result-heading {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(48px, 88px);
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid #d8e2cb;
+  gap: 8px;
 }
-.forest-result-heading > img {
-  flex: 0 0 88px;
+.forest-match-summary .forest-result-heading > img {
+  display: block;
+  width: 100%;
+  height: auto;
   object-fit: contain;
 }
-.forest-result-heading > div {
-  flex: 1 1 180px;
-  min-width: 0;
-}
 .forest-match-summary .forest-result-heading h3 {
-  margin: 6px 0;
-  color: #294a37;
-  font-size: clamp(1.65rem, 4vw, 2.1rem);
+  margin: 4px 0 8px;
+  color: #213d31;
+  font-family: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: clamp(1.65rem, 6vw, 2.7rem);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
-.forest-match-summary .forest-result-welcome {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #596d53;
-}
-.forest-result-scores {
+.forest-match-summary .forest-result-scores {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin: 18px 0 12px;
+  gap: 10px;
+  margin-top: 16px;
 }
-.forest-result-score {
+.forest-match-summary .forest-result-score {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 18px;
-  border: 1px solid #cfdbc2;
-  border-radius: 18px;
-  background: #fffef9;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
   min-width: 0;
+  color: #304b3c;
+  font-weight: 650;
 }
-.forest-result-score.is-own {
-  background: #e6efdc;
-  border-color: #a5bc8f;
-}
-.forest-result-score > span {
-  font-size: 0.95rem;
-  font-weight: 700;
-}
+.forest-match-summary .forest-result-score.is-own { color: #213d31; }
 .forest-match-summary .forest-result-score strong {
-  font-size: clamp(1.8rem, 5vw, 2.5rem);
-  color: #294a37;
+  color: inherit;
+  font-size: clamp(1.25rem, 4.6vw, 1.8rem);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
   line-height: 1.2;
 }
-.forest-result-score small {
-  font-size: 0.85rem;
-  font-weight: 500;
+.forest-match-summary .forest-result-score small {
+  font-size: .8rem;
+  font-weight: 600;
 }
 .forest-match-summary .forest-result-progress {
-  font-weight: 700;
+  margin: 10px 0 0;
+  color: #495e50;
 }
-.forest-match-summary .deal-timings {
-  color: #596d53;
-  line-height: 1.7;
+.forest-match-summary .forest-result-welcome,
+.forest-match-summary .deal-timings { color: #495e50; line-height: 1.6; }
+.forest-match-summary .forest-result-deal-scores {
+  width: 100%;
+  margin: 20px 0 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
 }
+.forest-match-summary .forest-result-deal-scores caption {
+  margin-bottom: 8px;
+  text-align: start;
+  color: #213d31;
+  font-size: 1.08rem;
+  font-weight: 750;
+}
+.forest-match-summary .forest-result-deal-scores :is(th, td) {
+  padding: 9px 4px;
+  border-bottom: 1px solid #d6d8c6;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+.forest-match-summary .forest-result-deal-scores tr > :first-child {
+  width: 40%;
+  padding-inline-start: 0;
+  text-align: start;
+}
+.forest-match-summary .forest-result-deal-scores thead { color: #495e50; }
 .forest-match-outcome .rematch-actions {
-  border-color: #d0ddc4;
   display: grid;
   gap: 10px;
+  border-color: var(--result-rule);
 }
 .forest-match-outcome .rematch-actions button {
   min-height: 48px;
   margin: 0;
-  background: #3f6849;
-  border-color: #3f6849;
+  background: var(--result-accent);
+  border-color: var(--result-accent);
   color: #fffdf5;
-  border-radius: 14px;
+  border-radius: 12px;
+}
+.forest-match-outcome .rematch-actions button:focus-visible {
+  outline: 3px solid #866035;
+  outline-offset: 3px;
 }
 .forest-match-outcome .rematch-actions p {
   margin: 0;
-  color: #596d53;
-  font-size: 0.85rem;
+  color: var(--result-muted);
+  font-size: .85rem;
   line-height: 1.6;
 }
 @media (max-width: 480px) {
   .outcome-screen.forest-match-outcome {
-    padding: 18px 14px;
-    border-radius: 18px;
+    padding: 16px 12px;
+    border-radius: 15px;
   }
   .forest-match-summary .forest-result-heading {
-    gap: 10px;
-  }
-  .forest-result-heading > img {
-    width: 64px;
-    height: 64px;
-    flex-basis: 64px;
-  }
-  .forest-result-heading > div {
-    flex-basis: 140px;
-  }
-  .forest-result-scores {
-    gap: 8px;
-  }
-  .forest-result-score {
-    padding: 14px 12px;
+    grid-template-columns: minmax(0, 1fr) minmax(48px, 64px);
   }
 }
