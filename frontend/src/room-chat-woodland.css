@@ -1,0 +1,107 @@
+/* The open chat is portalled to document.body, outside the waiting-room shell.
+   Scope paint to the dialog itself; waiting-voice.css owns all viewport geometry. */
+.room-chat-dialog.room-chat-dialog--woodland {
+  --chat-ink: #233d30;
+  --chat-muted: #465e50;
+  --chat-green: #2e503c;
+  --chat-deep: #203e2d;
+  --chat-paper: #f7f3e5;
+  --chat-linen: #fffaf0;
+  --chat-edge: #cbc4a9;
+  color: var(--chat-ink);
+  background: var(--chat-paper);
+  border-color: var(--chat-edge);
+  box-shadow: 0 14px 45px #21382d40;
+}
+.room-chat-dialog.room-chat-dialog--woodland .room-chat-heading {
+  color: #fff5df;
+  background-color: var(--chat-green);
+  background-image: radial-gradient(ellipse at 90% -60%, #758858, transparent 70%);
+  border-radius: .65rem;
+}
+.room-chat-dialog--woodland .room-chat-heading > div {
+  min-width: 0;
+  padding-inline: .6rem;
+}
+.room-chat-dialog--woodland .room-chat-heading h2 {
+  color: inherit;
+  font-weight: 700;
+}
+.room-chat-dialog--woodland .room-chat-heading > button {
+  color: #fff5df;
+  background: var(--chat-deep);
+  border-color: #8ea27d;
+  box-shadow: none;
+}
+.room-chat-dialog--woodland .room-chat-heading > button:focus-visible {
+  outline-color: #ffe3a5;
+  outline-offset: -3px;
+}
+.room-chat-dialog.room-chat-dialog--woodland .waiting-voice {
+  color: var(--chat-ink);
+  background: #e8efdf;
+  border-color: #a6b398;
+  border-radius: .75rem;
+}
+.room-chat-dialog--woodland .waiting-voice-heading h3 {
+  color: var(--chat-ink);
+  font-weight: 700;
+}
+.room-chat-dialog--woodland .waiting-voice-heading > span {
+  padding: .1rem .38rem;
+  border-radius: 1rem;
+  color: #315142;
+  background: #d8e2ce;
+}
+.room-chat-dialog--woodland .waiting-voice-actions > button {
+  color: var(--chat-ink);
+  background: var(--chat-linen);
+  border-color: #a9b49a;
+  box-shadow: none;
+}
+.room-chat-dialog--woodland .voice-privacy-notice {
+  color: #58411e;
+}
+.room-chat-dialog--woodland .room-chat-log p {
+  color: var(--chat-ink);
+  background: #fffbef;
+  box-shadow: inset 0 0 0 1px #ded7c0;
+}
+.room-chat-dialog--woodland .room-chat-log p strong {
+  color: var(--chat-muted);
+}
+.room-chat-dialog--woodland .room-chat-log .room-chat-empty {
+  color: var(--chat-muted);
+  background: #efead9;
+  box-shadow: none;
+  text-align: center;
+}
+.room-chat-dialog.room-chat-dialog--woodland .room-chat-composer {
+  background: var(--chat-paper);
+  box-shadow: 0 -1px var(--chat-edge);
+}
+.room-chat-dialog--woodland .room-chat-form input {
+  color: var(--chat-ink);
+  background: var(--chat-linen);
+  border-color: #a4af96;
+}
+.room-chat-dialog--woodland .room-chat-form input::placeholder {
+  color: var(--chat-muted);
+}
+.room-chat-dialog--woodland .room-chat-form button {
+  color: #fff5df;
+  background: var(--chat-green);
+  border-color: var(--chat-deep);
+  box-shadow: none;
+}
+.room-chat-dialog--woodland .room-chat-form button:disabled {
+  color: #4b6254;
+  background: #dce5d6;
+  border-color: #b7c3af;
+  opacity: 1;
+}
+.room-chat-dialog--woodland .room-chat-form input:focus-visible,
+.room-chat-dialog--woodland .room-chat-form button:focus-visible {
+  outline: 2px solid var(--chat-green);
+  outline-offset: 2px;
+}

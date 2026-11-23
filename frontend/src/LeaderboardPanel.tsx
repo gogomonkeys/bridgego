@@ -97,9 +97,11 @@ export function LeaderboardContent({ data }: { data: LeaderboardReport }) {
 export default function LeaderboardPanel({
   token,
   onBack,
+  embedded = false,
 }: {
   token: string;
   onBack?: () => void;
+  embedded?: boolean;
 }) {
   const [period, setPeriod] = useState<LeaderboardPeriod>("SEASON");
   const category = "FORMAL";
@@ -139,12 +141,13 @@ export default function LeaderboardPanel({
     return () => reader.dispose();
   }, [key, token, period, category]);
   const locked = !current || remaining > 0;
+  const Heading = embedded ? "h3" : "h2";
   return (
     <div className="leaderboard-panel">
-      <div className="statistics-results-heading forest-leaderboard-heading">
+      <div className="forest-leaderboard-heading">
         <div className="forest-leaderboard-copy">
-          <h3>{period === "SEASON" ? "本季" : "生涯"}排行榜</h3>
-          <span className="statistics-category-label">正式場</span>
+          <Heading className="forest-leaderboard-title">排行榜</Heading>
+          <p className="forest-leaderboard-subtitle">正式場積分排名</p>
         </div>
         <img
           src="/assets/forest/animal-bear.webp"

@@ -12,6 +12,7 @@ import TableSeats from "./TableSeats";
 import OwnTimeoutNotice from "./OwnTimeoutNotice";
 import BidControls from "./BidControls";
 import CurrentBid from "./CurrentBid";
+import AuctionOrder from "./AuctionOrder";
 import ContractBadge from "./ContractBadge";
 import OperationClock from "./OperationClock";
 import IconTip from "./IconTip";
@@ -476,7 +477,16 @@ export default function GamePanel({
                     />
                   </>
                 ) : room.phase === "BIDDING" ? (
-                  <CurrentBid game={game} />
+                  <>
+                    <CurrentBid game={game} />
+                    {!tutorial && (
+                      <AuctionOrder
+                        game={game}
+                        ownSeat={room.you?.seat}
+                        placement="table"
+                      />
+                    )}
+                  </>
                 ) : (
                   <h3 className="table-stage-label">
                     {room.phase === "REDEAL_DECISION"
@@ -492,6 +502,13 @@ export default function GamePanel({
             </div>
             <TrumpEffects events={trumpEffects} ownSeat={room.you?.seat ?? 0} />
           </section>
+          {room.phase === "BIDDING" && !tutorial && (
+            <AuctionOrder
+              game={game}
+              ownSeat={room.you?.seat}
+              placement="below"
+            />
+          )}
           {((room.phase === "BIDDING" && myTurn) ||
             room.phase === "PRIVILEGE_DECISION" ||
             room.phase === "REDEAL_DECISION") && (
@@ -622,7 +639,7 @@ export default function GamePanel({
           >
             <summary>更多</summary>
             <div className="match-more-panel">
-              <small>v0.17.0 · 狀態版本 {room.revision}</small>
+              <small>v0.17.1 · 狀態版本 {room.revision}</small>
               <button
                 className="secondary"
                 disabled={busy}

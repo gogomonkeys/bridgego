@@ -17,6 +17,7 @@ import {
   clearRoomChat,
 } from "./voice-wire";
 import "./waiting-voice.css";
+import "./room-chat-woodland.css";
 interface ChatMessage {
   messageId: string;
   name: string;
@@ -198,7 +199,7 @@ export default function WaitingVoicePanel({
       }}
     >
       <div
-        className="room-chat-dialog"
+        className="room-chat-dialog room-chat-dialog--woodland"
         role="dialog"
         aria-modal="false"
         aria-labelledby="room-chat-title"

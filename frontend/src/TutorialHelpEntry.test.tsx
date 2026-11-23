@@ -178,10 +178,10 @@ describe("lobby tutorial entry", () => {
       source.indexOf("<TutorialFlow"),
     );
     expect(source.indexOf("<TutorialFlow")).toBeLessThan(
-      source.indexOf('className="lobby-panel-heading"'),
+      source.indexOf("<WoodlandLobby"),
     );
     const lobby = source.slice(
-      source.indexOf('className="lobby-panel-heading"'),
+      source.indexOf("<WoodlandLobby"),
     );
     expect(lobby).toContain("<TutorialHelpEntry");
     expect(lobby).toContain("direct");

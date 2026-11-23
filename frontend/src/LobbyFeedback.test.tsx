@@ -19,7 +19,13 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("./client", () => ({
   useClient: () => mocks.state,
-  client: { initialize: vi.fn(), join: mocks.join, create: mocks.create, forget: mocks.forget, refresh: mocks.refresh },
+  client: {
+    initialize: vi.fn(),
+    join: mocks.join,
+    create: mocks.create,
+    forget: mocks.forget,
+    refresh: mocks.refresh,
+  },
   getConnectionDiagnostics: () => [],
 }));
 vi.mock("./google-login", () => ({ accountRequest: mocks.request }));
@@ -86,33 +92,96 @@ async function enter() {
   await click("Skip");
 }
 describe("lobby feedback authorization", () => {
-  it("keeps account tools, room creation, code joining and room discovery in separate panels", async () => {
+  it("uses one quiet lobby with two initially collapsed paths and grouped discovery", async () => {
     await enter();
-    const panel = (name: string) => tree.root.findByProps({ className: `panel ${name}` });
-    expect(panel("lobby-account-panel").findAllByProps({ id: "room-code" })).toHaveLength(0);
-    expect(panel("lobby-account-panel").findAllByProps({ className: "lobby-friends-slot" })).toHaveLength(1);
-    expect(panel("lobby-create-panel").findAllByProps({ className: "room-type-choice" })).toHaveLength(1);
-    expect(panel("lobby-create-panel").findAllByType("form")).toHaveLength(0);
-    expect(panel("lobby-join-panel").findByProps({ id: "room-code" })).toBeTruthy();
-    expect(panel("lobby-rooms-panel").findByProps({ id: "available-rooms-title" })).toBeTruthy();
-    expect(text()).not.toContain("換一個訪客身分");
-    expect(tree.root.findByProps({ className: "lobby-welcome-animal" }).props.src).toBe("/assets/forest/animal-fox.webp");
+    const createPanel = tree.root.findByProps({ className: "cabins-create" });
+    const joinPanel = tree.root.findByProps({ className: "cabins-join" });
+    expect(createPanel.type).toBe("details");
+    expect(joinPanel.type).toBe("details");
+    expect(createPanel.props.open).toBeUndefined();
+    expect(joinPanel.props.open).toBeUndefined();
+    expect(
+      createPanel.findByProps({ className: "room-type-choice" }),
+    ).toBeTruthy();
+    expect(joinPanel.findByProps({ id: "room-code" })).toBeTruthy();
+    expect(
+      tree.root
+        .findByProps({ className: "cabins-directory" })
+        .findByProps({ id: "available-rooms-title" }),
+    ).toBeTruthy();
+    expect(
+      tree.root.findByProps({ className: "cabins-profile" }).children,
+    ).toEqual(["Guest"]);
+    expect(tree.root.findByProps({ className: "cabins-fox" }).props.src).toBe(
+      "/assets/forest/animal-fox.webp",
+    );
+    expect(
+      tree.root.findByProps({ className: "lobby-friends-slot" }),
+    ).toBeTruthy();
     expect(text()).not.toContain("四個座位，一起相聚。");
+    expect(
+      tree.root.findByProps({ className: "cabins-empty" }).children.join(""),
+    ).toBe("目前沒有休閒場房間。");
     expect(tree.root.findByType(FriendsHub).props.entryPlacement).toBe("lobby");
     await click("返回身分選擇");
     expect(mocks.forget).toHaveBeenCalledTimes(1);
   });
-  it("preserves create-room choices and code joining after separating sections", async () => {
+  it("retains the default 3, other deal counts, shared type, update and full code join", async () => {
     await enter();
-    await act(async () => tree.root.findByProps({ type: "radio", name: "room-type", value: "FORMAL" }).props.onChange());
-    await act(async () => tree.root.findByProps({ type: "radio", name: "planned-deals", value: 5 }).props.onChange());
-    await act(async () => tree.root.findByProps({ className: "primary create-room" }).props.onClick());
-    expect(mocks.create).toHaveBeenCalledWith(5, "FORMAL");
-    await act(async () => tree.root.findByProps({ id: "room-code" }).props.onChange({ target: { value: "full-room-id" } }));
+    expect(
+      tree.root.findByProps({ type: "radio", name: "planned-deals", value: 3 })
+        .props.checked,
+    ).toBe(true);
+    await click("正式場");
+    expect(
+      tree.root.findByProps({
+        type: "radio",
+        name: "room-type",
+        value: "FORMAL",
+      }).props.checked,
+    ).toBe(true);
+    expect(
+      tree.root.findByProps({ className: "cabins-empty" }).children.join(""),
+    ).toBe("目前沒有正式場房間。");
+    await act(async () =>
+      tree.root
+        .findByProps({ type: "radio", name: "room-type", value: "CASUAL" })
+        .props.onChange(),
+    );
+    expect(
+      tree.root
+        .findByProps({ className: "cabins-filters" })
+        .findAllByType("button")[0].props["aria-pressed"],
+    ).toBe(true);
+    await act(async () =>
+      tree.root
+        .findByProps({ type: "radio", name: "planned-deals", value: 5 })
+        .props.onChange(),
+    );
+    await act(async () =>
+      tree.root
+        .findByProps({ className: "primary create-room" })
+        .props.onClick(),
+    );
+    expect(mocks.create).toHaveBeenCalledWith(5, "CASUAL");
+    await act(async () =>
+      tree.root
+        .findByProps({ id: "room-code" })
+        .props.onChange({ target: { value: "full-room-id" } }),
+    );
     const preventDefault = vi.fn();
-    await act(async () => tree.root.findByProps({ className: "panel lobby-join-panel" }).findByType("form").props.onSubmit({ preventDefault }));
+    await act(async () =>
+      tree.root
+        .findByProps({ className: "cabins-join" })
+        .findByType("form")
+        .props.onSubmit({ preventDefault }),
+    );
     expect(preventDefault).toHaveBeenCalledOnce();
     expect(mocks.join).toHaveBeenCalledWith("full-room-id");
+    await act(async () =>
+      tree.root.findByProps({ className: "cabins-refresh" }).props.onClick(),
+    );
+    expect(mocks.refresh).toHaveBeenCalledOnce();
   });
   it("shows host names and distinct short labels, but sends full ID when joining", async () => {
     const id = "12345678-1111-1111-1111-111111111111";
@@ -127,12 +196,12 @@ describe("lobby feedback authorization", () => {
       joinable: true,
     }));
     await enter();
-    expect(text()).toContain("同名 <script>的牌桌");
+    expect(text()).toContain("同名 <script>的房間");
     expect(text()).toContain("12345678-1");
     expect(text()).toContain("12345678-2");
     const buttons = tree.root
       .findAllByType("button")
-      .filter((b) => b.children.join("") === "入座 →");
+      .filter((b) => b.props.className === "cabins-room-join");
     await act(async () => buttons[0].props.onClick());
     expect(mocks.join).toHaveBeenCalledWith(id);
   });
@@ -141,14 +210,11 @@ describe("lobby feedback authorization", () => {
     await enter();
     expect(text()).toContain("排行榜");
     expect(text()).not.toContain("戰績統計");
-    const ranking = tree.root
-      .findAllByType("button")
-      .find((b) =>
-        b.findAllByType("span").some((s) => s.children.join("") === "排行榜"),
-      )!;
-    await act(async () => ranking.props.onClick());
+    await click("排行榜");
     expect(text()).toContain("Public ranking");
-    expect(tree.root.findByType(FriendsHub).props.entryPlacement).toBe("hidden");
+    expect(tree.root.findByType(FriendsHub).props.entryPlacement).toBe(
+      "hidden",
+    );
     expect(text()).not.toContain("Private statistics");
   });
   it("keeps public ranking during failed private access checks and offers explicit recovery", async () => {

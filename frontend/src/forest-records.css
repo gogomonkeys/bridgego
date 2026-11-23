@@ -38,8 +38,8 @@
   min-width: 0;
   text-align: start;
 }
-.panel.statistics-panel > h2,
-.panel.statistics-panel .forest-records-heading h2 {
+.panel.statistics-panel .forest-records-heading h2,
+.leaderboard-panel .forest-leaderboard-title {
   margin: 0;
   color: var(--record-ink);
   font-family: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
@@ -51,7 +51,20 @@
   color: var(--record-muted);
   font-size: .86rem;
 }
-.statistics-panel .forest-leaderboard-copy h3 { margin: 0 0 6px; }
+/* Keep the stronger editorial weights local to the leaderboard. Enable
+   weight synthesis here for device fonts that only ship a regular face. */
+.leaderboard-panel .forest-leaderboard-title {
+  font-family: "Noto Serif TC", "Noto Serif CJK TC", "Songti TC", "PMingLiU", serif;
+  font-size: clamp(2rem, 8.6vw, 2.75rem);
+  font-weight: 800;
+  font-synthesis: weight;
+}
+.leaderboard-panel .forest-leaderboard-subtitle {
+  margin: 8px 0 0;
+  color: var(--record-muted);
+  font-size: .875rem;
+  line-height: 1.45;
+}
 .panel.statistics-panel .statistics-audience,
 .panel.statistics-panel .statistics-segment {
   padding: 4px;
@@ -85,7 +98,15 @@
   align-items: center;
   gap: 10px;
 }
-.panel.statistics-panel .leaderboard-panel .statistics-filter-caption { margin: 0; }
+.panel.statistics-panel .leaderboard-panel .statistics-filter-caption {
+  margin: 0;
+  font-weight: 600;
+}
+.panel.statistics-panel .leaderboard-panel .statistics-segment button {
+  font-size: .95rem;
+  font-weight: 750;
+  font-synthesis: weight;
+}
 .panel.statistics-panel .statistics-results,
 .panel.statistics-panel .statistics-actions,
 .panel.statistics-panel .statistics-breakdown { border-color: var(--record-line); }
@@ -173,7 +194,7 @@
 }
 
 .leaderboard-panel .leaderboard-ledger {
-  --ranking-columns: minmax(24px, .55fr) minmax(0, 2fr) minmax(40px, .9fr) minmax(28px, .6fr) minmax(46px, 1fr);
+  --ranking-columns: minmax(24px, .55fr) minmax(0, 2fr) minmax(42px, .9fr) minmax(28px, .6fr) minmax(56px, 1fr);
   margin: 14px 0;
 }
 .leaderboard-panel .leaderboard-columns,
@@ -186,8 +207,9 @@
 }
 .leaderboard-panel .leaderboard-columns {
   color: var(--record-muted);
-  font-size: .75rem;
-  font-weight: 700;
+  font-size: .8125rem;
+  font-weight: 750;
+  font-synthesis: weight;
 }
 .leaderboard-panel .leaderboard-columns > :first-child { text-align: center; }
 .leaderboard-panel .leaderboard-columns > :nth-child(n+3) { text-align: end; }
@@ -239,7 +261,13 @@
   overflow-wrap: anywhere;
 }
 .leaderboard-panel .leaderboard-detail { color: var(--record-muted); }
-.leaderboard-panel .leaderboard-score strong { font-size: clamp(.86rem, 3.5vw, 1.1rem); }
+.leaderboard-panel .leaderboard-score strong {
+  color: var(--record-ink);
+  font-size: clamp(.95rem, 4vw, 1.25rem);
+  font-weight: 800;
+  font-synthesis: weight;
+  font-variant-numeric: tabular-nums;
+}
 .leaderboard-panel .leaderboard-score-label,
 .leaderboard-panel .record-visually-hidden {
   position: absolute;

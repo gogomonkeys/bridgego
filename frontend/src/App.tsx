@@ -7,7 +7,8 @@ import "./lobby-feedback.css";
 import "./waiting-room-design.css";
 import TutorialHelpEntry from "./TutorialHelpEntry";
 import TutorialFlow from "./TutorialFlow";
-import RoomTypeChoice, { RoomTypeBadge, roomTypeLabel } from "./RoomTypeChoice";
+import { RoomTypeBadge } from "./RoomTypeChoice";
+import WoodlandLobby from "./WoodlandLobby";
 import type { RoomType } from "./model";
 import StatisticsPanel from "./StatisticsPanel";
 import { accountRequest, type AuthStatus } from "./google-login";
@@ -18,7 +19,7 @@ import WelcomeEntry from "./WelcomeEntry";
 import { needsEntry } from "./entry-flow";
 import PwaStatus from "./PwaStatus";
 import ScreenAwake from "./ScreenAwake";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { client, useClient, getConnectionDiagnostics } from "./client";
 import GamePanel from "./GamePanel";
 import TableSeats from "./TableSeats";
@@ -39,9 +40,6 @@ export default function App() {
   const [enteredToken, setEnteredToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [roomType, setRoomType] = useState<RoomType>("CASUAL");
-  const visibleRooms = state.rooms.filter(
-    (room) => (room.roomType ?? "CASUAL") === roomType,
-  );
   const [plannedDeals, setPlannedDeals] = useState<1 | 3 | 5>(3);
   const [route, setPage] = useState<
     "room" | "help" | "statistics" | "leaderboard"
@@ -157,7 +155,7 @@ export default function App() {
   const diagnosticRef = useRef<HTMLTextAreaElement>(null);
   const diagnostics = getConnectionDiagnostics();
   const diagnosticText = JSON.stringify(
-    { version: "0.17.0", disconnects: diagnostics },
+    { version: "0.17.1", disconnects: diagnostics },
     null,
     2,
   );
@@ -167,13 +165,19 @@ export default function App() {
   const me = state.room?.players.find(
     (p) => p.playerId === state.session?.playerId,
   );
-  const submit = (event: FormEvent, action: () => void) => {
-    event.preventDefault();
-    action();
-  };
+  const showLobbyChrome = Boolean(
+    page === "room" &&
+    state.initialized &&
+    state.session?.token &&
+    !state.room &&
+    enteredToken === state.session.token &&
+    !accountChanging.current &&
+    !tutorialRequested &&
+    tutorialChecked === `${state.session.token}:${tutorialAccountEpoch}`,
+  );
   return (
     <div
-      className={`shell forest-shell ${tutorialTableActive ? "match-shell tutorial-shell" : state.room && state.room.phase !== "WAITING" && page === "room" ? "match-shell" : ""}`}
+      className={`shell forest-shell ${showLobbyChrome ? "cabins-lobby-shell" : ""} ${tutorialTableActive ? "match-shell tutorial-shell" : state.room && state.room.phase !== "WAITING" && page === "room" ? "match-shell" : ""}`}
     >
       <header>
         <a
@@ -185,30 +189,50 @@ export default function App() {
           }}
           aria-label="BridgeGo 首頁"
         >
-          <span className="brand-symbol">♠</span>
-          <span>
-            Bridge<span className="brand-go">Go</span>
-            <small>一起入座，等好友到齊。</small>
-          </span>
-        </a>
-        <nav>
-          {page !== "room" && (
-            <button
-              className="return-navigation"
-              onClick={() => navigate("room")}
-            >
-              {state.room && state.room.phase !== "WAITING"
-                ? "返回牌桌"
-                : "等候大廳"}
-            </button>
+          {showLobbyChrome ? (
+            <>
+              BridgeGo{" "}
+              <span className="cabins-brand-club" aria-hidden="true">
+                ♣
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="brand-symbol">♠</span>
+              <span>
+                Bridge<span className="brand-go">Go</span>
+                <small>一起入座，等好友到齊。</small>
+              </span>
+            </>
           )}
-          <button
-            className={page === "help" ? "nav-active" : ""}
-            onClick={() => navigate("help")}
+        </a>
+        {showLobbyChrome ? (
+          <span
+            className="cabins-profile"
+            aria-label={`玩家：${state.session!.displayName}`}
           >
-            使用說明
-          </button>
-        </nav>
+            {state.session!.displayName}
+          </span>
+        ) : (
+          <nav>
+            {page !== "room" && (
+              <button
+                className="return-navigation"
+                onClick={() => navigate("room")}
+              >
+                {state.room && state.room.phase !== "WAITING"
+                  ? "返回牌桌"
+                  : "等候大廳"}
+              </button>
+            )}
+            <button
+              className={page === "help" ? "nav-active" : ""}
+              onClick={() => navigate("help")}
+            >
+              使用說明
+            </button>
+          </nav>
+        )}
       </header>
       <main
         className={
@@ -221,7 +245,7 @@ export default function App() {
       >
         {(page === "help" || statisticsPage) && (
           <div className="help-version">
-            <span className="eyebrow">v0.17.0</span>
+            <span className="eyebrow">v0.17.1</span>
           </div>
         )}
         <PwaStatus
@@ -254,7 +278,7 @@ export default function App() {
           !state.room && (
             <div className="intro">
               <div>
-                <span className="eyebrow">v0.17.0</span>
+                <span className="eyebrow">v0.17.1</span>
                 <h1>四個座位，一起相聚。</h1>
               </div>
             </div>
@@ -397,8 +421,7 @@ export default function App() {
             }}
           />
         ) : page === "leaderboard" && canSeeLeaderboard ? (
-          <section className="panel statistics-panel">
-            <h2>排行榜</h2>
+          <section className="panel statistics-panel" aria-label="排行榜">
             <LeaderboardPanel
               key={`${state.session!.token}:${accountEpoch}`}
               token={state.session!.token}
@@ -452,7 +475,7 @@ export default function App() {
             <section className="panel table-panel waiting-main">
               <div className="room-heading waiting-room-banner">
                 <div>
-                  <span className="eyebrow">森林等候室 · v0.17.0</span>
+                  <span className="eyebrow">森林等候室 · v0.17.1</span>
                   <h1>
                     <span className="room-display-title">
                       {roomTitle(
@@ -465,7 +488,9 @@ export default function App() {
                   </h1>
                   <div className="waiting-room-meta">
                     <RoomTypeBadge type={state.room.roomType} />
-                    <span>本場 {state.room.plannedDeals ?? 3} 局 · 尚未開局</span>
+                    <span>
+                      本場 {state.room.plannedDeals ?? 3} 局 · 尚未開局
+                    </span>
                   </div>
                   <div className="waiting-code-row">
                     <span>房間代碼</span>
@@ -638,279 +663,74 @@ export default function App() {
             </aside>
           </div>
         ) : (
-          <div className="lobby-layout forest-lobby woodland-lobby">
-            <div className="woodland-lobby-hero">
-              <div>
-                <h2>林間留了位子。</h2>
-                <p>來和朋友打一局吧。</p>
-              </div>
-              <img
-                src="/assets/forest/animal-rabbit.webp"
-                className="woodland-lobby-rabbit"
-                alt=""
-                aria-hidden="true"
-              />
-              <img
-                src="/assets/forest/animal-fox.webp"
-                className="woodland-lobby-fox"
-                alt=""
-                aria-hidden="true"
-              />
-            </div>
-            <section
-              className="panel lobby-account-panel"
-              aria-label="玩家與功能"
-            >
-              <div className="lobby-panel-heading">
-                <div className="lobby-greeting">
-                  <img
-                    className="lobby-welcome-animal"
-                    src="/assets/forest/animal-fox.webp"
-                    alt=""
-                    aria-hidden="true"
-                    draggable={false}
-                  />
-                  <div>
-                    <span className="eyebrow">森林牌桌 · v0.17.0</span>
-                    <h2>你好，{state.session!.displayName}</h2>
-                    <p>找個座位，一起玩一場。</p>
-                  </div>
-                </div>
-                {canSeeLeaderboard && (
-                  <div className="lobby-statistics-actions">
-                    {canSeeStatistics && (
-                      <button
-                        type="button"
-                        className="secondary lobby-statistics-button"
-                        onClick={() => navigate("statistics")}
-                      >
-                        <svg
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          aria-hidden="true"
-                          focusable="false"
-                        >
-                          <path d="M3 16.5h14M5 13V9m5 4V3.5m5 9.5V6" />
-                        </svg>
-                        <span>戰績統計</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="secondary lobby-statistics-button"
-                      onClick={() => navigate("leaderboard")}
-                    >
-                      <svg
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                        focusable="false"
-                      >
-                        <path d="M7 17V4h6v13M2 17V9h5m6 2h5v6M1 17h18" />
-                      </svg>
-                      <span>排行榜</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              {statisticsEntryState === "error" && (
+          <WoodlandLobby
+            rooms={state.rooms}
+            roomType={roomType}
+            busy={state.busy}
+            code={code}
+            plannedDeals={plannedDeals}
+            onRoomType={setRoomType}
+            onCode={setCode}
+            onDeals={setPlannedDeals}
+            onCreate={() => void client.create(plannedDeals, roomType)}
+            onJoin={(id) => void client.join(id)}
+            onRefresh={() => void client.refresh()}
+            onHelp={() => navigate("help")}
+            onForget={client.forget}
+            accessNotice={
+              statisticsEntryState === "error" && (
                 <div className="lobby-entry-retry" role="status">
                   <span>統計入口暫時無法確認</span>
                   <button
+                    type="button"
                     className="text-button"
                     onClick={() => setAccountEpoch((value) => value + 1)}
                   >
                     重試
                   </button>
                 </div>
-              )}
-              <div className="lobby-tools-row">
-                <div className="lobby-tutorial-entry">
-                  <TutorialHelpEntry
-                    key={`${state.session!.token}:${tutorialAccountEpoch}`}
-                    token={state.session!.token}
-                    direct
-                    enabled={
-                      tutorialAvailability?.key ===
-                      `${state.session!.token}:${tutorialAccountEpoch}`
-                        ? tutorialAvailability.enabled
-                        : null
-                    }
-                    onAvailability={(enabled) =>
-                      setTutorialAvailability({
-                        key: `${state.session!.token}:${tutorialAccountEpoch}`,
-                        enabled,
-                      })
-                    }
-                    onStart={() => {
-                      setTutorialRequested(true);
-                      navigate("room");
-                    }}
-                  />
-                  <div
-                    className="lobby-friends-slot"
-                    ref={setFriendsEntryTarget}
-                  />
-                </div>
-                <button
-                  className="text-button lobby-identity-return"
-                  onClick={client.forget}
-                  disabled={state.busy}
-                >
-                  返回身分選擇
-                </button>
-              </div>
-            </section>
-            <section
-              className="panel lobby-create-panel"
-              aria-labelledby="create-room-title"
-            >
-              <h2 id="create-room-title">建立房間</h2>
-              <RoomTypeChoice
-                value={roomType}
-                disabled={state.busy}
-                onChange={setRoomType}
-              />
-              <fieldset className="deal-count-choice" disabled={state.busy}>
-                <legend>本場局數</legend>
-                {[1, 3, 5].map((count) => (
-                  <label key={count}>
-                    <input
-                      type="radio"
-                      name="planned-deals"
-                      value={count}
-                      checked={plannedDeals === count}
-                      onChange={() => setPlannedDeals(count as 1 | 3 | 5)}
-                    />
-                    {count} 局{count === 3 ? "（預設）" : ""}
-                  </label>
-                ))}
-              </fieldset>
-              <button
-                className="primary create-room"
-                disabled={state.busy}
-                onClick={() => void client.create(plannedDeals, roomType)}
-              >
-                ＋ 建立{roomTypeLabel(roomType)}房間
-              </button>
-            </section>
-            <section
-              className="panel lobby-join-panel"
-              aria-labelledby="join-room-title"
-            >
-              <h2 id="join-room-title">加入朋友</h2>
-              <form
-                onSubmit={(event) =>
-                  submit(event, () => void client.join(code))
-                }
-              >
-                <label htmlFor="room-code">房間代碼</label>
-                <div className="join-row">
-                  <input
-                    id="room-code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="輸入朋友的代碼"
-                    maxLength={64}
-                    required
-                  />
-                  <button
-                    className="secondary"
-                    disabled={state.busy || !code.trim()}
-                  >
-                    加入房間
+              )
+            }
+            tools={
+              <>
+                <TutorialHelpEntry
+                  key={`${state.session!.token}:${tutorialAccountEpoch}`}
+                  token={state.session!.token}
+                  direct
+                  enabled={
+                    tutorialAvailability?.key ===
+                    `${state.session!.token}:${tutorialAccountEpoch}`
+                      ? tutorialAvailability.enabled
+                      : null
+                  }
+                  onAvailability={(enabled) =>
+                    setTutorialAvailability({
+                      key: `${state.session!.token}:${tutorialAccountEpoch}`,
+                      enabled,
+                    })
+                  }
+                  onStart={() => {
+                    setTutorialRequested(true);
+                    navigate("room");
+                  }}
+                />
+                <div
+                  className="lobby-friends-slot"
+                  ref={setFriendsEntryTarget}
+                />
+                {canSeeLeaderboard && (
+                  <button type="button" onClick={() => navigate("leaderboard")}>
+                    排行榜
                   </button>
-                </div>
-              </form>
-            </section>
-            <section
-              className="panel lobby-rooms-panel"
-              aria-labelledby="available-rooms-title"
-            >
-              <div className="list-heading">
-                <div>
-                  <h2 id="available-rooms-title">
-                    目前的{roomTypeLabel(roomType)}房間
-                  </h2>
-                </div>
-                <button
-                  className="secondary"
-                  disabled={state.busy}
-                  onClick={() => void client.refresh()}
-                >
-                  重新整理
-                </button>
-              </div>
-              {visibleRooms.length ? (
-                <ul className="room-list">
-                  {visibleRooms.map((room) => (
-                    <li key={room.roomId} className="woodland-cabin-row">
-                      <svg
-                        className="woodland-cabin-icon"
-                        viewBox="0 0 32 32"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                        focusable="false"
-                      >
-                        <path d="M3 15 16 4l13 11M7 12v16h18V12M13 28V18h6v10" />
-                      </svg>
-                      <div>
-                        <strong className="room-display-title">
-                          {roomTitle(room.hostDisplayName)}
-                        </strong>
-                        <small title={room.roomId}>
-                          #
-                          {shortRoomId(
-                            room.roomId,
-                            state.rooms.map((item) => item.roomId),
-                          )}
-                        </small>
-                        <RoomTypeBadge type={room.roomType} />
-                        <small>
-                          {room.playerCount} / 4 位玩家 ·{" "}
-                          {room.plannedDeals ?? 3} 局 ·{" "}
-                          {room.state === "FINISHED"
-                            ? "已結束"
-                            : room.state === "ACTIVE"
-                              ? "遊戲中"
-                              : "等候中"}
-                        </small>
-                      </div>
-                      <button
-                        className="secondary"
-                        disabled={state.busy || !room.joinable}
-                        onClick={() => void client.join(room.roomId)}
-                      >
-                        {room.state === "FINISHED"
-                          ? "已結束"
-                          : room.state === "ACTIVE"
-                            ? "遊戲中"
-                            : !room.joinable
-                              ? "已滿"
-                              : "入座 →"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="empty">
-                  <span>♧</span>
-                  <p>
-                    目前沒有{roomTypeLabel(roomType)}房間，開一桌邀請朋友吧。
-                  </p>
-                </div>
-              )}
-            </section>
-          </div>
+                )}
+                {canSeeStatistics && (
+                  <button type="button" onClick={() => navigate("statistics")}>
+                    戰績統計
+                  </button>
+                )}
+              </>
+            }
+          />
         )}
       </main>
       <footer>

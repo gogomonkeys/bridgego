@@ -1,0 +1,114 @@
+.viewport-game .auction-order {
+  min-width: 0;
+  padding: 3px 7px 4px;
+  border: 1px solid #d5d1b9;
+  border-radius: 10px;
+  background: #f9f5e8;
+  color: #294636;
+  text-align: left;
+}
+.auction-order > h3 {
+  margin: 0 0 2px;
+  color: #385445;
+  font-size: 11px;
+  line-height: 13px;
+}
+.auction-order > h3 > small {
+  margin-inline-start: 4px;
+  color: #5b6556;
+  font-size: 10px;
+  font-weight: normal;
+}
+.auction-order > ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.auction-order li {
+  min-width: 0;
+  padding: 2px;
+  text-align: center;
+  border-radius: 5px;
+  background: #eeead8;
+}
+.auction-order li[aria-current="step"] {
+  background: #dce8cc;
+}
+.auction-order-seat,
+.auction-order-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  min-width: 0;
+  gap: 3px;
+  white-space: nowrap;
+}
+.auction-order-seat {
+  color: #465949;
+  font-size: 10px;
+  line-height: 12px;
+}
+.auction-order-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.auction-order-value {
+  font-size: 11px;
+  line-height: 13px;
+}
+.auction-order-red {
+  color: #9c3038;
+}
+.auction-order-current {
+  color: #31553a;
+}
+.auction-order-empty {
+  color: #5b6556;
+}
+.viewport-game .auction-order--table {
+  display: none;
+}
+/* The board's center track is too narrow for a readable four-cell strip on
+   phones. Use a separate row there. On spacious desktops, place it beside
+   the existing, centered bid tile without changing that tile or the grid. */
+@media (min-width: 1240px) {
+  .viewport-game .auction-order--below {
+    display: none;
+  }
+  .viewport-game .auction-order--table {
+    display: block;
+    position: absolute;
+    top: 50%;
+    left: calc(50% + 102px);
+    width: min(320px, calc(50% - 102px));
+    transform: translateY(-50%);
+  }
+}
+
+/* Below-table placement adds one track instead of taking its height from the
+   existing flexible table row. Compensate for the new track's extra grid gap
+   at its trailing edge, and let short pages scroll rather than shrink seats. */
+@media (width < 1240px) {
+  .match-shell .viewport-game:has(> .auction-order--below) {
+    --auction-order-height: 54px;
+    --auction-order-gap: 5px;
+    margin-block-end: calc(-1 * var(--auction-order-height));
+  }
+  .viewport-game > .auction-order--below {
+    block-size: var(--auction-order-height, 54px);
+    margin-block-end: calc(-1 * var(--auction-order-gap, 0px));
+  }
+}
+@media (max-width: 730px) {
+  .match-shell .viewport-game:has(> .auction-order--below) {
+    --auction-order-gap: 4px;
+  }
+}
+@media (max-width: 730px) and (max-height: 700px) {
+  .match-shell .viewport-game:has(> .auction-order--below) {
+    --auction-order-gap: 2px;
+  }
+}

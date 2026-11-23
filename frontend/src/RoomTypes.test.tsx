@@ -57,7 +57,7 @@ describe("fixed room categories", () => {
     expect(html).not.toContain("FORMAL_ONLY");
     expect(html).toContain("CASUAL_ONLY");
     expect(html).toContain("LEGACY_ROOM");
-    expect(html).toContain("目前的休閒場房間");
+    expect(html).toContain('aria-label="休閒場房間"');
   });
   it("shows fixed formal waiting label and never computer management", () => {
     const room = playedRoom();

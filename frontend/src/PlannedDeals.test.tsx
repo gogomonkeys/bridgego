@@ -32,7 +32,7 @@ describe("room deal count", () => {
     expect(renderToStaticMarkup(<App />)).toContain(`本場 ${count} 局 · 尚未開局`);
     mocks.state.room = null;
     mocks.state.rooms = [{ roomId: "ROOM", capacity: 4, playerCount: 1, state: "WAITING", phase: "WAITING", joinable: true, plannedDeals: count }];
-    expect(renderToStaticMarkup(<App />)).toContain(`1 / 4 位玩家 · ${count} 局`);
+    expect(renderToStaticMarkup(<App />)).toContain(`<span>1／4 人</span><span>${count} 局</span>`);
   });
   it.each([1, 3, 5] as const)("uses %s for current and completed game progress", (count) => {
     const room = playedRoom();

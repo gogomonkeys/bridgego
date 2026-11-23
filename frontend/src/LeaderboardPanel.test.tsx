@@ -48,6 +48,18 @@ describe("leaderboard presentation", () => {
     expect(actions).toContain("回到大廳");
     expect(html.match(/回到大廳/g)).toHaveLength(1);
   });
+  it("publishes one editorial title with a short formal ranking subtitle", () => {
+    const html = renderToStaticMarkup(
+      <LeaderboardPanel token="test" onBack={() => {}} />,
+    );
+    expect(html.match(/<h[23][^>]*>/g)).toHaveLength(1);
+    expect(html).toContain('<h2 class="forest-leaderboard-title">排行榜</h2>');
+    expect(html).toContain(
+      '<p class="forest-leaderboard-subtitle">正式場積分排名</p>',
+    );
+    expect(html).not.toContain("本季排行榜");
+    expect(html).not.toContain("我的好友");
+  });
   it("keeps only one return action in embedded leaderboard", () => {
     const html = renderToStaticMarkup(
       <StatisticsPanel
@@ -137,7 +149,9 @@ describe("direct lobby leaderboard entry", () => {
         onBack={() => {}}
       />,
     );
-    expect(html).toContain("本季排行榜");
+    expect(html).toContain('<h3 class="forest-leaderboard-title">排行榜</h3>');
+    expect(html).toContain("正式場積分排名");
+    expect(html).not.toContain("本季排行榜");
     expect(html).not.toContain("休閒場");
     expect(html).not.toContain("leaderboard-category-caption");
     expect(html).toContain("本季");
@@ -150,16 +164,14 @@ describe("direct lobby leaderboard entry", () => {
       <StatisticsPanel token="test" onBack={() => {}} />,
     );
     expect(html).toContain("我的本季戰績");
-    expect(html).not.toContain("本季排行榜");
+    expect(html).not.toContain("forest-leaderboard-title");
+    expect(html).not.toContain("正式場積分排名");
   });
   it("separates session leaderboard access from private authenticated statistics", () => {
     const source = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
-    const block = source.slice(
-      source.indexOf("{canSeeStatistics && ("),
-      source.indexOf("<RoomTypeChoice"),
-    );
-    expect(block).toContain('navigate("statistics")');
-    expect(block).toContain('navigate("leaderboard")');
+    const block = source.slice(source.indexOf("<WoodlandLobby"));
+    expect(block).toMatch(/\{canSeeStatistics && \([\s\S]*?navigate\("statistics"\)/);
+    expect(block).toMatch(/\{canSeeLeaderboard && \([\s\S]*?navigate\("leaderboard"\)/);
     expect(source).toContain('page === "statistics" && canSeeStatistics');
     expect(source).toContain('page === "leaderboard" && canSeeLeaderboard');
     expect(source).toContain('initialTab="personal"');

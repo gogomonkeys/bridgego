@@ -33,8 +33,8 @@ describe("forest record presentation", () => {
     expect(html.indexOf("forest-leaderboard-copy")).toBeLessThan(
       html.indexOf("animal-bear.webp"),
     );
-    expect(html).toContain("本季排行榜");
-    expect(html).toContain("正式場");
+    expect(html).toContain('<h2 class="forest-leaderboard-title">排行榜</h2>');
+    expect(html).toContain("正式場積分排名");
     expect(html.match(/回到大廳/g)).toHaveLength(1);
     expect(html).toContain("重新讀取排行榜");
   });

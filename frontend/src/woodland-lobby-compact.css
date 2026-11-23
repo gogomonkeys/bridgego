@@ -1,0 +1,464 @@
+/* Lobby only. The approved cabin list uses one quiet paper surface, not nested cards. */
+.forest-shell.cabins-lobby-shell {
+  --cabins-ink: #243e32;
+  --cabins-quiet: #506052;
+  --cabins-paper: #f6f2e6;
+  --cabins-line: #d8d7c5;
+  --cabins-pine: #2c503a;
+  --cabins-sage: #e4ebd9;
+  min-height: 100vh;
+  max-width: none;
+  padding-inline: clamp(16px, 5.34vw, 32px);
+  background: var(--cabins-paper);
+  color: var(--cabins-ink);
+}
+.forest-shell.cabins-lobby-shell > header,
+.forest-shell.cabins-lobby-shell > main,
+.forest-shell.cabins-lobby-shell > footer {
+  width: min(100%, 760px);
+  margin-inline: auto;
+}
+.forest-shell.cabins-lobby-shell > header {
+  min-height: 57px;
+  padding: 6px 0;
+  gap: 8px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--cabins-line);
+  border-radius: 0;
+  box-shadow: none;
+}
+.forest-shell.cabins-lobby-shell > header .brand {
+  gap: 8px;
+  font-size: clamp(21px, 6.1vw, 30px);
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: var(--cabins-ink);
+}
+.cabins-brand-club {
+  font-size: 0.68em;
+  color: #915331;
+  line-height: 1;
+}
+.cabins-profile {
+  min-width: 0;
+  max-width: 50%;
+  padding: 6px clamp(10px, 4vw, 19px);
+  border-radius: 24px;
+  background: var(--cabins-sage);
+  color: var(--cabins-ink);
+  font-size: 0.81rem;
+  font-weight: 750;
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.forest-shell.cabins-lobby-shell > main {
+  padding: 12px 0 0;
+}
+.forest-shell.cabins-lobby-shell > footer {
+  border: 0;
+  color: var(--cabins-quiet);
+  padding: 10px 0 20px;
+  opacity: 0.82;
+}
+.forest-shell .woodland-cabins-lobby {
+  --cabins-ink: #243e32;
+  --cabins-quiet: #506052;
+  --cabins-line: #d8d7c5;
+  --cabins-pine: #2c503a;
+  --cabins-sage: #e4ebd9;
+  display: grid;
+  min-width: 0;
+  color: var(--cabins-ink);
+}
+.woodland-cabins-lobby *,
+.cabins-lobby-shell > header * {
+  box-sizing: border-box;
+}
+.woodland-cabins-lobby .cabins-hero {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  overflow: hidden;
+  min-height: 126px;
+  padding: 14px 15px;
+  border-radius: 16px;
+  background: #f0e6cd;
+}
+.woodland-cabins-lobby .cabins-hero::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  background:
+    linear-gradient(
+      90deg,
+      #f0e6cd 28%,
+      #f0e6cde7 43%,
+      #f0e6cd58 78%,
+      #eddab226
+    ),
+    url("/assets/forest/backdrop.webp") center 46% / cover;
+}
+.woodland-cabins-lobby .cabins-hero-copy {
+  position: relative;
+  z-index: 1;
+}
+.woodland-cabins-lobby .cabins-hero h2 {
+  max-width: 75%;
+  margin: 0 0 13px;
+  color: var(--cabins-ink);
+  font-family:
+    "Noto Serif CJK TC", "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  font-size: clamp(21px, 6.5vw, 30px);
+  line-height: 1.35;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.woodland-cabins-lobby .cabins-hero p {
+  max-width: 60%;
+  margin: 0;
+  color: #365243;
+  font-size: 0.83rem;
+}
+.woodland-cabins-lobby .cabins-hero img {
+  position: absolute;
+  bottom: 12px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.woodland-cabins-lobby .cabins-rabbit {
+  right: 12px;
+  width: 64px;
+  height: 64px;
+}
+.woodland-cabins-lobby .cabins-fox {
+  right: 49px;
+  width: 82px;
+  height: 82px;
+}
+
+.woodland-cabins-lobby .cabins-paths {
+  display: grid;
+  gap: 15px;
+  margin: 20px 0 24px;
+  min-width: 0;
+}
+.woodland-cabins-lobby .cabins-paths details {
+  min-width: 0;
+}
+.woodland-cabins-lobby .cabins-paths summary,
+.woodland-cabins-lobby .cabins-directory-heading h2 {
+  font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC",
+    "Noto Sans TC", system-ui, sans-serif;
+}
+.woodland-cabins-lobby .cabins-paths summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 48px;
+  padding: 10px 37px;
+  border: 1px solid #80917a;
+  border-radius: 11px;
+  color: var(--cabins-ink);
+  background: #fffaf0;
+  font-size: 0.93rem;
+  font-weight: 800;
+  list-style: none;
+  cursor: pointer;
+  text-align: center;
+}
+.woodland-cabins-lobby .cabins-paths summary::-webkit-details-marker {
+  display: none;
+}
+.woodland-cabins-lobby .cabins-create summary {
+  min-height: 52px;
+  color: #fff5df;
+  background: var(--cabins-pine);
+  border-color: #274831;
+  box-shadow: 0 3px 0 #a8aa85;
+  font-size: 1.02rem;
+}
+.woodland-cabins-lobby .cabins-arrow {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+.woodland-cabins-lobby .cabins-join summary .cabins-arrow {
+  position: absolute;
+  right: 17px;
+}
+.woodland-cabins-lobby .cabins-join[open] summary .cabins-arrow {
+  transform: rotate(135deg);
+}
+.woodland-cabins-lobby .cabins-setup {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  background: #fffaf0;
+  border: 1px solid var(--cabins-line);
+  border-radius: 11px;
+}
+.woodland-cabins-lobby .cabins-setup > button,
+.woodland-cabins-lobby .cabins-code-row > button {
+  min-height: 44px;
+  margin: 0;
+}
+.woodland-cabins-lobby .cabins-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.woodland-cabins-lobby .cabins-code-row input {
+  min-width: min(100%, 140px);
+  flex: 1 1 140px;
+}
+.woodland-cabins-lobby .cabins-code-row button {
+  flex: 0 1 auto;
+}
+.woodland-cabins-lobby .cabins-setup .room-type-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.woodland-cabins-lobby .cabins-setup .room-type-options label {
+  min-width: 0;
+  padding: 9px;
+}
+.woodland-cabins-lobby .cabins-setup .deal-count-choice {
+  min-width: 0;
+}
+
+.woodland-cabins-lobby .cabins-directory {
+  border-block: 1px solid var(--cabins-line);
+  padding: 12px 0 15px;
+}
+.woodland-cabins-lobby .cabins-directory-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 2px;
+}
+.woodland-cabins-lobby .cabins-directory-heading h2 {
+  margin: 0;
+  color: var(--cabins-ink);
+  font-size: 1.1rem;
+  font-weight: 850;
+}
+.woodland-cabins-lobby .cabins-refresh,
+.woodland-cabins-lobby .cabins-filters button,
+.woodland-cabins-lobby .cabins-room-join,
+.woodland-cabins-lobby .cabins-footer button,
+.woodland-cabins-lobby .cabins-tools button {
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 4px;
+  color: var(--cabins-ink);
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.woodland-cabins-lobby .cabins-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cabins-quiet);
+  font-weight: 700;
+}
+.woodland-cabins-lobby .cabins-refresh svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+.woodland-cabins-lobby .cabins-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 3px;
+}
+.woodland-cabins-lobby .cabins-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 67px;
+  justify-content: center;
+  border-radius: 9px;
+  font-size: 0.81rem;
+}
+.woodland-cabins-lobby .cabins-filters button[aria-pressed="true"] {
+  background: var(--cabins-sage);
+  font-weight: 750;
+}
+.woodland-cabins-lobby .cabins-room-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.woodland-cabins-lobby .cabins-room {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  min-height: 58px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #ebe9d9;
+}
+.woodland-cabins-lobby .cabins-room-icon {
+  width: 34px;
+  height: 34px;
+  padding: 6px;
+  border-radius: 50%;
+  background: #dde5d0;
+  color: #315841;
+}
+.woodland-cabins-lobby .cabins-room-info {
+  min-width: 0;
+}
+.woodland-cabins-lobby .cabins-room-info strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.woodland-cabins-lobby .cabins-room-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  color: var(--cabins-quiet);
+  font-size: 0.72rem;
+}
+.woodland-cabins-lobby .cabins-room-meta > span:nth-child(n + 2)::before {
+  content: "·";
+  margin-right: 5px;
+}
+.woodland-cabins-lobby .cabins-room-code {
+  display: block;
+  color: var(--cabins-quiet);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.woodland-cabins-lobby .cabins-room-join {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 44px;
+  font-size: 0.82rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.woodland-cabins-lobby .cabins-empty {
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: #ebe9d9;
+  color: var(--cabins-quiet);
+  font-size: 0.82rem;
+}
+.woodland-cabins-lobby .cabins-links {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cabins-line);
+}
+.woodland-cabins-lobby .cabins-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 66px), 1fr));
+  align-items: start;
+  gap: 3px;
+}
+.woodland-cabins-lobby .cabins-tools > * {
+  min-width: 0;
+}
+.woodland-cabins-lobby .lobby-friends-slot:empty {
+  display: none;
+}
+.woodland-cabins-lobby .lobby-friends-slot .friends-entry-row,
+.woodland-cabins-lobby .tutorial-help-entry {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+.woodland-cabins-lobby .cabins-tools button,
+.woodland-cabins-lobby .cabins-footer button {
+  max-width: 100%;
+  font-size: clamp(0.73rem, 3.47vw, 0.88rem);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-color: #81927d;
+}
+.woodland-cabins-lobby .cabins-tools .tutorial-help-entry button,
+.woodland-cabins-lobby .cabins-tools .friends-entry-row button {
+  width: 100%;
+}
+.woodland-cabins-lobby .cabins-tools :is(small, p) {
+  display: block;
+  margin: 0;
+  color: var(--cabins-quiet);
+  overflow-wrap: anywhere;
+  font-size: 0.72rem;
+}
+.woodland-cabins-lobby .cabins-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+.woodland-cabins-lobby .cabins-footer button {
+  padding-inline: 0;
+  color: var(--cabins-quiet);
+  font-weight: 550;
+}
+.woodland-cabins-lobby :is(button, input, summary):focus-visible,
+.cabins-lobby-shell > header .brand:focus-visible {
+  outline: 2px solid #566f4d;
+  outline-offset: 3px;
+}
+.woodland-cabins-lobby .cabins-screenreader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 350px) {
+  .woodland-cabins-lobby .cabins-rabbit {
+    right: 7px;
+    width: 52px;
+    height: 52px;
+  }
+  .woodland-cabins-lobby .cabins-fox {
+    right: 37px;
+    width: 69px;
+    height: 69px;
+  }
+  .woodland-cabins-lobby .cabins-setup .room-type-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (min-width: 640px) {
+  .woodland-cabins-lobby .cabins-hero {
+    min-height: 164px;
+    padding: 21px 24px;
+  }
+  .woodland-cabins-lobby .cabins-rabbit {
+    right: 22px;
+    width: 86px;
+    height: 86px;
+  }
+  .woodland-cabins-lobby .cabins-fox {
+    right: 80px;
+    width: 106px;
+    height: 106px;
+  }
+}

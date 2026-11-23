@@ -218,7 +218,7 @@ export default function StatisticsPanel({
         onPeriod={setPeriod}
       />
       {tab === "leaderboard" ? (
-        <LeaderboardPanel token={token} onBack={onBack} />
+        <LeaderboardPanel token={token} onBack={onBack} embedded />
       ) : (
         <>
           <div
